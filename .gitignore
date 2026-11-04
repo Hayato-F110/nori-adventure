@@ -1,0 +1,69 @@
+# ============================================================
+# のりものアドベンチャー .gitignore
+# 方針：秘密情報・個人情報・画面の写しは「絶対に」入れない
+# ============================================================
+
+# ---- 個人用（経歴などを含む） ----
+private/
+nori-kickoff.md
+CLAUDE.local.md
+.claude/settings.local.json
+.claude/worktrees/
+
+# ---- 秘密情報（最重要） ----
+.env
+.env.*
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa*
+id_ed25519*
+secrets/
+credentials
+credentials.json
+*token*.txt
+
+# ---- 画面の写し・録画（家族や通知が写るおそれ） ----
+screenshots/
+test-results/
+playwright-report/
+.playwright-mcp/
+Screenshot_*
+スクリーンショット*
+*.png.tmp
+# E2E の FPS 記録（数値のみ）は docs/evidence/ に手で残す
+
+# ---- Node ----
+node_modules/
+dist/
+.vite/
+coverage/
+npm-debug.log*
+.eslintcache
+
+# ---- Blender（作業ファイルは専用フォルダ。書き出した GLB だけを public/models/ に置く） ----
+blender-work/
+*.blend1
+*.blend@
+
+# ---- 動画 ----
+video/raw/
+video/export/
+*.mp4
+*.mov
+*.mkv
+*.drp
+
+# ---- OS / エディタ ----
+Thumbs.db
+desktop.ini
+.DS_Store
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# ---- その他 ----
+*.log
+*.tmp
+*.bak
