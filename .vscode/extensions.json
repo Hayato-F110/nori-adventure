@@ -1,0 +1,11 @@
+{
+  "recommendations": [
+    "dbaeumer.vscode-eslint",
+    "esbenp.prettier-vscode",
+    "vitest.explorer",
+    "ms-playwright.playwright",
+    "cesium.gltf-vscode",
+    "github.vscode-github-actions",
+    "mechatroner.rainbow-csv"
+  ]
+}

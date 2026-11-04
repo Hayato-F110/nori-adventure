@@ -1,0 +1,69 @@
+// 試作用の車のモデル（オリジナル。S11 で Blender の GLB に置きかえる）。
+// 前は −Z。原点は車体の底の中心。
+import * as THREE from "three";
+
+export type CarView = {
+  root: THREE.Group;
+  /** 速度とハンドルに合わせて、タイヤを回す・前輪を切る */
+  update(distanceDelta: number, steer: number): void;
+};
+
+const WHEEL_RADIUS = 0.42;
+const MAX_WHEEL_STEER = 0.5; // 見た目だけの前輪の角度（rad）
+
+export const createCarView = (): CarView => {
+  const root = new THREE.Group();
+  root.name = "car";
+
+  const bodyMat = new THREE.MeshStandardMaterial({ color: 0xff8a1f, roughness: 0.55 });
+  const trimMat = new THREE.MeshStandardMaterial({ color: 0xfff3d6, roughness: 0.6 });
+  const glassMat = new THREE.MeshStandardMaterial({ color: 0x6fc8ff, roughness: 0.15, metalness: 0.1 });
+  const tireMat = new THREE.MeshStandardMaterial({ color: 0x2b2b33, roughness: 0.9 });
+  const lightMat = new THREE.MeshStandardMaterial({ color: 0xfff7a8, emissive: 0x665c10 });
+
+  const box = (w: number, h: number, d: number, mat: THREE.Material, x: number, y: number, z: number) => {
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+    mesh.position.set(x, y, z);
+    mesh.castShadow = true;
+    root.add(mesh);
+    return mesh;
+  };
+
+  box(1.8, 0.6, 3.4, bodyMat, 0, 0.65, 0); // 車体
+  box(1.84, 0.12, 3.44, trimMat, 0, 0.38, 0); // すそのライン
+  box(1.5, 0.6, 1.7, glassMat, 0, 1.25, 0.2); // まど
+  box(1.56, 0.14, 1.76, bodyMat, 0, 1.6, 0.2); // 屋根
+  box(0.36, 0.22, 0.08, lightMat, -0.55, 0.75, -1.72); // ライト（左）
+  box(0.36, 0.22, 0.08, lightMat, 0.55, 0.75, -1.72); // ライト（右）
+
+  const wheelGeo = new THREE.CylinderGeometry(WHEEL_RADIUS, WHEEL_RADIUS, 0.34, 16);
+  wheelGeo.rotateZ(Math.PI / 2);
+  const hubGeo = new THREE.BoxGeometry(0.36, 0.12, 0.5); // 回っているのが見えるように
+  const wheels: { pivot: THREE.Group; spin: THREE.Group; front: boolean }[] = [];
+  for (const [x, z] of [
+    [-0.92, -1.1],
+    [0.92, -1.1],
+    [-0.92, 1.1],
+    [0.92, 1.1],
+  ] as const) {
+    const pivot = new THREE.Group();
+    pivot.position.set(x, WHEEL_RADIUS, z);
+    const spin = new THREE.Group();
+    const tire = new THREE.Mesh(wheelGeo, tireMat);
+    tire.castShadow = true;
+    spin.add(tire, new THREE.Mesh(hubGeo, trimMat));
+    pivot.add(spin);
+    root.add(pivot);
+    wheels.push({ pivot, spin, front: z < 0 });
+  }
+
+  return {
+    root,
+    update(distanceDelta, steer) {
+      for (const wheel of wheels) {
+        wheel.spin.rotation.x -= distanceDelta / WHEEL_RADIUS;
+        if (wheel.front) wheel.pivot.rotation.y = -steer * MAX_WHEEL_STEER;
+      }
+    },
+  };
+};

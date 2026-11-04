@@ -1,0 +1,13 @@
+{
+  "driveSeconds": 12,
+  "distanceMeters": 102.7,
+  "finalSpeed": 12,
+  "fpsSamples": [57.1, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60],
+  "fpsAverage": 59.8,
+  "fpsMin": 57.1,
+  "consoleErrors": [],
+  "gpu": "ANGLE (AMD, AMD Radeon (TM) Graphics (0x000015E7) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+  "date": "2026-11-05",
+  "browser": "Chromium 156 (Playwright 1.64.1, headless)",
+  "screenshots": "test-results/ に3枚（Git には入れない）"
+}

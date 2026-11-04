@@ -1,0 +1,9 @@
+dist/
+coverage/
+node_modules/
+package-lock.json
+private/
+nori-kickoff.md
+docs/jira/*.csv
+test-results/
+playwright-report/

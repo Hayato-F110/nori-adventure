@@ -1,0 +1,34 @@
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: #9fd8ff;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+#game {
+  display: block;
+  width: 100vw;
+  height: 100vh;
+}
+
+#hud {
+  position: fixed;
+  top: 8px;
+  left: 8px;
+  padding: 4px 8px;
+  border-radius: 8px;
+  background: rgb(0 0 0 / 35%);
+  color: #fff;
+  font:
+    14px/1.4 system-ui,
+    sans-serif;
+  pointer-events: none;
+}
+
+#hud:empty {
+  display: none;
+}
