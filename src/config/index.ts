@@ -32,6 +32,14 @@ export const STAGE1 = {
   checkpointRadius: 6,
   roadSpacing: 40,
   roadWidth: 10,
+  buildingMargin: 2,
+  buildingMinSize: 6,
+  buildingMaxSize: 12,
+  buildingMinHeight: 4,
+  buildingMaxHeight: 18,
+  buildingsPerBlockMin: 2,
+  buildingsPerBlockMax: 4,
+  treeTrunkRadius: 0.4,
 } as const;
 
 /** やり直し */
@@ -48,6 +56,8 @@ export const CAMERA = {
   lookHeight: 1,
   followSharpness: 4,
   fov: 60,
+  wallPadding: 0.5,
+  minDistance: 2,
 } as const;
 
 /** 補助機能。初期値はすべてオフ（隠れた補正を入れない） */
