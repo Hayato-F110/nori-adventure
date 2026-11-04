@@ -59,7 +59,6 @@
       "PowerShell(reg add*)",
       "PowerShell(reg delete*)",
       "PowerShell(setx*)",
-      "mcp__claude_ai_Atlassian_MCP__executeWrite",
       "mcp__claude_ai_Atlassian_MCP__executeDestructive",
       "Bash(git push*origin main)",
       "Bash(git push*origin main *)",
