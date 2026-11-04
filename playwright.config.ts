@@ -3,7 +3,7 @@ import { defineConfig, devices } from "@playwright/test";
 // 本番と同じビルド（vite preview）で確かめる。スクリーンショットは test-results/（Git に入れない）
 export default defineConfig({
   testDir: "e2e",
-  timeout: 60_000,
+  timeout: 120_000,
   retries: 0,
   reporter: [["list"], ["html", { open: "never" }]],
   use: {

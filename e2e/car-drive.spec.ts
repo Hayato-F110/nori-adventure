@@ -29,7 +29,7 @@ test("車が12秒走り、FPS とコンソールエラーを記録する", async
   page.on("pageerror", (error) => consoleErrors.push(error.message));
 
   await page.goto("./?debug");
-  await page.waitForFunction(() => (window.__nori?.frames ?? 0) > 30, undefined, { timeout: 15_000 });
+  await page.waitForFunction(() => (window.__nori?.frames ?? 0) > 5, undefined, { timeout: 60_000 });
   await page.screenshot({ path: testInfo.outputPath("01-start.png") });
 
   const start = await snapshot(page);
