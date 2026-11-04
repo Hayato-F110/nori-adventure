@@ -6,13 +6,19 @@ import { expect, test } from "@playwright/test";
 const DRIVE_SECONDS = 12;
 const MIN_AVERAGE_FPS = 55;
 
-type Snapshot = { fpsSamples: number[]; frames: number; car: { x: number; z: number; speed: number } };
+type Snapshot = {
+  fpsSamples: number[];
+  frames: number;
+  tick: number;
+  car: { x: number; z: number; speed: number };
+};
 
 const snapshot = (page: import("@playwright/test").Page) =>
   page.evaluate((): Snapshot => {
     const nori = window.__nori;
     if (!nori) throw new Error("window.__nori がありません");
-    return { fpsSamples: [...nori.fpsSamples], frames: nori.frames, car: nori.state().car };
+    const state = nori.state();
+    return { fpsSamples: [...nori.fpsSamples], frames: nori.frames, tick: state.tick, car: state.car };
   });
 
 test("車が12秒走り、FPS とコンソールエラーを記録する", async ({ page }, testInfo) => {
@@ -41,12 +47,15 @@ test("車が12秒走り、FPS とコンソールエラーを記録する", async
   await page.screenshot({ path: testInfo.outputPath("03-end.png") });
 
   const distance = Math.hypot(end.car.x - start.car.x, end.car.z - start.car.z);
+  // ゲーム内で進んだ時間。描画が遅い環境（CI のソフトウェア描画など）では、実際の時間より短くなる
+  const simSeconds = (end.tick - start.tick) / 60;
   // 計測の窓の最初の1秒（起動直後）を除いて平均する
   const drivingSamples = end.fpsSamples.slice(start.fpsSamples.length);
   const average = drivingSamples.reduce((sum, fps) => sum + fps, 0) / Math.max(1, drivingSamples.length);
   const report = {
     driveSeconds: DRIVE_SECONDS,
     distanceMeters: Math.round(distance * 10) / 10,
+    simSeconds: Math.round(simSeconds * 10) / 10,
     finalSpeed: Math.round(end.car.speed * 100) / 100,
     fpsSamples: drivingSamples,
     fpsAverage: Math.round(average * 10) / 10,
@@ -64,6 +73,12 @@ test("車が12秒走り、FPS とコンソールエラーを記録する", async
 
   expect(consoleErrors).toEqual([]);
   expect(drivingSamples.length).toBeGreaterThanOrEqual(DRIVE_SECONDS - 2);
-  expect(distance).toBeGreaterThan(50); // 12秒アクセルを踏めば、曲がっても50m以上は進む
-  if (!process.env["NORI_SKIP_FPS"]) expect(average).toBeGreaterThanOrEqual(MIN_AVERAGE_FPS);
+  // ゲーム内の時間あたり、曲がりながらでも最高速度の半分以上の平均速度で進んでいる
+  expect(simSeconds).toBeGreaterThan(2);
+  expect(distance / simSeconds).toBeGreaterThan(6);
+  if (!process.env["NORI_SKIP_FPS"]) {
+    // 手元の PC：実際の時間どおりに進み（10秒以上）、60fps 前後
+    expect(simSeconds).toBeGreaterThanOrEqual(10);
+    expect(average).toBeGreaterThanOrEqual(MIN_AVERAGE_FPS);
+  }
 });
