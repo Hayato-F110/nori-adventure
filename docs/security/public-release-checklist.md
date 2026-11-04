@@ -30,6 +30,7 @@
 ## 3. 公開の手順
 
 1. 1 のチェックをやり直し、結果をこの表に追記する
-2. オーナーの最終確認をもらう
-3. `gh repo edit --visibility public --accept-visibility-change-consequences`（Claude の設定では deny にしているので、オーナーが実行する）
-4. 2 の設定を有効にし、`gh api` で有効になったことを確かめる
+2. **履歴から個人名を消す**（2026-11-04 決定）。過去のコミットのファイルとコミットメッセージに、作業者の姓が残っている。`git filter-repo` などで置き換え、`git push --force` する。履歴の書き換えなので、手順は**その時点の公式情報で確かめ**、実行前にオーナーの承認をもらう。書き換え後、全コミット・PR の説明文に名前がないことを `git grep` と `gh pr list` で確かめる
+3. オーナーの最終確認をもらう
+4. `gh repo edit --visibility public --accept-visibility-change-consequences`（Claude の設定では deny にしているので、オーナーが実行する）
+5. 「2. 公開の直後に有効にする設定」を有効にし、`gh api` で有効になったことを確かめる
