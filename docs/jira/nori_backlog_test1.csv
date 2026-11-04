@@ -1,0 +1,5 @@
+﻿"Issue Id","Parent Id","Issue Type","Summary","Description","Priority","Labels","Labels","Story Points"
+"E1","","Epic","基盤とゲームの骨組み","Vite＋TypeScript＋Three.jsの土台、物理、入力、CI/CD、状態と描画の分離（12月のオンライン対戦に備える）","High","nov2026","",""
+"S01","E1","Story","企画書（1枚）を作る","コンセプト、対象年齢、操作方法、5ステージ×乗り物の表、守ること（子どもの顔・声を公開しない等）
+
+完了条件：1ページに収まり、5ステージの表がある","Highest","sprint1","nov2026","2"
