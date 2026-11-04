@@ -30,6 +30,8 @@ export const STAGE1 = {
   starPickupRadius: 1.5,
   checkpointCount: 3,
   checkpointRadius: 6,
+  roadSpacing: 40,
+  roadWidth: 10,
 } as const;
 
 /** やり直し */
