@@ -62,14 +62,14 @@
 
 ## よく使うコマンド
 
-| 目的                 | コマンド                                                  |
-| -------------------- | --------------------------------------------------------- |
-| 開発サーバー         | `npm run dev`（http://localhost:5173）                    |
-| まとめて検査         | `npm run check`（型・lint・整形・単体テスト）             |
-| 単体テスト           | `npm test`                                                |
-| ビルド               | `npm run build` → `dist/`                                 |
-| ビルドの確認         | `npm run preview`（http://localhost:4173）                |
-| E2E（FPS・スクショ） | `npm run e2e`（初回は `npx playwright install chromium`） |
+| 目的                 | コマンド                                                   |
+| -------------------- | ---------------------------------------------------------- |
+| 開発サーバー         | `npm run dev`（http://localhost:5173/nori-adventure/）     |
+| まとめて検査         | `npm run check`（型・lint・整形・単体テスト）              |
+| 単体テスト           | `npm test`                                                 |
+| ビルド               | `npm run build` → `dist/`                                  |
+| ビルドの確認         | `npm run preview`（http://localhost:4173/nori-adventure/） |
+| E2E（FPS・スクショ） | `npm run e2e`（初回は `npx playwright install chromium`）  |
 
 シェルは Windows の PowerShell 7 と Git Bash（どちらも使える）。
 
