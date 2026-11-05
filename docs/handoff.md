@@ -7,30 +7,29 @@
 
 | 項目       | 状態                                                                                                                 |
 | ---------- | -------------------------------------------------------------------------------------------------------------------- |
-| リポジトリ | `Hayato-F110/nori-adventure`（**非公開**）。main は PR #1〜#13 をマージ済み。PR #14（NORI-35）は CI 待ち             |
+| リポジトリ | `Hayato-F110/nori-adventure`（**非公開**）。main は PR #1〜#15 をマージ済み。CI はすべて緑                           |
 | Jira       | スプリント1（ID 4）は 11/5 09:00〜11/10 23:02                                                                        |
 | 道具       | スキル9本・サブエージェント2本を導入済み（CLAUDE.md「スキルとサブエージェント」）                                    |
 | Blender    | 5.2.3。Blender MCP は **公式の Blender Lab 版**を `.mcp.json` に登録済み（未承認・未接続）。隔離はオーナーの作業待ち |
 
 ### スプリント1
 
-| 状態   | 課題                                                                                                                                                                   |
-| ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 完了   | NORI-4 企画書、NORI-11 土台と CI、NORI-12 車の試作、**NORI-13 当たり判定**、**NORI-15 状態と描画の分離**                                                               |
-| 進行中 | NORI-10 Claude Code 設定（main の保護は公開後）、**NORI-17 Blender MCP の隔離**（オーナーの作業待ち）、**NORI-35 脅威分析**（PR #14）、NORI-24 ルール（ステージ1のみ） |
-| 未着手 | NORI-16 Pages、NORI-18 アセットの流れ、NORI-19 車のモデル、NORI-36 CodeQL 等、NORI-40 AI 映像テスト                                                                    |
+| 状態   | 課題                                                                                                                                   |
+| ------ | -------------------------------------------------------------------------------------------------------------------------------------- |
+| 完了   | NORI-4 企画書、NORI-11 土台と CI、NORI-12 車の試作、**NORI-13 当たり判定**、**NORI-15 状態と描画の分離**、**NORI-35 脅威分析**         |
+| 進行中 | NORI-10 Claude Code 設定（main の保護は公開後）、**NORI-17 Blender MCP の隔離**（オーナーの作業待ち）、NORI-24 ルール（ステージ1のみ） |
+| 未着手 | NORI-16 Pages、NORI-18 アセットの流れ、NORI-19 車のモデル、NORI-36 CodeQL 等、NORI-40 AI 映像テスト                                    |
 
 ## 2. 次の作業順（11/6）
 
-1. **PR #14（NORI-35）**：CI が緑ならマージし、Jira を完了に（完了条件「各脅威に対策と確認方法がある」は満たしている）
-2. **NORI-17**：オーナーが `docs/security/blender-mcp-isolation.md` の手順 ①の5（`noriblender` で一度サインイン）から続ける（11/5 は、ほかのプログラムが動いていたので後回しにした）
+1. **NORI-17**：オーナーが `docs/security/blender-mcp-isolation.md` の手順 ①の5（`noriblender` で一度サインイン）から続ける（11/5 は、ほかのプログラムが動いていたので後回しにした）
    - ②でフォルダができたら、Claude が `tools/blender/isolation-check.py` を `C:\NoriBlender\work\` にコピーする
    - ⑤の結果（`C:\NoriBlender\work\isolation-result.json`）を Claude が読む → ⑥の後、MCP 経由（`execute_blender_code`）で同じ確認 → `_for_cli` の道具が拒否されることも1回試す → 両方 `isolated: true` で完了
    - `.mcp.json` を承認したとき、MCP サーバーが起動するか（`/mcp`）を確かめる（auto モードでは Claude が試せなかった）
-3. **NORI-24**：ステージ2〜5のルールの数値（`/game-rule` の手順）
-4. **NORI-36**：CodeQL・Dependabot・`npm audit` を CI に（脅威分析 S-02）
-5. **NORI-18**：アセットの流れ（Blender → GLB → `public/models/`）。NORI-17 の完了が先
-6. 1日の終わりに `/end-day`
+2. **NORI-24**：ステージ2〜5のルールの数値（`/game-rule` の手順）
+3. **NORI-36**：CodeQL・Dependabot・`npm audit` を CI に（脅威分析 S-02）
+4. **NORI-18**：アセットの流れ（Blender → GLB → `public/models/`）。NORI-17 の完了が先
+5. 1日の終わりに `/end-day`
 
 ## 3. 残課題・メモ
 
