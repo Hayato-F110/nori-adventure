@@ -46,7 +46,7 @@
 ### 安全
 
 - 子ども・家族の写真・声・顔を、リポジトリにも AI サービスにも入れない。スクリーンショットは `.gitignore` で除外（`screenshots/`、`test-results/`）
-- Blender MCP は AI が書いたコードを確認なしで実行するため、**専用の標準ユーザー（`noriblender`）と専用フォルダ（`C:NoriBlender`）** で動かす。公式の Blender Lab 版を版を固定して使い、`_for_cli` の道具（隔離の外で動く）は使わない。手順は `docs/security/blender-mcp-isolation.md`、リスクは `docs/security/threat-model.md`
+- Blender MCP は AI が書いたコードを確認なしで実行するため、**専用の標準ユーザー（`noriblender`）と専用フォルダ（`C:\NoriBlender\`）** で動かす。公式の Blender Lab 版を版を固定して使い、`_for_cli` の道具（隔離の外で動く）は使わない。手順は `docs/security/blender-mcp-isolation.md`、リスクは `docs/security/threat-model.md`
 - 既定の動作（公開・非公開、権限など）は、実行する前に確かめる
 - AI動画サービスに送るのは、自作3Dモデルの画像だけ
 - Jira の MCP は**作成・更新まで**（2026-11-04 にオーナーが許可）。削除系（`executeDestructive`。スプリントの作成・開始・終了も含む）は使わない。まとめて作る前に1件で試す、作る前に同じ要約の課題がないか確かめる、間違えた課題は削除せず「完了」＋ラベルで閉じる
