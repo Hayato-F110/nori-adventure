@@ -67,9 +67,131 @@ export const CAMERA = {
   minDistance: 2,
 } as const;
 
+// ---- ステージ2〜5（最初の案。各ステージを作るときに、テストプレイで見直す） ----
+
+/** ステージ2の列車（線路に沿って進む。すすむ・とまるだけ） */
+export const TRAIN = {
+  maxForwardSpeed: 10,
+  maxReverseSpeed: 3,
+  acceleration: 3,
+  brakeDeceleration: 6,
+  coastDeceleration: 1.5,
+} as const;
+
+/** ステージ2の山道 */
+export const STAGE2 = {
+  trackLength: 600,
+  stationCount: 3,
+  stationStopLength: 12,
+  stationStopSpeed: 0.5,
+  stationWaitSeconds: 2,
+} as const;
+
+/** ステージ3の飛行機（手を離すと自動で水平に戻る） */
+export const PLANE = {
+  cruiseSpeed: 14,
+  minSpeed: 9,
+  maxSpeed: 20,
+  speedChange: 4,
+  maxBank: 0.6,
+  maxTurnRate: 0.8,
+  maxPitch: 0.5,
+  attitudeRate: 1.2,
+  autoLevelRate: 1.0,
+  minAltitude: 3,
+  maxAltitude: 80,
+  collisionRadius: 1.5,
+  bumpSpeedFactor: 0.5,
+} as const;
+
+/** ステージ3の空 */
+export const STAGE3 = {
+  boundsHalfSize: 300,
+  ringCount: 10,
+  ringRadius: 6,
+  ringSpacing: 70,
+} as const;
+
+/** ステージ4の潜水艇 */
+export const SUB = {
+  maxForwardSpeed: 5,
+  maxReverseSpeed: 2,
+  acceleration: 2,
+  coastDeceleration: 1.5,
+  turnRate: 1.2,
+  verticalSpeed: 2,
+  collisionRadius: 1.2,
+  bumpSpeedFactor: 0.3,
+} as const;
+
+/** ステージ4の海（光と霧） */
+export const STAGE4 = {
+  boundsHalfSize: 120,
+  maxDepth: 40,
+  fogNear: 6,
+  fogFar: 40,
+  lightRange: 25,
+  lightAngle: 0.6,
+  minAmbient: 0.35,
+  creatureCount: 6,
+  discoverRadius: 8,
+  treasureRadius: 3,
+} as const;
+
+/** ステージ5のローバー（月の重力でジャンプ） */
+export const ROVER = {
+  maxForwardSpeed: 8,
+  maxReverseSpeed: 3,
+  acceleration: 4,
+  brakeDeceleration: 10,
+  coastDeceleration: 2,
+  maxTurnRate: 1.6,
+  gravity: 1.62,
+  jumpSpeed: 3,
+  collisionRadius: 1.0,
+  bumpSpeedFactor: 0.3,
+} as const;
+
+/** ステージ5の月面 */
+export const STAGE5 = {
+  boundsHalfSize: 100,
+  starCount: 12,
+  arenaRadius: 30,
+} as const;
+
+/** ステージ5のボス（倒すのではなく、なかよしの星で落ち着かせる）。回数による調整はしない */
+export const BOSS = {
+  calmPoints: 5,
+  friendStarCount: 8,
+  friendStarRespawnSeconds: 10,
+  carryLimit: 1,
+  deliverRadius: 4,
+  moveSpeed: 2,
+  rockInterval: 5,
+  rockSpeed: 4,
+  rockBumpSpeedFactor: 0.3,
+} as const;
+
 /** 補助機能。初期値はすべてオフ（隠れた補正を入れない） */
 export const ASSIST = {
   steerToRoad: false,
 } as const;
 
-export const CONFIG = { SIM, PHYSICS, CAR, STAGE1, RESPAWN, CAMERA, ASSIST } as const;
+export const CONFIG = {
+  SIM,
+  PHYSICS,
+  CAR,
+  STAGE1,
+  TRAIN,
+  STAGE2,
+  PLANE,
+  STAGE3,
+  SUB,
+  STAGE4,
+  ROVER,
+  STAGE5,
+  BOSS,
+  RESPAWN,
+  CAMERA,
+  ASSIST,
+} as const;
