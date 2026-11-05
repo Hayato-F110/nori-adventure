@@ -1,0 +1,14 @@
+{
+  "issue": "NORI-13",
+  "note": "建物の当たり判定（Rapier）を入れたあと、道に沿って四角く回る E2E（e2e/car-drive.spec.ts）を手元で実行した結果",
+  "driveSeconds": 12,
+  "distanceMeters": 132.8,
+  "simSeconds": 12.1,
+  "finalSpeed": 12,
+  "touchingSamples": 0,
+  "fpsSamples": [50.5, 59, 60, 59, 60, 60, 60, 60, 60, 60, 60, 60],
+  "fpsAverage": 59,
+  "fpsMin": 50.5,
+  "consoleErrors": [],
+  "gpu": "ANGLE (AMD Radeon Graphics, Direct3D11)"
+}

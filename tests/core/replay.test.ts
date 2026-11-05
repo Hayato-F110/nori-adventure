@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { createGameState, stepGame } from "../../src/core/game";
+import { beforeAll, describe, expect, it } from "vitest";
+import { createGame, type Game } from "../../src/core/game";
 import { createFixedStepper } from "../../src/core/loop";
 import { parseReplay, runReplay, serializeReplay } from "../../src/core/replay";
 import type { InputFrame } from "../../src/core/types";
@@ -11,31 +11,44 @@ const recordedInputs = (): InputFrame[] =>
     steer: tick < 120 ? 0 : tick < 240 ? -1 : tick < 330 ? 0.6 : 0,
   }));
 
-describe("状態と描画の分離：同じ入力記録 → 同じ結果", () => {
+let game: Game;
+beforeAll(async () => {
+  game = await createGame();
+});
+
+describe("状態と描画の分離：同じ入力記録 → 同じ結果（当たり判定を含む）", () => {
   it("同じ入力を2回再生すると、最後の状態が完全に一致する", () => {
     const inputs = recordedInputs();
-    const first = runReplay(createGameState(), inputs);
-    const second = runReplay(createGameState(), inputs);
+    const first = runReplay(game, game.initial(), inputs);
+    const second = runReplay(game, game.initial(), inputs);
     expect(second).toStrictEqual(first);
     expect(first.tick).toBe(600);
+  });
+
+  it("別々に用意したゲーム（Rapier の世界が別）でも、同じ記録 → 同じ結果", async () => {
+    const other = await createGame();
+    const inputs = recordedInputs();
+    expect(runReplay(other, other.initial(), inputs)).toStrictEqual(runReplay(game, game.initial(), inputs));
   });
 
   it("JSON に保存して読み直した記録から、同じ結果を再現できる", () => {
     const inputs = recordedInputs();
     const json = serializeReplay({ version: 1, inputs });
     const restored = parseReplay(json);
-    expect(runReplay(createGameState(), restored.inputs)).toStrictEqual(runReplay(createGameState(), inputs));
+    expect(runReplay(game, game.initial(), restored.inputs)).toStrictEqual(
+      runReplay(game, game.initial(), inputs),
+    );
   });
 
   it("状態は JSON にそのまま保存できる（関数や Three.js のオブジェクトを含まない）", () => {
-    const state = runReplay(createGameState(), recordedInputs());
+    const state = runReplay(game, game.initial(), recordedInputs());
     expect(JSON.parse(JSON.stringify(state))).toStrictEqual(state);
   });
 
-  it("stepGame は元の状態を書き換えない", () => {
-    const before = createGameState();
+  it("game.step は元の状態を書き換えない", () => {
+    const before = game.initial();
     const snapshot = structuredClone(before);
-    stepGame(before, { throttle: 1, steer: 1 });
+    game.step(before, { throttle: 1, steer: 1 });
     expect(before).toStrictEqual(snapshot);
   });
 

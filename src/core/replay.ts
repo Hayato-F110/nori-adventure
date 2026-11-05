@@ -1,5 +1,5 @@
 // 入力記録の保存と再生。同じ記録 → 同じ結果（オンライン対戦・不具合の再現・自動録画に使う）。
-import { stepGame } from "./game";
+import type { Game } from "./game";
 import type { GameState, InputFrame } from "./types";
 
 export type Replay = {
@@ -7,8 +7,8 @@ export type Replay = {
   inputs: InputFrame[];
 };
 
-export const runReplay = (initial: GameState, inputs: readonly InputFrame[]): GameState =>
-  inputs.reduce(stepGame, initial);
+export const runReplay = (game: Game, initial: GameState, inputs: readonly InputFrame[]): GameState =>
+  inputs.reduce((state, input) => game.step(state, input), initial);
 
 export const serializeReplay = (replay: Replay): string => JSON.stringify(replay);
 

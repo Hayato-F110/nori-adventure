@@ -7,6 +7,13 @@ export const SIM = {
   maxStepsPerFrame: 5,
 } as const;
 
+/** 当たり判定（Rapier） */
+export const PHYSICS = {
+  contactOffset: 0.01,
+  touchMargin: 0.1,
+  carHalfHeight: 0.75,
+} as const;
+
 /** ステージ1の車 */
 export const CAR = {
   maxForwardSpeed: 12,
@@ -32,6 +39,14 @@ export const STAGE1 = {
   checkpointRadius: 6,
   roadSpacing: 40,
   roadWidth: 10,
+  buildingMargin: 2,
+  buildingMinSize: 6,
+  buildingMaxSize: 12,
+  buildingMinHeight: 4,
+  buildingMaxHeight: 18,
+  buildingsPerBlockMin: 2,
+  buildingsPerBlockMax: 4,
+  treeTrunkRadius: 0.4,
 } as const;
 
 /** やり直し */
@@ -48,6 +63,8 @@ export const CAMERA = {
   lookHeight: 1,
   followSharpness: 4,
   fov: 60,
+  wallPadding: 0.5,
+  minDistance: 2,
 } as const;
 
 /** 補助機能。初期値はすべてオフ（隠れた補正を入れない） */
@@ -55,4 +72,4 @@ export const ASSIST = {
   steerToRoad: false,
 } as const;
 
-export const CONFIG = { SIM, CAR, STAGE1, RESPAWN, CAMERA, ASSIST } as const;
+export const CONFIG = { SIM, PHYSICS, CAR, STAGE1, RESPAWN, CAMERA, ASSIST } as const;
