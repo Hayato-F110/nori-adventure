@@ -1,0 +1,17 @@
+{
+  "mcpServers": {
+    "blender": {
+      "command": "uvx",
+      "args": [
+        "--exclude-newer",
+        "2026-10-22",
+        "--from",
+        "git+https://projects.blender.org/lab/blender_mcp.git@dbbf836ad4b1025f14a2b3b504c43903f39e0b04#subdirectory=mcp",
+        "blender-mcp"
+      ],
+      "env": {
+        "BLENDER_PATH": "C:/NoriBlender/cli-disabled/blender-cli-is-disabled.exe"
+      }
+    }
+  }
+}
