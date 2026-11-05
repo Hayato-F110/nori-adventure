@@ -54,6 +54,41 @@ describe("game-rules.md と src/config の一致", () => {
     expect(actual).toBeCloseTo(expected ?? Number.NaN, 9);
   });
 
+  // 逆の向き：設定にだけある数値（文書に書かずに足した数値）がないこと。
+  // 文書のどこかの表に、そのキーか、親のキー（例：`STAGE1.start`）が書いてあればよい
+  it("src/config の値は、すべて game-rules.md に書いてある", () => {
+    const documented = new Set([...markdown.matchAll(/`([A-Z0-9]+\.[A-Za-z.]+)`/g)].map((m) => m[1] ?? ""));
+    const leaves = (node: unknown, prefix: string): string[] =>
+      typeof node === "object" && node !== null
+        ? Object.entries(node).flatMap(([k, v]) => leaves(v, prefix === "" ? k : `${prefix}.${k}`))
+        : [prefix];
+    const covered = (key: string) => {
+      const parts = key.split(".");
+      return parts.some((_, i) => i >= 1 && documented.has(parts.slice(0, i + 1).join(".")));
+    };
+    const missing = Object.entries(CONFIG)
+      .flatMap(([group, values]) => leaves(values, group))
+      .filter((key) => !covered(key));
+    expect(missing, "文書にない設定のキー").toEqual([]);
+  });
+
+  it("5つのステージすべてに、乗り物とコースの数値がある（NORI-24）", () => {
+    const groups = [
+      "CAR",
+      "STAGE1",
+      "TRAIN",
+      "STAGE2",
+      "PLANE",
+      "STAGE3",
+      "SUB",
+      "STAGE4",
+      "ROVER",
+      "STAGE5",
+      "BOSS",
+    ];
+    expect(groups.filter((group) => !(group in CONFIG))).toEqual([]);
+  });
+
   it("補助機能は初期値がすべてオフ", () => {
     expect(Object.values(CONFIG.ASSIST).every((value) => value === false)).toBe(true);
   });
