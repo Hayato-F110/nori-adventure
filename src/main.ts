@@ -1,7 +1,7 @@
 // 起動とゲームループ。状態（src/core）を固定刻みで進め、描画（src/render）はその状態を読むだけ。
 import * as THREE from "three";
 import { CAMERA, SIM } from "./config";
-import { createGameState, stepGame } from "./core/game";
+import { createGame } from "./core/game";
 import { createFixedStepper } from "./core/loop";
 import type { CarState, GameState, InputFrame, Pose2D } from "./core/types";
 import { createKeyboardInput } from "./input/keyboard";
@@ -39,13 +39,16 @@ sun.castShadow = true;
 sun.shadow.mapSize.set(1024, 1024);
 Object.assign(sun.shadow.camera, { left: -30, right: 30, top: 30, bottom: -30, near: 1, far: 120 });
 scene.add(sun, sun.target);
-scene.add(createCity());
+// 当たり判定（Rapier の WASM）の準備を待ってから始める
+const game = await createGame();
+const city = createCity(game.layout);
+scene.add(city.root);
 
 const carView = createCarView();
 scene.add(carView.root);
 
 const camera = new THREE.PerspectiveCamera(CAMERA.fov, 1, 0.1, 400);
-const followCamera = createFollowCamera(camera, CAMERA);
+const followCamera = createFollowCamera(camera, CAMERA, city.obstacles);
 
 const resize = () => {
   const { innerWidth: w, innerHeight: h } = window;
@@ -59,7 +62,7 @@ resize();
 // ---- 状態 ----
 const keyboard = createKeyboardInput(window);
 const stepper = createFixedStepper(SIM.fixedDt, SIM.maxStepsPerFrame);
-let previous: GameState = createGameState();
+let previous: GameState = game.initial();
 let current: GameState = previous;
 let input: InputFrame = { throttle: 0, steer: 0 };
 
@@ -89,7 +92,7 @@ const frame = (now: number) => {
   input = keyboard.read();
   const { alpha } = stepper.advance(frameSeconds, () => {
     previous = current;
-    current = stepGame(current, input);
+    current = game.step(current, input);
   });
 
   const pose = interpolate(previous.car, current.car, alpha);

@@ -25,6 +25,7 @@ export const createCarState = (start: Pose2D): CarState => ({
   heading: start.heading,
   speed: 0,
   steer: 0,
+  touching: false,
 });
 
 /** 0 に向かって amount だけ近づける（行き過ぎない） */
@@ -72,7 +73,8 @@ export const stepCar = (
     speed = limitAlongWall(speed, Math.abs(forwardX), car);
   }
 
-  return { x, z, heading, speed, steer };
+  // 建物・木との当たり判定は physics.ts が行う。ここでは前の値をそのまま渡す
+  return { x, z, heading, speed, steer, touching: state.touching };
 };
 
 const limitAlongWall = (speed: number, alongWall: number, car: CarConfig): number =>

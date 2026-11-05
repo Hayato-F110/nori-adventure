@@ -7,6 +7,13 @@ export const SIM = {
   maxStepsPerFrame: 5,
 } as const;
 
+/** 当たり判定（Rapier） */
+export const PHYSICS = {
+  contactOffset: 0.01,
+  touchMargin: 0.1,
+  carHalfHeight: 0.75,
+} as const;
+
 /** ステージ1の車 */
 export const CAR = {
   maxForwardSpeed: 12,
@@ -65,4 +72,4 @@ export const ASSIST = {
   steerToRoad: false,
 } as const;
 
-export const CONFIG = { SIM, CAR, STAGE1, RESPAWN, CAMERA, ASSIST } as const;
+export const CONFIG = { SIM, PHYSICS, CAR, STAGE1, RESPAWN, CAMERA, ASSIST } as const;

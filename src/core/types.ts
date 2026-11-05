@@ -20,6 +20,8 @@ export type CarState = Pose2D & {
   speed: number;
   /** 実際に効いているハンドル（-1〜1）。入力に少しずつ近づく */
   steer: number;
+  /** 建物・木に触れているか。当たった瞬間（false → true）だけ減速するために覚えておく */
+  touching: boolean;
 };
 
 export type GameState = {

@@ -8,10 +8,36 @@ export type FollowCameraConfig = {
   readonly lookAhead: number;
   readonly lookHeight: number;
   readonly followSharpness: number;
+  /** 建物の手前に寄せるときの余白 */
+  readonly wallPadding: number;
+  /** 車からの最短距離 */
+  readonly minDistance: number;
 };
 
-export const createFollowCamera = (camera: THREE.PerspectiveCamera, config: FollowCameraConfig) => {
+export const createFollowCamera = (
+  camera: THREE.PerspectiveCamera,
+  config: FollowCameraConfig,
+  obstacles: readonly THREE.Object3D[] = [],
+) => {
   const desired = new THREE.Vector3();
+  const raycaster = new THREE.Raycaster();
+  const pivot = new THREE.Vector3();
+  const direction = new THREE.Vector3();
+
+  // 車からカメラへ光線を飛ばし、建物に当たれば、その手前（余白つき）まで寄せる
+  const avoidWalls = (pose: Pose2D) => {
+    pivot.set(pose.x, config.lookHeight, pose.z);
+    direction.subVectors(camera.position, pivot);
+    const distance = direction.length();
+    if (distance < 1e-6 || obstacles.length === 0) return;
+    direction.divideScalar(distance);
+    raycaster.set(pivot, direction);
+    raycaster.far = distance;
+    const hit = raycaster.intersectObjects(obstacles as THREE.Object3D[], false)[0];
+    if (hit === undefined) return;
+    const allowed = Math.max(config.minDistance, hit.distance - config.wallPadding);
+    if (allowed < distance) camera.position.copy(pivot).addScaledVector(direction, allowed);
+  };
   const target = new THREE.Vector3();
   const lookAt = new THREE.Vector3();
 
@@ -27,6 +53,7 @@ export const createFollowCamera = (camera: THREE.PerspectiveCamera, config: Foll
     snap(pose: Pose2D) {
       place(pose);
       camera.position.copy(desired);
+      avoidWalls(pose);
       lookAt.copy(target);
       camera.lookAt(lookAt);
     },
@@ -35,6 +62,7 @@ export const createFollowCamera = (camera: THREE.PerspectiveCamera, config: Foll
       // フレームの長さによらず同じ速さで近づく（指数で近づける）
       const t = 1 - Math.exp(-config.followSharpness * frameSeconds);
       camera.position.lerp(desired, t);
+      avoidWalls(pose);
       lookAt.lerp(target, t);
       camera.lookAt(lookAt);
     },
