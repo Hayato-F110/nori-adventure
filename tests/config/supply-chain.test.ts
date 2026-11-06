@@ -22,19 +22,44 @@ describe("Dependabot（.github/dependabot.yml）", () => {
     expect(text).toMatch(/package-ecosystem:\s*"github-actions"[^\n]*\n\s*directory:\s*"\/"/);
   });
 
-  it("TypeScript と @types/node の major 更新は見送る（typescript-eslint と Node 22 に合わせる）", () => {
-    const text = read(file);
-    for (const name of ["typescript", "@types/node"]) {
-      expect(text).toMatch(
-        new RegExp(
-          `dependency-name:\\s*"${name.replace("/", "\\/")}"\\s*\\n\\s*update-types:\\s*\\["version-update:semver-major"\\]`,
-        ),
-      );
-    }
+  it("TypeScript の major 更新は見送る（typescript-eslint が TypeScript 6.1 未満しか受け付けない）", () => {
+    expect(read(file)).toMatch(
+      /dependency-name:\s*"typescript"\s*\n\s*update-types:\s*\["version-update:semver-major"\]/,
+    );
+  });
+
+  it("@types/node は見送らない（Node 本体と一緒に上げる。下の一致テストで版のずれを見張る）", () => {
+    expect(read(file)).not.toMatch(/dependency-name:\s*"@types\/node"/);
   });
 
   it("コミットの文の先頭に課題キー（NORI-36）が付く", () => {
     expect(read(file).match(/prefix:\s*"NORI-36"/g)?.length).toBe(2);
+  });
+});
+
+describe("Node の版の一致（CI・engines・@types/node）", () => {
+  // 型（@types/node）の版が実行する Node より新しいと、実行時にない API を型検査が通してしまう。
+  // C で言えば、ターゲットのライブラリより新しいヘッダでビルドするのと同じ
+  const ci = read(".github/workflows/ci.yml");
+  const pkg = JSON.parse(read("package.json")) as {
+    engines: { node: string };
+    devDependencies: Record<string, string>;
+  };
+  const ciMajors = [...ci.matchAll(/node-version:\s*(\d+)/g)].map((m) => Number(m[1]));
+
+  it("CI のすべてのジョブが同じ Node の major（26 = 2026-10-28 からの Active LTS）を使う", () => {
+    expect(ciMajors.length).toBeGreaterThanOrEqual(2);
+    expect(new Set(ciMajors)).toEqual(new Set([26]));
+  });
+
+  it("engines の下限の major が CI と同じ", () => {
+    expect(pkg.engines.node).toMatch(/^>=(\d+)\./);
+    expect(Number(/^>=(\d+)\./.exec(pkg.engines.node)?.[1])).toBe(ciMajors[0]);
+  });
+
+  it("@types/node の major が CI の Node と同じ", () => {
+    const types = pkg.devDependencies["@types/node"] ?? "";
+    expect(Number(types.split(".")[0])).toBe(ciMajors[0]);
   });
 });
 

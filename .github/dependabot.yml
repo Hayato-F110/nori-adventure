@@ -14,12 +14,10 @@ updates:
         patterns: ["*"]
         update-types: ["minor", "patch"]
     ignore:
-      # TypeScript 7 は typescript-eslint がまだ使えない（コンパイラの API は 7.1 から）。major は見送る（11/7）
+      # TypeScript 7 は入れられない：typescript-eslint 8.72 の peerDependencies が typescript ">=4.8.4 <6.1.0"（PR #30 の npm ci が ERESOLVE）。major は見送る（11/7）
       - dependency-name: "typescript"
         update-types: ["version-update:semver-major"]
-      # 型は動かす Node（22）に合わせる。新しい Node の型にすると、Node 22 にない API を使えてしまう
-      - dependency-name: "@types/node"
-        update-types: ["version-update:semver-major"]
+      # @types/node は見送らない。Node 本体（CI の node-version・engines）と一緒に上げ、版のずれは tests/config/supply-chain.test.ts で見張る
     commit-message:
       prefix: "NORI-36" # コミットと PR の題の先頭に課題キーを付ける（CLAUDE.md の決まり）
 
