@@ -4,6 +4,9 @@
 #   1. 守る場所（コマンドの引数で渡す。オーナーのユーザーフォルダ、リポジトリ、ほかのドライブ）を読めない・一覧できない
 #   2. 作業フォルダ（C:\NoriBlender\work）には書ける（モデルを作れる）
 #   3. 外部（インターネット）につながらない
+#   4. 環境変数（APPDATA など）が、守る場所（オーナーのフォルダ）の中を指していない
+#      （Start-Process -Credential だけで開くと、オーナーの環境を引き継ぐ。11/6 に起きた）
+#   5. Blender の設定の置き場所（bpy.utils.user_resource）が決まっている（空だとアドオンを入れられない）
 #
 # 使い方（docs/security/blender-mcp-isolation.md の「確認」）
 #   blender.exe --background --factory-startup --python isolation-check.py -- <守る場所1> <守る場所2> ...
@@ -55,21 +58,55 @@ def can_connect(host: str, port: int) -> dict[str, object]:
         return {"connected": False, "error": type(error).__name__}
 
 
+ENV_NAMES = ["USERPROFILE", "APPDATA", "LOCALAPPDATA", "TEMP", "TMP"]
+
+
+def _inside(child: str, parent: str) -> bool:
+    child_norm = os.path.normcase(os.path.abspath(child))
+    parent_norm = os.path.normcase(os.path.abspath(parent))
+    return child_norm == parent_norm or child_norm.startswith(parent_norm.rstrip("\\/") + os.sep)
+
+
+def env_points_outside(paths: list[str]) -> list[dict[str, object]]:
+    # 環境変数の値（パス）は結果に書かない。守る場所の中を指しているかだけを記録する
+    results = []
+    for name in ENV_NAMES:
+        value = os.environ.get(name, "")
+        inside = bool(value) and any(_inside(value, p) for p in paths if os.path.isabs(p))
+        results.append({"name": name, "set": bool(value), "insideProtected": inside})
+    return results
+
+
+def user_resource_ok() -> dict[str, object]:
+    try:
+        import bpy  # Blender の中でだけ使える
+
+        return {"extensionsDirSet": bool(bpy.utils.user_resource("EXTENSIONS"))}
+    except Exception as error:  # Blender の外や、API が変わったとき
+        return {"extensionsDirSet": False, "error": type(error).__name__}
+
+
 def main() -> None:
     paths = protected_paths()
     read_results = [{"index": i, **can_read(p)} for i, p in enumerate(paths)]
     network_results = [{"target": f"{h}:{p}", **can_connect(h, p)} for h, p in NETWORK_TARGETS]
     write_result = can_write()
+    env_results = env_points_outside(paths)
+    resource_result = user_resource_ok()
     result = {
         "user": getpass.getuser(),
         "protectedChecked": len(paths),
         "protected": read_results,
         "workDir": write_result,
         "network": network_results,
+        "env": env_results,
+        "blenderUserResource": resource_result,
         "isolated": len(paths) > 0
         and not any(r["reachable"] for r in read_results)
         and bool(write_result["writable"])
-        and not any(r["connected"] for r in network_results),
+        and not any(r["connected"] for r in network_results)
+        and not any(r["insideProtected"] for r in env_results)
+        and bool(resource_result["extensionsDirSet"]),
     }
     text = json.dumps(result, ensure_ascii=False, indent=2)
     print(text)

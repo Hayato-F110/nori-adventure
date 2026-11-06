@@ -92,10 +92,17 @@ Get-FileHash C:\NoriBlender\downloads\mcp-1.0.3.zip
 ### ④ 専用ユーザーで Blender を開き、アドオンを入れる
 
 ```powershell
-# noriblender のパスワードを聞かれる。Blender が noriblender として開く（画面はいつもの画面に出る）
+# noriblender のパスワードを聞かれる
 $cred = Get-Credential noriblender
-Start-Process "C:\Program Files\Blender Foundation\Blender 5.2\blender.exe" -Credential $cred -WorkingDirectory C:\NoriBlender\work
+# noriblender のユーザーごとの場所（設定・一時ファイル）。オーナーの環境変数を引き継がないために使う
+$nb = "C:\Users\noriblender"
+$nbEnv = @{ USERNAME = "noriblender"; USERPROFILE = $nb; HOMEPATH = "\Users\noriblender"; APPDATA = "$nb\AppData\Roaming"; LOCALAPPDATA = "$nb\AppData\Local"; TEMP = "$nb\AppData\Local\Temp"; TMP = "$nb\AppData\Local\Temp" }
+# プロファイルを読み込み、新しい環境で、noriblender として Blender を開く（画面はいつもの画面に出る）
+Start-Process "C:\Program Files\Blender Foundation\Blender 5.2\blender.exe" -Credential $cred -LoadUserProfile -UseNewEnvironment -Environment $nbEnv -WorkingDirectory C:\NoriBlender\work
 ```
+
+- **`-LoadUserProfile`・`-UseNewEnvironment`・`-Environment` は必須**。`Start-Process` は既定で、呼び出した側（オーナー）の環境変数を引き継ぐ（[Start-Process](https://learn.microsoft.com/powershell/module/microsoft.powershell.management/start-process)。`-Environment` は PowerShell 7.4 以降）。11/6 に `-Credential` だけで開いたら、Blender の中で `USERNAME` がオーナーのユーザー名、`APPDATA` がオーナーのフォルダを指し、Blender の設定の置き場所（`bpy.utils.user_resource`）が空になって、「ディスクからインストール」が灰色になった（Blender 5.2 の `bl_extension_ops.py`：使えるユーザーのリポジトリがないと無効）。上のコマンドで `noriblender` と `C:\Users\noriblender\...` になることを確かめた
+- 確かめ方：Blender の「Scripting」タブの Python コンソールで `import os; print(os.environ.get("USERNAME"), os.environ.get("APPDATA")); print(bpy.utils.user_resource('EXTENSIONS'))`
 
 Blender の中で：
 
@@ -109,12 +116,12 @@ Blender の中で：
 Claude が `tools/blender/isolation-check.py` を `C:\NoriBlender\work\` に置く。オーナーは次を実行する。
 
 ```powershell
+# $cred・$nbEnv は④と同じ（新しい PowerShell なら④の最初の3行を先に実行する）
 # noriblender の Blender（画面なし）で確認のスクリプトを動かす。守る場所は引数で渡す（結果にはパスを書かない）
-$cred = Get-Credential noriblender
-Start-Process "C:\Program Files\Blender Foundation\Blender 5.2\blender.exe" -Credential $cred -WorkingDirectory C:\NoriBlender\work -Wait -ArgumentList "--background", "--factory-startup", "--python", "C:\NoriBlender\work\isolation-check.py", "--", "`"$env:USERPROFILE\Documents\nori_ClaudeCode\package.json`"", "`"$env:USERPROFILE`"", "`"$env:USERPROFILE\.ssh`"", "G:\"
+Start-Process "C:\Program Files\Blender Foundation\Blender 5.2\blender.exe" -Credential $cred -LoadUserProfile -UseNewEnvironment -Environment $nbEnv -WorkingDirectory C:\NoriBlender\work -Wait -ArgumentList "--background", "--factory-startup", "--python", "C:\NoriBlender\work\isolation-check.py", "--", "`"$env:USERPROFILE\Documents\nori_ClaudeCode\package.json`"", "`"$env:USERPROFILE`"", "`"$env:USERPROFILE\.ssh`"", "G:\"
 ```
 
-結果は `C:\NoriBlender\work\isolation-result.json`。Claude が読み、`"isolated": true`（守る場所はすべて届かない・作業フォルダには書ける・外部につながらない）を確かめる。
+結果は `C:\NoriBlender\work\isolation-result.json`。Claude が読み、`"isolated": true`（守る場所はすべて届かない・作業フォルダには書ける・外部につながらない・環境変数がオーナーのフォルダを指していない・Blender の設定の置き場所が決まっている）を確かめる。
 
 ### ⑥ Claude Code の設定（オーナーが `.claude/settings.json` を直す）
 
@@ -137,7 +144,7 @@ Blender（noriblender）を開いた状態で、Claude が `execute_blender_code
 
 ## 4. ふだんの使い方
 
-1. ④の `Start-Process … -Credential` で、noriblender の Blender を開く（アドオンのサーバーは自動で開始）
+1. ④のコマンド（`-LoadUserProfile -UseNewEnvironment -Environment $nbEnv` つき）で、noriblender の Blender を開く（アドオンのサーバーは自動で開始）
 2. Claude Code から MCP の道具を使う。モデルの作業ファイル（`.blend`）は `C:\NoriBlender\work\` に置く
 3. できたモデルは GLB に書き出し（`C:\NoriBlender\work\export\`）、オーナーのユーザーでリポジトリの `public/models/` にコピーしてコミットする
 4. AI 動画サービスに送るのは、自作モデルの画像だけ（CLAUDE.md「安全」）
