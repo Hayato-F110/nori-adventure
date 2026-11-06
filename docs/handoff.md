@@ -1,80 +1,91 @@
 # 引き継ぎ（次のセッション用）
 
-> 最終更新：2026-11-05 23:50（スプリント1・1日目の終わり。`/end-day` で確認）
+> 最終更新：2026-11-07 00:45（スプリント1・2日目の終わり。`/end-day` で確認）
 > 新しいセッションでは `/start-day` を使う（このファイル、`CLAUDE.md`、最新の devlog、Jira を読む）。
 > 4週間の予定・成果物・学ぶことは `docs/schedule.md`。
 
 ## 1. いまの状態
 
-| 項目       | 状態                                                                                                                                                                                 |
-| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| リポジトリ | `Hayato-F110/nori-adventure`（**非公開**）。main は PR #1〜#19 をマージ済み。CI はすべて緑                                                                                           |
-| Jira       | スプリント1（ID 4）は 11/5 09:00〜11/10 23:02                                                                                                                                        |
-| 道具       | スキル9本・サブエージェント2本を導入済み（CLAUDE.md「スキルとサブエージェント」）                                                                                                    |
-| Blender    | 5.2.3。Blender MCP は **公式の Blender Lab 版**を `.mcp.json` に登録済み。11/5 23:46 のセッション開始で起動を試み、**30 秒でタイムアウト**（原因は未確認）。隔離はオーナーの作業待ち |
+| 項目       | 状態                                                                                                                                    |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| リポジトリ | `Hayato-F110/nori-adventure`（**非公開**）。main は PR #1〜#32 まで反映。CI はすべて緑。開いている PR は 0                              |
+| Jira       | スプリント1（ID 4）は 11/5 09:00〜11/10 23:02。31pt のうち **20pt 完了**                                                                |
+| Blender    | 5.2.3。**隔離は完了（NORI-17）**。MCP（Blender Lab 版 v1.0.3、`.mcp.json` でコミット固定）はつながる。`_for_cli` の6つは deny           |
+| 供給網     | Dependabot（npm・Actions、毎週月曜 9:00 JST）、CI の `npm audit --audit-level=high` と SBOM。未対応の警告 0（minimatch は受け入れ済み） |
 
 ### スプリント1
 
-| 状態   | 課題                                                                                                                                                                   |
-| ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 完了   | NORI-4 企画書、NORI-11 土台と CI、NORI-12 車の試作、**NORI-13 当たり判定**、**NORI-15 状態と描画の分離**、**NORI-35 脅威分析**、**NORI-24 ルール（全ステージの数値）** |
-| 進行中 | NORI-10 Claude Code 設定（main の保護は公開後）、**NORI-17 Blender MCP の隔離**（オーナーの作業待ち）                                                                  |
-| 未着手 | NORI-16 Pages、NORI-18 アセットの流れ、NORI-19 車のモデル、NORI-36 CodeQL 等、NORI-40 AI 映像テスト                                                                    |
+| 状態   | 課題                                                                                                                        |
+| ------ | --------------------------------------------------------------------------------------------------------------------------- |
+| 完了   | NORI-4、NORI-11、NORI-12、NORI-13、NORI-15、NORI-24、NORI-35、**NORI-17 Blender MCP の隔離**                                |
+| 進行中 | NORI-10（main の保護は公開後）、**NORI-36**（CodeQL・Secret scanning・Push protection は公開後）                            |
+| 未着手 | NORI-18 アセットの流れ、NORI-19 車のモデル、NORI-16 Pages（**スプリント1に残す**＝11/10 までに公開）、NORI-40 AI 映像テスト |
 
-## 2. 次の作業順（11/6）
+## 2. 次の作業順（11/7〜）
 
-1. **NORI-17**：オーナーが `docs/security/blender-mcp-isolation.md` の手順 ①の5（`noriblender` で一度サインイン）から続ける（11/5 は、ほかのプログラムが動いていたので後回しにした）
-   - ②でフォルダができたら、Claude が `tools/blender/isolation-check.py` を `C:\NoriBlender\work\` にコピーする
-   - ⑤の結果（`C:\NoriBlender\work\isolation-result.json`）を Claude が読む → ⑥の後、MCP 経由（`execute_blender_code`）で同じ確認 → `_for_cli` の道具が拒否されることも1回試す → 両方 `isolated: true` で完了
-   - **⑥の deny を足すまで、`/mcp` で blender サーバーを無効にしておく**（11/5 は deny の前に起動を試みた。`BLENDER_PATH` の無効化で `_for_cli` は動かないが、二重の対策をそろえてから使う）
-   - deny を足したら、`/mcp` で blender サーバーを有効にし、つながるか確かめる。タイムアウトするなら、初回のダウンロードの遅さか、Blender（noriblender）が開いていないためかを切り分ける
-2. **NORI-36**：CodeQL・Dependabot・`npm audit` を CI に（脅威分析 S-02）
-3. **NORI-18**：アセットの流れ（Blender → GLB → `public/models/`）。NORI-17 の完了が先
-4. **NORI-16**：GitHub Pages への自動デプロイ（公開の前に、脅威分析 S-04・P-02 を満たす）
-5. 1日の終わりに `/end-day`
+1. **NORI-18**：アセットの流れ（Blender → GLB → `public/models/`）。完了条件「1台分が自動でゲームに読み込まれる」。先にテストの一覧（`game-rules.md` との対応）を見せる
+   - Blender は手順書④のコマンド（`-LoadUserProfile -UseNewEnvironment -Environment $nbEnv`）で開いてもらう。**ダブルクリックで開くとオーナーのユーザーで動く（隔離の外）**
+   - 作業ファイルは `C:\NoriBlender\work\`、書き出しは `C:\NoriBlender\work\export\`
+2. **NORI-19**：車のモデル（ローポリ・オリジナル）。NORI-18 の流れで読み込む
+3. **公開の準備（NORI-16 の前提）**：`docs/security/public-release-checklist.md` 3章の表の1〜4（Claude）。**11/8 までに公開**、11/9 に Pages、11/10 は予備
+   - 2で `uv tool install git-filter-repo`、まっさらな clone、置き換えの一覧はスクラッチだけに置く
+4. **NORI-16**：Pages への自動デプロイと CSP（公開のあと）。公開直後に NORI-36 の残り（CodeQL・Secret scanning）とルールセットも
+5. **NORI-40**：車のモデルができてから。契約の前に Google AI Plus の料金・規約を公式で確かめる
+6. 1日の終わりに `/end-day`
 
 ## 3. 残課題・メモ
 
-- **カメラ**：後ろ向きで壁に押し付けると、最短 2 m を守るため、カメラが壁の中に入る（箱の内側は描かれないので画面はふさがらない）。カメラを上に逃がす案を検討（PR #12 に記載）
-- **E2E**：道に沿って四角く回る走らせ方（状態を読んでハンドルを切る）。走った道のりで判定し、建物に触れた回数 0 を確かめる
-- **作業フォルダ**：Blender の作業は `C:\NoriBlender\work\`（リポジトリの `blender-work/` は専用ユーザーから届かないので使わない）
+- **カメラ**：後ろ向きで壁に押し付けると、カメラが壁の中に入る（画面はふさがらない）。カメラを上に逃がす案を検討（PR #12）
+- **E2E**：実際の12秒かつゲーム内6秒まで走る（PR #32）。CI はゲーム内 6.2 秒・平均 9.9 m/s
+- **リモートの古いブランチ**：マージ済みの `feature/NORI-*` 9本と `dependabot/...npm-minor-patch...` は消してよい（決まりどおり `git push origin --delete`）。`dependabot/.../types/node-26.6.6`・`typescript-7.0.2` は未マージ（Dependabot が閉じた PR）なので、消すならオーナーの承認
+- **TypeScript 7**：typescript-eslint が対応したら（TS 7.1 で API）、`dependabot.yml` の `ignore` を外す
+- **minimatch**：eslint が 11 系を使うようになったら更新し、警告 #1 を確かめる
+- **脅威分析 B-02**：DNS は止まらない（受け入れ）
 
 ## 4. 環境で分かっていること（つまずき防止）
 
-| 事柄             | 内容                                                                                                                                                                                                                     |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| シェル           | Git Bash と PowerShell 7。Hook が `.env` という文字列を含むコマンドを止める（検索パターンでも）。`en[v]` のように書くか、テストでは実行時に組み立てる                                                                    |
-| npm              | vitest 5 の peer 依存で npm が内部エラーになる → `--legacy-peer-deps`。`npm ci` は通る。版は**最新の安定版**でよい（11/6 に2週間ルールを廃止）。入れる前に公式の変更履歴を確かめる                                       |
-| 時間             | `npm run check` は約2分（lint と整形がそれぞれ約33秒）。コマンドの時間の上限は長めにする                                                                                                                                 |
-| preview サーバー | 自分で立ち上げた preview がポート 4173 に残ると、古い設定のまま見える。`netstat -ano` で確かめて止める                                                                                                                   |
-| CI の E2E        | GPU がなく約3fps。ゲーム内の時間が遅れる。FPS の判定は手元だけ（`NORI_SKIP_FPS=1`）                                                                                                                                      |
-| 手元の FPS       | AMD Radeon（D3D11）、Chromium ヘッドレスで約60fps                                                                                                                                                                        |
-| auto モード      | `gh repo create`、Claude 自身の権限設定（`settings.json`）の変更、**外部から取ってきたコードの実行**（`uvx` で MCP サーバーを試すなど）は止められる → オーナーに依頼                                                     |
-| ブランチ         | CI 緑でマージ済みのブランチは承認なしで削除してよい（`git branch -d`）。**push 済みのブランチは rebase せず merge で更新する**（rebase すると強制 push が要る）                                                          |
-| 時刻             | 予定や報告で時刻を書く前に `date` で確かめる                                                                                                                                                                             |
-| Rapier           | `@dimforge/rapier3d-compat` 0.21.0。キャラクターコントローラー、`intersectionsWithShape` を使用。初期化は `physics.ts` で1回だけ                                                                                         |
-| PowerShell の罠  | `switch` は要素1つの配列を開く（`@()` で囲む）。`$Matches` は次の `-match` で上書きされる（破壊的なコマンドの対象に使わない）。関数に渡した `--` は消える                                                                |
-| コミットの文     | `git commit -F -` ＋ here-string は PowerShell で動かない。一時フォルダのファイルに書いて `-F <ファイル>`                                                                                                                |
-| Python           | 外から取ったファイルを読むときは `python -I`。日本語を出すなら `-X utf8` も足す（`-I` は `PYTHONIOENCODING` を無視する）。PC 全体に入れるときは `py -3.14 -m pip`（VS Code が別の `.venv` を自動で有効にすることがある） |
-| uv               | `uv cache prune` が待ったままになるのは、MCP サーバーが `uv run` で動いているため。VS Code を閉じて外のターミナルで実行する。`--force` は使わない                                                                        |
-| GitHub           | push や PR の作成が続けて失敗したら、githubstatus.com を見る。Dependabot の一覧に直ったものが出ることがあるので、1件ずつ確かめる                                                                                         |
-| Docker           | Docker Desktop は使わないときは終了する（12月の NORI-51 で使う）                                                                                                                                                         |
-| PR               | PR は重ねない（前の PR のマージを待ち、`git pull --ff-only` してから次を切る）。PR にコミットを足したら「VS Code でマージするなら再読み込みしてから」と添える                                                            |
-| テストの一覧     | 大きな機能（ステージ・ボス・物理の仕組み）は、`game-rules.md` のどの項目から作ったかを添えた一覧を見せて承認を待つ。小さな修正は PR に一覧を書いて進める（11/6 に決定）                                                  |
-| kids-play        | 見本は kids-play のリポジトリの `docs/handoff-to-nori.md` 7章（playbook、provenance、動画の作り方、12月用の ci.yml）                                                                                                     |
+| 事柄                 | 内容                                                                                                                                                                                       |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| シェル               | Git Bash と PowerShell 7。Hook が `.env` という文字列を含むコマンドを止める（検索パターンでも）。`en[v]` のように書くか、テストでは実行時に組み立てる                                      |
+| npm                  | 版は**最新の安定版**でよい（11/6 に2週間ルールを廃止）。入れる前に公式の変更履歴を確かめる。three.js は semver に従わない（minor でも移行ガイドを見る）                                    |
+| 時間                 | `npm run check` は約2分。CI は1回 1〜3分（遅い日は8分。`playwright install --with-deps` の Ubuntu のミラーが遅い）                                                                         |
+| CI を待つ            | **バックグラウンドで待つ**。マージ前に、結果が PR の最新のコミット（headRefOid）のものか確かめる。「no checks reported」は未完了として扱う。tail などへのパイプで終了コードを隠さない      |
+| `pipefail`           | `git grep` は見つからないと終了コード 1 を返し、`&&` の連鎖が止まる                                                                                                                        |
+| `git push`           | `git push -u origin HEAD` は deny（main への push 防止の規則に当たる）。ブランチ名を書く                                                                                                   |
+| `.claude/`           | **stash・checkout・reset で動かさない**。settings.json はすぐ読み直されるので、守りが外れる。変えたらすぐコミット                                                                          |
+| Blender MCP          | 初回の `uvx` の準備は 52 秒で、30 秒の制限を超える。つながらないときは、オーナーのターミナルで `uvx …（.mcp.json と同じ）… blender-mcp --help` を1回実行してから `/mcp` で Reconnect       |
+| Blender の起動       | `Start-Process -Credential` だけだとオーナーの環境変数を引き継ぐ。必ず `-LoadUserProfile -UseNewEnvironment -Environment $nbEnv`（手順書④）                                                |
+| 外部への書き込み     | Dependabot の警告の dismiss など、GitHub の状態を変える API は auto モードに止められることがある → オーナーに画面で頼む                                                                    |
+| projects.blender.org | ページの取得は 403。Gitea の API（`/api/v1/repos/...`）と `git ls-remote`・`git clone` は使える                                                                                            |
+| preview サーバー     | 自分で立ち上げた preview がポート 4173 に残ると、古い設定のまま見える。`netstat -ano` で確かめて止める                                                                                     |
+| CI の E2E            | GPU がなく約2〜3fps。FPS の判定は手元だけ（`NORI_SKIP_FPS=1`）                                                                                                                             |
+| 手元の FPS           | AMD Radeon（D3D11）、Chromium ヘッドレスで約60fps                                                                                                                                          |
+| auto モード          | `gh repo create`、Claude 自身の権限設定の変更、外部から取ってきたコードの実行（`uvx` で MCP サーバーを試すなど）は止められる → オーナーに依頼                                              |
+| ブランチ             | CI 緑でマージ済みのブランチは承認なしで削除してよい。push 済みのブランチは rebase せず merge で更新する                                                                                    |
+| 時刻                 | 予定や報告で時刻を書く前に `date` で確かめる                                                                                                                                               |
+| Rapier               | `@dimforge/rapier3d-compat` 0.21.0。初期化は `physics.ts` で1回だけ                                                                                                                        |
+| PowerShell の罠      | `switch` は要素1つの配列を開く（`@()`）。`$Matches` は上書きされる（破壊的なコマンドの対象に使わない）。関数に渡した `--` は消える                                                         |
+| コミットの文         | PowerShell では here-string を `git commit -F -` に渡せない。一時フォルダのファイルに書いて `-F`。Bash の `printf` に `\U` を入れない（Unicode の指定と解釈される）。本文は heredoc で書く |
+| Python               | 外から取ったファイルは `python -I`。日本語の出力は `-X utf8` も足す                                                                                                                        |
+| uv                   | `uv cache prune` が待ったままなのは、MCP サーバーが使用中のため。VS Code を閉じて外のターミナルで。`--force` は使わない                                                                    |
+| GitHub               | push や PR の作成が続けて失敗したら githubstatus.com を見る                                                                                                                                |
+| Docker               | 使わないときは Docker Desktop を終了する（12月の NORI-51 で使う）                                                                                                                          |
+| PR                   | 重ねない。PR にコミットを足したら「VS Code でマージするなら再読み込みしてから」と添える                                                                                                    |
+| テストの一覧         | 大きな機能（ステージ・ボス・物理の仕組み）は、`game-rules.md` との対応を添えた一覧を見せて承認を待つ。小さな修正は PR に一覧を書いて進める                                                 |
+| kids-play            | 見本は kids-play のリポジトリの `docs/handoff-to-nori.md` 7章（playbook、provenance、動画の作り方、12月用の ci.yml）                                                                       |
 
 ## 5. Jira の MCP の使い方（書き込みは 11/4 に許可済み）
 
-詳しくは `docs/jira/README.md`。cloudId は `getAccessibleAtlassianResources` で取る。
+詳しくは `docs/jira/README.md`。cloudId はサイト名 `<サイト名>.atlassian.net` でも通る。
 
 - 書き込み：`executeWrite`。削除系（`executeDestructive`）は deny。**スプリントの作成・開始・編集・終了は削除系の扱い**なので、オーナーに画面で頼む
 - ステータス変更：`transitionJiraIssue` に `transitionId`（11＝未着手、21＝進行中、31＝完了）
-- 作業を始めたら「進行中」、PR をマージして完了条件を確かめたら「完了」にする
 
 ## 6. オーナーにお願いすること・今後の予定
 
-| 事柄             | 状態                                                                                                                                                                                                                 |
-| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Blender MCP      | **手順 ①の5 から**（`docs/security/blender-mcp-isolation.md`）。⑥で `.claude/settings.json` の deny に `_for_cli` の道具6つを足し、`.mcp.json` を承認                                                                |
-| リポジトリの公開 | **決定済み**：S08（NORI-16）までに公開する。公開の直前に `docs/security/public-release-checklist.md` の手順で、①チェックのやり直し ②**履歴から個人名を消す**（force push・要承認） ③最終確認 ④公開（操作はオーナー） |
-| Google AI Plus   | NORI-40（車のモデルができてから）。契約はオーナー。契約の前に規約・データの扱いを確かめる（脅威分析 V-02）                                                                                                           |
+| 事柄             | 状態                                                                                                                                                                                       |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Blender          | NORI-18 で使う。手順書④のコマンドで noriblender として開く                                                                                                                                 |
+| リポジトリの公開 | **11/8 まで**。方法は新しい公開リポジトリに移す（チェックリスト3章）。オーナーは最終確認・`gh repo rename`・`gh repo create`・main の push（コマンドは当日に公式の資料で確かめてから渡す） |
+| 音量の目標       | NORI-47 は「-14 LUFS 前後」、kids-play は -18 LUFS。NORI-47 の前に決める                                                                                                                   |
+| Google AI Plus   | NORI-40（車のモデルができてから）。契約はオーナー。契約の前に料金・規約・データの扱いを確かめる（脅威分析 V-02）                                                                           |
