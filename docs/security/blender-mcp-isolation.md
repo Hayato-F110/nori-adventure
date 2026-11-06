@@ -136,11 +136,24 @@ Start-Process "C:\Program Files\Blender Foundation\Blender 5.2\blender.exe" -Cre
 "mcp__blender__get_blendfile_summary_usage_guess_for_cli"
 ```
 
-そのあと Claude Code を開き直し、`.mcp.json` の `blender` サーバーを承認する（`/mcp` で接続を確かめられる）。
+そのあと `/mcp` で `blender` サーバーを有効にし、つながるか確かめる。settings.json は保存するとすぐ読み直される（再起動は要らない）。
+
+- 書き方は `mcp__<サーバー名>__<道具名>`。かっこ `( )` を付けると黙って読み飛ばされる（[permissions](https://code.claude.com/docs/en/permissions.md)）
+- **初回は30秒でタイムアウトする**。`uvx` が MCP サーバーを取ってきて組み立てるのに、11/6 は 52 秒かかった（Claude Code の起動の待ち時間は30秒）。先にオーナーのターミナルで準備だけを済ませてから、`/mcp` で Reconnect する：
+  ```powershell
+  # .mcp.json と同じ版で準備し、説明だけ出して終わる（argparse の --help。サーバーは動かない）
+  uvx --exclude-newer 2026-10-22 --from "git+https://projects.blender.org/lab/blender_mcp.git@dbbf836ad4b1025f14a2b3b504c43903f39e0b04#subdirectory=mcp" blender-mcp --help
+  ```
+- **deny を入れた settings.json は、すぐコミットする。`git stash` などで動かさない**。11/6 に Claude が `git stash` でブランチを切り替えたとき、数秒だけ deny が外れ、`_for_cli` の道具が Claude に見えた（呼んではいない。`BLENDER_PATH` の無効化は効いていた）
 
 ### ⑦ MCP 経由の確認（Claude が行う）
 
-Blender（noriblender）を開いた状態で、Claude が `execute_blender_code` から同じ確認をする。①〜⑥がそろい、⑤と⑦の両方で `isolated: true` なら NORI-17 は完了。
+Blender（noriblender）を開いた状態で、Claude が次の2つを確かめる。①〜⑥がそろい、⑤と⑦の両方で `isolated: true` なら NORI-17 は完了。
+
+1. `_for_cli` の6つの道具が Claude の道具の一覧に**ない**こと（deny に入れた道具は、呼ぶと拒否されるのではなく、一覧から消える）。11/6：サーバーの道具 26 個のうち、Claude に見えるのは 20 個
+2. `execute_blender_code` で `isolation-check.py` を動かし（`sys.argv` に守る場所を入れて `runpy.run_path`）、`isolated: true`
+
+11/6 の結果：⑤・⑦とも `isolated: true`（`docs/evidence/2026-11-06-blender-isolation.json`）。
 
 ## 4. ふだんの使い方
 
