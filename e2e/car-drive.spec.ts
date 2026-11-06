@@ -5,6 +5,11 @@ import { expect, test } from "@playwright/test";
 // NORI-13：建物の当たり判定が入ったので、道に沿って四角く回る（状態を読んでハンドルを切る）。建物に触れないこと。
 // FPS は GPU のない CI では測らない（NORI_SKIP_FPS=1）。
 const DRIVE_SECONDS = 12;
+// ゲーム内でこれだけ進むまでは走り続ける。CI（GPU なし・約2fps）では実際の12秒でゲーム内が約2秒しか進まず、
+// 加速の途中だけを測ることになって平均の速さが不安定だった（11/6 に 5.8 m/s で1回失敗）
+const MIN_SIM_SECONDS = 6;
+// 遅い環境でも止まらないための、実際の時間の上限
+const MAX_DRIVE_SECONDS = 90;
 const MIN_AVERAGE_FPS = 55;
 
 // 道の交差点を順に回る（スタート (0,0) から −Z へ。区画1つ分の四角）
@@ -36,6 +41,8 @@ const snapshot = (page: import("@playwright/test").Page) =>
   });
 
 test("車が12秒走り、FPS とコンソールエラーを記録する", async ({ page }, testInfo) => {
+  // 遅い環境ではゲーム内の時間が6秒進むまで走るので、テスト全体の上限を延ばす
+  test.setTimeout((MAX_DRIVE_SECONDS + 60) * 1000);
   const consoleErrors: string[] = [];
   page.on("console", (message) => {
     if (message.type() === "error") consoleErrors.push(message.text());
@@ -56,8 +63,16 @@ test("車が12秒走り、FPS とコンソールエラーを記録する", async
   let last = start.car;
   const startedAt = Date.now();
   let shotTaken = false;
-  while (Date.now() - startedAt < DRIVE_SECONDS * 1000) {
+  // 実際の時間で DRIVE_SECONDS、かつゲーム内で MIN_SIM_SECONDS 進むまで走る（上限 MAX_DRIVE_SECONDS）
+  const keepDriving = (tick: number) => {
+    const wall = (Date.now() - startedAt) / 1000;
+    if (wall >= MAX_DRIVE_SECONDS) return false;
+    return wall < DRIVE_SECONDS || (tick - start.tick) / 60 < MIN_SIM_SECONDS;
+  };
+  let lastTick = start.tick;
+  while (keepDriving(lastTick)) {
     const now = await snapshot(page);
+    lastTick = now.tick;
     pathLength += Math.hypot(now.car.x - last.x, now.car.z - last.z);
     if (now.car.touching) touchingSamples++;
     last = now.car;
@@ -92,7 +107,7 @@ test("車が12秒走り、FPS とコンソールエラーを記録する", async
   const drivingSamples = end.fpsSamples.slice(start.fpsSamples.length);
   const average = drivingSamples.reduce((sum, fps) => sum + fps, 0) / Math.max(1, drivingSamples.length);
   const report = {
-    driveSeconds: DRIVE_SECONDS,
+    driveSeconds: Math.round((Date.now() - startedAt) / 100) / 10,
     distanceMeters: Math.round(distance * 10) / 10,
     simSeconds: Math.round(simSeconds * 10) / 10,
     finalSpeed: Math.round(end.car.speed * 100) / 100,
@@ -114,7 +129,7 @@ test("車が12秒走り、FPS とコンソールエラーを記録する", async
   expect(consoleErrors).toEqual([]);
   expect(drivingSamples.length).toBeGreaterThanOrEqual(DRIVE_SECONDS - 2);
   // ゲーム内の時間あたり、曲がりながらでも最高速度の半分以上の平均速度で進んでいる（走った道のりで見る）
-  expect(simSeconds).toBeGreaterThan(2);
+  expect(simSeconds).toBeGreaterThanOrEqual(MIN_SIM_SECONDS);
   expect(distance / simSeconds).toBeGreaterThan(6);
   // 道の真ん中を走るので、建物・木には触れない（触れたら、配置か走らせ方がずれている）
   expect(touchingSamples).toBe(0);
