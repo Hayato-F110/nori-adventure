@@ -87,6 +87,8 @@ Invoke-WebRequest "https://projects.blender.org/lab/blender_mcp/releases/downloa
 Get-FileHash C:\NoriBlender\downloads\mcp-1.0.3.zip
 ```
 
+- 期待する SHA-256：`A7A9DA816192502E5A0A202A396444E266B47D8FC4F74AD4698048BD43040707`（11/6 に Claude が別に取って計算した値。大きさ 17,975 バイト。v1.0.3 は 2026-09-11 公開の最新版で、`.mcp.json` で固定したコミットと同じ版）。違ったら入れずに止める
+
 ### ④ 専用ユーザーで Blender を開き、アドオンを入れる
 
 ```powershell
@@ -97,9 +99,9 @@ Start-Process "C:\Program Files\Blender Foundation\Blender 5.2\blender.exe" -Cre
 
 Blender の中で：
 
-1. 編集 → プリファレンス → システム →「オンラインアクセスを許可」を **オフ**
-2. プリファレンス → 「エクステンションを入手」→ 右上の ▼ →「ディスクからインストール」→ `C:\NoriBlender\downloads\mcp-1.0.3.zip`
-3. アドオン「MCP」を有効にし、アドオンの設定で、サーバーを開始する（自動で開始をオン。ホスト・ポートは既定の `localhost`・`9876` のまま）
+1. 編集 → プリファレンス → システム →「ネットワーク」の「オンラインアクセスを許可」は **オンのまま**にする。このアドオンは、オフだと MCP のサーバーを起動しない（v1.0.3 の `addon/blender_mcp_addon/__init__.py` の `startup_online_ok_or_error`。11/6 にソースで確かめた）。外への通信は、②のファイアウォールで止める
+2. プリファレンス → 「エクステンションを入手」→ 右上の ▼ →「ディスクからインストール」→ `C:\NoriBlender\downloads\mcp-1.0.3.zip`（[Blender 5.2 の資料](https://docs.blender.org/manual/en/5.2/editors/preferences/extensions.html)。画面の名前が違ったら、スクリーンショットを見せてください）
+3. アドオン「MCP」を有効にし、アドオンの設定を見る：「Auto Start」がオン（既定）、「Host」が `localhost`、「Port」が `9876`（どれも既定のまま）。「Server is running」と出ればよい
 4. プリファレンスを保存する
 
 ### ⑤ 確認（隔離のテスト）
