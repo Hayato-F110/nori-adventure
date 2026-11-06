@@ -22,6 +22,17 @@ describe("Dependabot（.github/dependabot.yml）", () => {
     expect(text).toMatch(/package-ecosystem:\s*"github-actions"[^\n]*\n\s*directory:\s*"\/"/);
   });
 
+  it("TypeScript と @types/node の major 更新は見送る（typescript-eslint と Node 22 に合わせる）", () => {
+    const text = read(file);
+    for (const name of ["typescript", "@types/node"]) {
+      expect(text).toMatch(
+        new RegExp(
+          `dependency-name:\\s*"${name.replace("/", "\\/")}"\\s*\\n\\s*update-types:\\s*\\["version-update:semver-major"\\]`,
+        ),
+      );
+    }
+  });
+
   it("コミットの文の先頭に課題キー（NORI-36）が付く", () => {
     expect(read(file).match(/prefix:\s*"NORI-36"/g)?.length).toBe(2);
   });
