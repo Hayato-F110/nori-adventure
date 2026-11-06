@@ -64,16 +64,20 @@ Windows 11 **Home** には Windows Sandbox がない（Microsoft の対応表は
 スタートを右クリック →「ターミナル（管理者）」。1行ずつ実行する。
 
 ```powershell
-# 作業フォルダを作る（work：AI が作業する場所、downloads：アドオンの zip を置く場所）
-New-Item -ItemType Directory -Force C:\NoriBlender\work, C:\NoriBlender\downloads
+# 親のフォルダだけを先に作る（子を先に作ると、C ドライブから受け継いだ広い権限が子に残るおそれがある）
+New-Item -ItemType Directory -Force C:\NoriBlender
 # 親から受け継ぐ権限を切り、SYSTEM・管理者・オーナー・noriblender だけが使えるようにする
 icacls C:\NoriBlender /inheritance:r /grant:r "SYSTEM:(OI)(CI)F" "Administrators:(OI)(CI)F" "$($env:USERNAME):(OI)(CI)M" "noriblender:(OI)(CI)M"
+# そのあとで子を作る（work：AI が作業する場所、downloads：アドオンの zip を置く場所）。権限は親から受け継ぐ
+New-Item -ItemType Directory -Force C:\NoriBlender\work, C:\NoriBlender\downloads
+# 確かめる：4つ（SYSTEM・Administrators・オーナー・noriblender）だけが出ればよい。Users や Authenticated Users が出たら止めて知らせる
+icacls C:\NoriBlender\work
 # blender.exe の外への通信を止める。127.0.0.0/8 と ::1（同じ PC の中）は範囲から外して、MCP の通信は通す
 New-NetFirewallRule -DisplayName "NoriBlender - Blender の外部通信を止める" -Direction Outbound -Action Block -Profile Any -Program "C:\Program Files\Blender Foundation\Blender 5.2\blender.exe" -RemoteAddress "0.0.0.0-126.255.255.255", "128.0.0.0-255.255.255.255", "::2-ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"
 ```
 
 - ファイアウォールの設定は、オーナーがふだん使う Blender にも効く（アドオンのオンラインの検索などが使えなくなる）。外すときは `Remove-NetFirewallRule -DisplayName "NoriBlender - Blender の外部通信を止める"`
-- 出典：`New-NetFirewallRule`（<https://learn.microsoft.com/powershell/module/netsecurity/new-netfirewallrule>）、`icacls`（<https://learn.microsoft.com/windows-server/administration/windows-commands/icacls>）
+- 出典：`New-NetFirewallRule`（<https://learn.microsoft.com/powershell/module/netsecurity/new-netfirewallrule>）、`icacls`（<https://learn.microsoft.com/windows-server/administration/windows-commands/icacls>。資料では `/inheritancelevel:r` と書かれているが、この PC の `icacls /?` には `/inheritance:e|d|r` とある。ja-JP の Windows でも `SYSTEM`・`Administrators` の名前で通ることを 11/6 に確かめた）
 
 ### ③ アドオンを取ってくる（ふつうの PowerShell）
 
