@@ -40,18 +40,27 @@
 
 ## 4. 環境で分かっていること（つまずき防止）
 
-| 事柄             | 内容                                                                                                                                                                           |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| シェル           | Git Bash と PowerShell 7。Hook が `.env` という文字列を含むコマンドを止める（検索パターンでも）。`en[v]` のように書くか、テストでは実行時に組み立てる                          |
-| npm              | vitest 5 の peer 依存で npm が内部エラーになる → `--legacy-peer-deps`。`npm ci` は通る。版は**公開から2週間以上**（`npm view <pkg> time` で日付を確認。`--before` は効かない） |
-| 時間             | `npm run check` は約2分（lint と整形がそれぞれ約33秒）。コマンドの時間の上限は長めにする                                                                                       |
-| preview サーバー | 自分で立ち上げた preview がポート 4173 に残ると、古い設定のまま見える。`netstat -ano` で確かめて止める                                                                         |
-| CI の E2E        | GPU がなく約3fps。ゲーム内の時間が遅れる。FPS の判定は手元だけ（`NORI_SKIP_FPS=1`）                                                                                            |
-| 手元の FPS       | AMD Radeon（D3D11）、Chromium ヘッドレスで約60fps                                                                                                                              |
-| auto モード      | `gh repo create`、Claude 自身の権限設定（`settings.json`）の変更、**外部から取ってきたコードの実行**（`uvx` で MCP サーバーを試すなど）は止められる → オーナーに依頼           |
-| ブランチ         | CI 緑でマージ済みのブランチは承認なしで削除してよい（`git branch -d`）。**push 済みのブランチは rebase せず merge で更新する**（rebase すると強制 push が要る）                |
-| 時刻             | 予定や報告で時刻を書く前に `date` で確かめる                                                                                                                                   |
-| Rapier           | `@dimforge/rapier3d-compat` 0.21.0。キャラクターコントローラー、`intersectionsWithShape` を使用。初期化は `physics.ts` で1回だけ                                               |
+| 事柄             | 内容                                                                                                                                                                                                                     |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| シェル           | Git Bash と PowerShell 7。Hook が `.env` という文字列を含むコマンドを止める（検索パターンでも）。`en[v]` のように書くか、テストでは実行時に組み立てる                                                                    |
+| npm              | vitest 5 の peer 依存で npm が内部エラーになる → `--legacy-peer-deps`。`npm ci` は通る。版は**最新の安定版**でよい（11/6 に2週間ルールを廃止）。入れる前に公式の変更履歴を確かめる                                       |
+| 時間             | `npm run check` は約2分（lint と整形がそれぞれ約33秒）。コマンドの時間の上限は長めにする                                                                                                                                 |
+| preview サーバー | 自分で立ち上げた preview がポート 4173 に残ると、古い設定のまま見える。`netstat -ano` で確かめて止める                                                                                                                   |
+| CI の E2E        | GPU がなく約3fps。ゲーム内の時間が遅れる。FPS の判定は手元だけ（`NORI_SKIP_FPS=1`）                                                                                                                                      |
+| 手元の FPS       | AMD Radeon（D3D11）、Chromium ヘッドレスで約60fps                                                                                                                                                                        |
+| auto モード      | `gh repo create`、Claude 自身の権限設定（`settings.json`）の変更、**外部から取ってきたコードの実行**（`uvx` で MCP サーバーを試すなど）は止められる → オーナーに依頼                                                     |
+| ブランチ         | CI 緑でマージ済みのブランチは承認なしで削除してよい（`git branch -d`）。**push 済みのブランチは rebase せず merge で更新する**（rebase すると強制 push が要る）                                                          |
+| 時刻             | 予定や報告で時刻を書く前に `date` で確かめる                                                                                                                                                                             |
+| Rapier           | `@dimforge/rapier3d-compat` 0.21.0。キャラクターコントローラー、`intersectionsWithShape` を使用。初期化は `physics.ts` で1回だけ                                                                                         |
+| PowerShell の罠  | `switch` は要素1つの配列を開く（`@()` で囲む）。`$Matches` は次の `-match` で上書きされる（破壊的なコマンドの対象に使わない）。関数に渡した `--` は消える                                                                |
+| コミットの文     | `git commit -F -` ＋ here-string は PowerShell で動かない。一時フォルダのファイルに書いて `-F <ファイル>`                                                                                                                |
+| Python           | 外から取ったファイルを読むときは `python -I`。日本語を出すなら `-X utf8` も足す（`-I` は `PYTHONIOENCODING` を無視する）。PC 全体に入れるときは `py -3.14 -m pip`（VS Code が別の `.venv` を自動で有効にすることがある） |
+| uv               | `uv cache prune` が待ったままになるのは、MCP サーバーが `uv run` で動いているため。VS Code を閉じて外のターミナルで実行する。`--force` は使わない                                                                        |
+| GitHub           | push や PR の作成が続けて失敗したら、githubstatus.com を見る。Dependabot の一覧に直ったものが出ることがあるので、1件ずつ確かめる                                                                                         |
+| Docker           | Docker Desktop は使わないときは終了する（12月の NORI-51 で使う）                                                                                                                                                         |
+| PR               | PR は重ねない（前の PR のマージを待ち、`git pull --ff-only` してから次を切る）。PR にコミットを足したら「VS Code でマージするなら再読み込みしてから」と添える                                                            |
+| テストの一覧     | 大きな機能（ステージ・ボス・物理の仕組み）は、`game-rules.md` のどの項目から作ったかを添えた一覧を見せて承認を待つ。小さな修正は PR に一覧を書いて進める（11/6 に決定）                                                  |
+| kids-play        | 見本は kids-play のリポジトリの `docs/handoff-to-nori.md` 7章（playbook、provenance、動画の作り方、12月用の ci.yml）                                                                                                     |
 
 ## 5. Jira の MCP の使い方（書き込みは 11/4 に許可済み）
 
