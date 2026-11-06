@@ -1,0 +1,152 @@
+{
+  "issue": "NORI-17",
+  "date": "2026-11-06",
+  "note": "守る場所は引数で渡し、結果にはパスを書かない（index 0: リポジトリの package.json、1: オーナーのユーザーフォルダ、2: .ssh、3: G ドライブ）",
+  "step5_direct": {
+    "user": "noriblender",
+    "protectedChecked": 4,
+    "protected": [
+      {
+        "index": 0,
+        "reachable": false,
+        "error": "PermissionError"
+      },
+      {
+        "index": 1,
+        "reachable": false,
+        "error": "PermissionError"
+      },
+      {
+        "index": 2,
+        "reachable": false,
+        "error": "PermissionError"
+      },
+      {
+        "index": 3,
+        "reachable": false,
+        "error": "PermissionError"
+      }
+    ],
+    "workDir": {
+      "writable": true
+    },
+    "network": [
+      {
+        "target": "1.1.1.1:443",
+        "connected": false,
+        "error": "PermissionError"
+      },
+      {
+        "target": "example.com:443",
+        "connected": false,
+        "error": "PermissionError"
+      }
+    ],
+    "env": [
+      {
+        "name": "USERPROFILE",
+        "set": true,
+        "insideProtected": false
+      },
+      {
+        "name": "APPDATA",
+        "set": true,
+        "insideProtected": false
+      },
+      {
+        "name": "LOCALAPPDATA",
+        "set": true,
+        "insideProtected": false
+      },
+      {
+        "name": "TEMP",
+        "set": true,
+        "insideProtected": false
+      },
+      {
+        "name": "TMP",
+        "set": true,
+        "insideProtected": false
+      }
+    ],
+    "blenderUserResource": {
+      "extensionsDirSet": true
+    },
+    "isolated": true
+  },
+  "step7_via_mcp": {
+    "user": "noriblender",
+    "protectedChecked": 4,
+    "protected": [
+      {
+        "index": 0,
+        "reachable": false,
+        "error": "PermissionError"
+      },
+      {
+        "index": 1,
+        "reachable": false,
+        "error": "PermissionError"
+      },
+      {
+        "index": 2,
+        "reachable": false,
+        "error": "PermissionError"
+      },
+      {
+        "index": 3,
+        "reachable": false,
+        "error": "PermissionError"
+      }
+    ],
+    "workDir": {
+      "writable": true
+    },
+    "network": [
+      {
+        "target": "1.1.1.1:443",
+        "connected": false,
+        "error": "PermissionError"
+      },
+      {
+        "target": "example.com:443",
+        "connected": false,
+        "error": "PermissionError"
+      }
+    ],
+    "env": [
+      {
+        "name": "USERPROFILE",
+        "set": true,
+        "insideProtected": false
+      },
+      {
+        "name": "APPDATA",
+        "set": true,
+        "insideProtected": false
+      },
+      {
+        "name": "LOCALAPPDATA",
+        "set": true,
+        "insideProtected": false
+      },
+      {
+        "name": "TEMP",
+        "set": true,
+        "insideProtected": false
+      },
+      {
+        "name": "TMP",
+        "set": true,
+        "insideProtected": false
+      }
+    ],
+    "blenderUserResource": {
+      "extensionsDirSet": true
+    },
+    "isolated": true
+  },
+  "forCliToolsVisibleToClaude": 0,
+  "mcpToolsTotal": 26,
+  "mcpToolsVisibleToClaude": 20
+}
