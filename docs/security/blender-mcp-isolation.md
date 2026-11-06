@@ -101,7 +101,7 @@ $nbEnv = @{ USERNAME = "noriblender"; USERPROFILE = $nb; HOMEPATH = "\Users\nori
 Start-Process "C:\Program Files\Blender Foundation\Blender 5.2\blender.exe" -Credential $cred -LoadUserProfile -UseNewEnvironment -Environment $nbEnv -WorkingDirectory C:\NoriBlender\work
 ```
 
-- **`-LoadUserProfile`・`-UseNewEnvironment`・`-Environment` は必須**。`Start-Process` は既定で、呼び出した側（オーナー）の環境変数を引き継ぐ（[Start-Process](https://learn.microsoft.com/powershell/module/microsoft.powershell.management/start-process)。`-Environment` は PowerShell 7.4 以降）。11/6 に `-Credential` だけで開いたら、Blender の中で `USERNAME` が `hayat`、`APPDATA` がオーナーのフォルダを指し、Blender の設定の置き場所（`bpy.utils.user_resource`）が空になって、「ディスクからインストール」が灰色になった（Blender 5.2 の `bl_extension_ops.py`：使えるユーザーのリポジトリがないと無効）。上のコマンドで `noriblender` と `C:\Users\noriblender\...` になることを確かめた
+- **`-LoadUserProfile`・`-UseNewEnvironment`・`-Environment` は必須**。`Start-Process` は既定で、呼び出した側（オーナー）の環境変数を引き継ぐ（[Start-Process](https://learn.microsoft.com/powershell/module/microsoft.powershell.management/start-process)。`-Environment` は PowerShell 7.4 以降）。11/6 に `-Credential` だけで開いたら、Blender の中で `USERNAME` がオーナーのユーザー名、`APPDATA` がオーナーのフォルダを指し、Blender の設定の置き場所（`bpy.utils.user_resource`）が空になって、「ディスクからインストール」が灰色になった（Blender 5.2 の `bl_extension_ops.py`：使えるユーザーのリポジトリがないと無効）。上のコマンドで `noriblender` と `C:\Users\noriblender\...` になることを確かめた
 - 確かめ方：Blender の「Scripting」タブの Python コンソールで `import os; print(os.environ.get("USERNAME"), os.environ.get("APPDATA")); print(bpy.utils.user_resource('EXTENSIONS'))`
 
 Blender の中で：
