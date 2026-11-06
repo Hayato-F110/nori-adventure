@@ -1,6 +1,6 @@
 # リポジトリ公開のチェックリスト
 
-方針（2026-11-04 決定）：GitHub Pages（S08）までに、リポジトリを**公開**にする。GitHub Free では、Pages とブランチ保護（ルールセット）は公開リポジトリでしか使えないため。
+方針（2026-11-04 決定、11-06 改訂）：GitHub Pages（NORI-16）までに、**11/10 までに**公開する。方法は「3. 公開の手順」のとおり、新しい公開リポジトリに移す。GitHub Free では、Pages とブランチ保護（ルールセット）は公開リポジトリでしか使えないため。
 
 公開は取り消しがきかない（フォーク・キャッシュ・検索エンジンに残りうる）。**切り替える直前に、このチェックをもう一度行い、オーナーの最終確認をもらってから実行する。**
 
@@ -27,10 +27,25 @@
 | CodeQL（default setup）                        | コードの静的解析（10月の kids-play と同じ）                       |
 | Private vulnerability reporting と SECURITY.md | 脆弱性の連絡窓口                                                  |
 
-## 3. 公開の手順
+## 3. 公開の手順（2026-11-06 改訂：新しいリポジトリに移す）
 
-1. 1 のチェックをやり直し、結果をこの表に追記する
-2. **履歴から個人名を消す**（2026-11-04 決定）。過去のコミットのファイルとコミットメッセージに、作業者の姓が残っている。`git filter-repo` などで置き換え、`git push --force` する。履歴の書き換えなので、手順は**その時点の公式情報で確かめ**、実行前にオーナーの承認をもらう。書き換え後、全コミット・PR の説明文に名前がないことを `git grep` と `gh pr list` で確かめる
-3. オーナーの最終確認をもらう
-4. `gh repo edit --visibility public --accept-visibility-change-consequences`（Claude の設定では deny にしているので、オーナーが実行する）
-5. 「2. 公開の直後に有効にする設定」を有効にし、`gh api` で有効になったことを確かめる
+**なぜ今のリポジトリを公開しないか**：作業者の姓が、11/4 の7つのコミットと PR #1・#2・#5〜#9 の差分に残っている。GitHub の公式の資料によると、履歴を書き換えて force push しても、PR の記録（`refs/pull/*`、読み取り専用）に古いコミットが残る。GitHub Support が消すのは秘密情報だけ（[Removing sensitive data](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/removing-sensitive-data-from-a-repository)）。そこで、履歴から姓を消したコピーを、PR の記録のない新しい公開リポジトリに移す（2026-11-06 にオーナーが決定）。期限は 11/10（NORI-16）。
+
+| #   | 誰       | すること                                                                                                                                                                                                                                      |
+| --- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Claude   | 開いている PR を0にする（マージか閉じる）。1 のチェックをやり直し、結果をこの表に追記する                                                                                                                                                     |
+| 2   | Claude   | `uv tool install git-filter-repo`（版は PyPI で確かめる）。スクラッチのフォルダに `git clone --no-local` で**まっさらな clone** を作る（filter-repo の決まり。`--force` は使わない）                                                          |
+| 3   | Claude   | 置き換えの一覧（`姓==>オーナー` など）を**リポジトリの外**（スクラッチ）に書き、`git filter-repo --replace-text <一覧> --replace-message <一覧>` を実行する                                                                                   |
+| 4   | Claude   | 書き換えた clone で、`git log --all -G<姓>`・`git log --all --grep=<姓>`・`git grep` が0件、`npm ci && npm run check` が通ることを確かめる                                                                                                    |
+| 5   | オーナー | 最終確認。OK なら、古いリポジトリの名前を変える：`gh repo rename nori-adventure-archive -R Hayato-F110/nori-adventure --yes`（非公開のまま残す）                                                                                              |
+| 6   | オーナー | 新しい公開リポジトリを作る：`gh repo create Hayato-F110/nori-adventure --public --description "4〜8歳向けのオリジナル3D乗り物アクションゲーム（Three.js）" --disable-wiki`（Claude の設定と auto モードで止められるため、オーナーが実行する） |
+| 7   | オーナー | 書き換えた clone から、新しいリポジトリへ main を push する（Claude は main への push を deny にしている）                                                                                                                                    |
+| 8   | Claude   | 「2. 公開の直後に有効にする設定」を有効にし、`gh api` で確かめる。Actions のトークンの初期権限が `read` か確かめる                                                                                                                            |
+| 9   | Claude   | 手元の作業フォルダを、新しいリポジトリにつなぎ直す（`git remote set-url origin`）。古い履歴の残る手元の main を新しい履歴にそろえる操作は、内容を示してオーナーの承認をもらう                                                                 |
+
+注意：
+
+- 古い名前で新しいリポジトリを作ると、名前を変えた古いリポジトリへの転送は効かなくなる（[Renaming a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/renaming-a-repository)）。古い URL が新しい公開リポジトリを指すので、今回はこれでよい
+- 新しいリポジトリには、PR #1〜#22 の画面（説明・レビュー）は移らない。古いリポジトリで見られる。コミットの文にある「Merge pull request #19」などの番号は、新しいリポジトリの PR 番号とは別のもの
+- 置き換えの一覧には姓が書かれているので、スクラッチのフォルダ以外に置かない。終わったら消す
+- 手順は実行する日に、公式の資料でもう一度確かめる
