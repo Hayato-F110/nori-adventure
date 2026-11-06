@@ -32,6 +32,16 @@ jobs:
       - run: npm run format:check
       - run: npm test
       - run: npm run build
+      # 既知の脆弱性を調べる。high・critical があれば CI を赤にする（moderate 以下は Dependabot で見る。NORI-36）
+      - run: npm audit --audit-level=high
+      # 部品表（SBOM）を SPDX 形式で作る。開発用の依存も含める（ビルドに使う道具も供給網の一部のため）
+      - run: npm sbom --sbom-format=spdx > sbom.spdx.json
+      # SBOM を CI の成果物として 30 日残す（Actions の実行結果の画面からダウンロードできる）
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: sbom-spdx
+          path: sbom.spdx.json
+          retention-days: 30
 
   e2e:
     runs-on: ubuntu-24.04
