@@ -13,6 +13,13 @@ updates:
       npm-minor-patch: # minor・patch の更新は1つの PR にまとめる（major は1つずつ）
         patterns: ["*"]
         update-types: ["minor", "patch"]
+    ignore:
+      # TypeScript 7 は typescript-eslint がまだ使えない（コンパイラの API は 7.1 から）。major は見送る（11/7）
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
+      # 型は動かす Node（22）に合わせる。新しい Node の型にすると、Node 22 にない API を使えてしまう
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
     commit-message:
       prefix: "NORI-36" # コミットと PR の題の先頭に課題キーを付ける（CLAUDE.md の決まり）
 
