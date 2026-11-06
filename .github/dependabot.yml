@@ -1,0 +1,27 @@
+# NORI-36：Dependabot に、依存の新しい版を見張らせ、更新の PR を作らせる（脅威分析 S-01・S-02）。
+# 書き方：https://docs.github.com/en/code-security/dependabot/working-with-dependabot/dependabot-options-reference
+version: 2 # 設定ファイルの書式の版（常に 2）
+updates:
+  - package-ecosystem: "npm" # package.json と package-lock.json の依存
+    directory: "/" # package.json のある場所
+    schedule:
+      interval: "weekly" # 週に1回だけ見る（PR が増えすぎないように）
+      day: "monday" # 月曜日に
+      time: "09:00" # 朝9時に
+      timezone: "Asia/Tokyo" # 日本時間で（既定は UTC）
+    groups:
+      npm-minor-patch: # minor・patch の更新は1つの PR にまとめる（major は1つずつ）
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+    commit-message:
+      prefix: "NORI-36" # コミットと PR の題の先頭に課題キーを付ける（CLAUDE.md の決まり）
+
+  - package-ecosystem: "github-actions" # .github/workflows の uses: で使うアクション
+    directory: "/" # GitHub Actions は / を指定すると .github/workflows を見る
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Asia/Tokyo"
+    commit-message:
+      prefix: "NORI-36"

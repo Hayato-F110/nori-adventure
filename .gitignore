@@ -67,3 +67,6 @@ desktop.ini
 *.log
 *.tmp
 *.bak
+
+# NORI-36：CI で作る SBOM（成果物として残す。リポジトリには入れない）
+sbom.spdx.json
