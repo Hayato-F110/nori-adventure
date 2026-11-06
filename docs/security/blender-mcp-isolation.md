@@ -10,7 +10,7 @@
 | 選んだもの | **Blender Lab の公式 MCP サーバー**（Blender Foundation の実験的なプロジェクト）。似た名前の第三者製（ahujasid 版）は使わない                                                                                                                                        |
 | 理由       | 第三者製は、テレメトリの仕組み（オンのとき、プロンプト・スクリーンショット・生成コードを送る。環境変数でオフにできる）と、外部の素材サービスへの接続がある。コード実行の脆弱性の報告（CVE-2026-10688、第三者の報告）もある。公式版は道具が少なく、外部への通信がない |
 | 版         | ソース：コミット `dbbf836ad4b1025f14a2b3b504c43903f39e0b04`（2026-09-29）。アドオン：`mcp-1.0.3.zip`。Blender 5.1 以上（入っているのは 5.2.3）                                                                                                                       |
-| 依存       | `mcp[cli]`・`docutils`・`pyyaml`（版は固定されていない）→ `uvx --exclude-newer 2026-10-22` で、公開から2週間以上の版に限る                                                                                                                                           |
+| 依存       | `mcp[cli]`・`docutils`・`pyyaml`（版は固定されていない）→ `uvx --exclude-newer 2026-10-22` で、日付を固定する（毎回同じ版になる。更新するときは日付を変えて PR で見る）                                                                                              |
 
 出典：<https://www.blender.org/lab/mcp-server/>、ソース <https://projects.blender.org/lab/blender_mcp>（`readme.md`、`readme_tools.rst`、`addon/blender_mcp_addon/blender_manifest.toml`、`mcp/blmcp/tools_helpers/blender_cli.py`）
 
