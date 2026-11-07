@@ -22,6 +22,9 @@ export type ModelEntry = {
 
 export type Manifest = { models: ModelEntry[] };
 
+/** 素材のライセンス（SPDX の識別子）。LICENSE-ASSETS.md と同じ */
+export const ASSET_LICENSE = "CC-BY-4.0";
+
 export const REQUIRED_TEXT_FIELDS = ["createdWith", "source", "author", "license", "importedAt"] as const;
 
 /** 同じ名前の記録を置き換え、名前の順に並べる（差分を読みやすくするため） */
