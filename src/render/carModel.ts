@@ -1,6 +1,7 @@
-// 試作用の車のモデル（オリジナル。S11 で Blender の GLB に置きかえる）。
+// 車の見た目。GLB（public/models/car.glb）が読めればそれを使い、読めなければ箱の形の車で続ける。
 // 前は −Z。原点は車体の底の中心。
 import * as THREE from "three";
+import { ASSET } from "../config";
 
 export type CarView = {
   root: THREE.Group;
@@ -66,4 +67,63 @@ export const createCarView = (): CarView => {
       }
     },
   };
+};
+
+// ---- Blender で作った GLB の車（NORI-18。docs/game-rules.md「3D モデル（アセット）」） ----
+
+/**
+ * 読み込んだモデルから車を作る。決まったノード（ASSET.carNodes）がそろわなければ null を返し、
+ * 呼ぶ側は箱の車のまま続ける。
+ */
+export const carViewFromModel = (model: THREE.Object3D): CarView | null => {
+  const found = ASSET.carNodes.map((name) => model.getObjectByName(name));
+  if (found.some((node) => node === undefined)) return null;
+  model.traverse((obj) => {
+    if (obj instanceof THREE.Mesh) obj.castShadow = true;
+  });
+  const wheels = ASSET.carNodes
+    .filter((name) => name.startsWith("wheel_"))
+    .map((name) => {
+      const node = model.getObjectByName(name) as THREE.Object3D;
+      // 先に Y（ハンドル）、そのあと X（回転）の順に効かせる
+      node.rotation.order = "YXZ";
+      const height = new THREE.Box3().setFromObject(node).getSize(new THREE.Vector3()).y;
+      return { node, radius: height > 0 ? height / 2 : WHEEL_RADIUS, front: name.startsWith("wheel_F") };
+    });
+  const root = new THREE.Group();
+  root.name = "car";
+  root.add(model);
+  return {
+    root,
+    update(distanceDelta, steer) {
+      for (const wheel of wheels) {
+        wheel.node.rotation.x -= distanceDelta / wheel.radius;
+        if (wheel.front) wheel.node.rotation.y = -steer * MAX_WHEEL_STEER;
+      }
+    },
+  };
+};
+
+export type ModelManifest = { models: { name: string; file: string }[] };
+
+export type CarLoadDeps = {
+  /** import.meta.env.BASE_URL（例：/nori-adventure/） */
+  base: string;
+  fetchManifest: (url: string) => Promise<ModelManifest>;
+  loadModel: (url: string) => Promise<THREE.Object3D>;
+};
+
+/**
+ * manifest に car があれば GLB を読み、車を返す。ない・失敗したときは null（例外を出さない）。
+ * 同じオリジンの models/ だけを読む（CSP の default-src 'self'）。
+ */
+export const loadCarView = async (deps: CarLoadDeps): Promise<CarView | null> => {
+  try {
+    const manifest = await deps.fetchManifest(`${deps.base}models/manifest.json`);
+    const entry = manifest.models.find((m) => m.name === "car");
+    if (entry === undefined) return null;
+    return carViewFromModel(await deps.loadModel(`${deps.base}models/${entry.file}`));
+  } catch {
+    return null;
+  }
 };

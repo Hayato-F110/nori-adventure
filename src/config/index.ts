@@ -172,6 +172,23 @@ export const BOSS = {
   rockBumpSpeedFactor: 0.3,
 } as const;
 
+/** 3D モデル（アセット）。tools/assets/ の検査とゲームの読み込みで使う（NORI-18） */
+export const ASSET = {
+  maxGlbBytes: 524288,
+  maxTriangles: 8000,
+  sizeTolerance: 0.1,
+  carSize: { width: 1.8, height: 1.7, length: 3.4 },
+  carNodes: ["body", "wheel_FL", "wheel_FR", "wheel_RL", "wheel_RR"],
+  allowedExtensions: [
+    "KHR_materials_emissive_strength",
+    "KHR_materials_ior",
+    "KHR_materials_specular",
+    "KHR_materials_unlit",
+    "KHR_texture_transform",
+    "KHR_mesh_quantization",
+  ],
+} as const;
+
 /** 補助機能。初期値はすべてオフ（隠れた補正を入れない） */
 export const ASSIST = {
   steerToRoad: false,
@@ -193,5 +210,6 @@ export const CONFIG = {
   BOSS,
   RESPAWN,
   CAMERA,
+  ASSET,
   ASSIST,
 } as const;
