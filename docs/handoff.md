@@ -8,7 +8,7 @@
 
 | 項目       | 状態                                                                                                                                    |
 | ---------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| リポジトリ | `Hayato-F110/nori-adventure`（**非公開**）。main は PR #1〜#32 まで反映。CI はすべて緑。開いている PR は 0                              |
+| リポジトリ | `Hayato-F110/nori-adventure`（**公開**、11/7）。古い履歴は `nori-adventure-archive`（非公開）。開いている PR は 0                       |
 | Jira       | スプリント1（ID 4）は 11/5 09:00〜11/10 23:02。31pt のうち **20pt 完了**                                                                |
 | Blender    | 5.2.3。**隔離は完了（NORI-17）**。MCP（Blender Lab 版 v1.0.3、`.mcp.json` でコミット固定）はつながる。`_for_cli` の6つは deny           |
 | 供給網     | Dependabot（npm・Actions、毎週月曜 9:00 JST）、CI の `npm audit --audit-level=high` と SBOM。未対応の警告 0（minimatch は受け入れ済み） |

@@ -49,3 +49,21 @@
 - 新しいリポジトリには、PR #1〜#22 の画面（説明・レビュー）は移らない。古いリポジトリで見られる。コミットの文にある「Merge pull request #19」などの番号は、新しいリポジトリの PR 番号とは別のもの
 - 置き換えの一覧には姓が書かれているので、スクラッチのフォルダ以外に置かない。終わったら消す
 - 手順は実行する日に、公式の資料でもう一度確かめる
+
+## 4. 公開の記録（2026-11-07）
+
+11/7 18:38（JST）に公開した（リポジトリの作成時刻）。古いリポジトリは `Hayato-F110/nori-adventure-archive`（非公開）として残っている。
+
+| #    | 結果                                                                                                                                                                                                                                                                                                                                                                                             |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1    | 開いている PR は 0。1章をやり直した：秘密情報のパターンは Hook 自身の検出パターンの2件だけ。追跡中のファイルは md・ts・json などで、画像・動画・鍵はない。作者・コミッターは noreply だけ。`private/`・キックオフ文書は対象外                                                                                                                                                                    |
+| 2    | git-filter-repo 2.47.0（PyPI の最新）。`git clone --no-local --single-branch --branch main` でまっさらな clone を作った                                                                                                                                                                                                                                                                          |
+| 3    | 置き換えは5つ（姓2つ、Jira のサイト名2つ、仕事の内容が分かる一文1つ）。サイト名と一文は、`privacy-reviewer` の指摘を受けてオーナーが決めた。職種・使う技術の説明は、氏名と勤務先がないので、そのまま公開する（オーナーが決定）                                                                                                                                                                   |
+| 4    | 7つの言葉が、差分・コミットの文・今のファイルのすべてで0件。コミット数は81で同じ。元の main との差分は3ファイル・各1行。`npm ci && npm run check` は成功（単体テスト168件）                                                                                                                                                                                                                      |
+| 5〜7 | オーナーが実行。`gh repo create` に `--source <clone> --remote origin --push` を足して6と7をまとめた。公開側の main は clone と同じコミット、ブランチは main だけ                                                                                                                                                                                                                                |
+| 8    | `gh api` で確かめた：Secret scanning・Push protection は公開時から有効。Dependabot alerts・security updates、Private vulnerability reporting、CodeQL（default setup、JavaScript/TypeScript と Actions）を有効にした。ルールセット「main を守る」（削除・force push の禁止、PR と CI の `check`・`e2e` を必須、承認は0人、マージは merge だけ）。Actions のトークンは `read`、PR の承認はできない |
+| 9    | `origin` はもともと同じ URL なので、つなぎ直しは要らなかった。手元の古い main は `archive-main` に名前を変え、`archive` リモートにつないだ（push 先も `archive` に固定）。新しい main は `origin/main` から作った（オーナーが承認）                                                                                                                                                              |
+
+出典：[git-filter-repo の説明（v2.47.0）](https://github.com/newren/git-filter-repo/blob/v2.47.0/Documentation/git-filter-repo.txt)、[Repositories の REST API](https://docs.github.com/en/rest/repos/repos)、[Code scanning の REST API](https://docs.github.com/en/rest/code-scanning/code-scanning)、[Rules の REST API](https://docs.github.com/en/rest/repos/rules)
+
+残り：`privacy-reviewer` の低い指摘（PC の構成の書き方、隔離の確認スクリプトがユーザー名を書くこと）は別の PR で直す。CSP の `'unsafe-inline'` は NORI-16 で直す。
