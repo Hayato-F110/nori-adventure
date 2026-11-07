@@ -1,4 +1,4 @@
-// キーボード → InputFrame。タッチ・ゲームパッドは S06 で同じ形に変換して足す。
+// キーボード → InputFrame。タッチ（touch.ts）・ゲームパッド（gamepad.ts）と、main.ts で足し合わせる（merge.ts）。
 import type { InputFrame } from "../core/types";
 
 const FORWARD = new Set(["ArrowUp", "KeyW"]);

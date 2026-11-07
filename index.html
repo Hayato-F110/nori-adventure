@@ -13,6 +13,66 @@
   <body>
     <canvas id="game" aria-label="ゲーム画面"></canvas>
     <div id="hud" aria-hidden="true"></div>
+    <div id="rotate" class="rotate" role="img" aria-label="横にしてね">
+      <svg viewBox="0 0 120 120" aria-hidden="true">
+        <rect
+          class="rotate-phone"
+          x="38"
+          y="18"
+          width="44"
+          height="84"
+          rx="8"
+          fill="none"
+          stroke="#fff"
+          stroke-width="7"
+        />
+        <path
+          d="M20 70 A42 42 0 0 1 48 16"
+          fill="none"
+          stroke="#ffd166"
+          stroke-width="7"
+          stroke-linecap="round"
+        />
+        <path
+          d="M40 8 L50 16 L40 25"
+          fill="none"
+          stroke="#ffd166"
+          stroke-width="7"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
+      </svg>
+    </div>
+    <div id="touch" class="touch">
+      <div
+        id="wheel"
+        class="touch-wheel"
+        role="slider"
+        aria-label="ハンドル"
+        aria-valuemin="-1"
+        aria-valuemax="1"
+        aria-valuenow="0"
+      >
+        <div id="knob" class="touch-knob">
+          <svg viewBox="0 0 100 100" aria-hidden="true">
+            <circle cx="50" cy="50" r="38" fill="none" stroke="#fff" stroke-width="10" />
+            <circle cx="50" cy="50" r="9" fill="#fff" />
+            <path
+              d="M50 12 V41 M17 64 L42 54 M83 64 L58 54"
+              stroke="#fff"
+              stroke-width="9"
+              stroke-linecap="round"
+            />
+          </svg>
+        </div>
+      </div>
+      <button id="back" class="touch-button touch-back" type="button" aria-label="さがる">
+        <svg viewBox="0 0 100 100" aria-hidden="true"><path d="M68 22 L28 50 L68 78 Z" fill="#fff" /></svg>
+      </button>
+      <button id="go" class="touch-button touch-go" type="button" aria-label="すすむ">
+        <svg viewBox="0 0 100 100" aria-hidden="true"><path d="M32 18 L78 50 L32 82 Z" fill="#fff" /></svg>
+      </button>
+    </div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

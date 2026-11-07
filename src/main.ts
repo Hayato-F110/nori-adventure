@@ -5,7 +5,10 @@ import { CAMERA, SIM } from "./config";
 import { createGame } from "./core/game";
 import { createFixedStepper } from "./core/loop";
 import type { CarState, GameState, InputFrame, Pose2D } from "./core/types";
+import { createGamepadInput } from "./input/gamepad";
 import { createKeyboardInput } from "./input/keyboard";
+import { mergeInputs } from "./input/merge";
+import { createTouchInput } from "./input/touch";
 import { type CarView, createCarView, loadCarView, type ModelManifest } from "./render/carModel";
 import { createCity } from "./render/city";
 import { createFollowCamera } from "./render/followCamera";
@@ -79,6 +82,19 @@ resize();
 
 // ---- 状態 ----
 const keyboard = createKeyboardInput(window);
+const byId = (id: string) => {
+  const el = document.getElementById(id);
+  if (el === null) throw new Error(`index.html に #${id} が必要です`);
+  return el;
+};
+const touch = createTouchInput({
+  root: byId("touch"),
+  forward: byId("go"),
+  backward: byId("back"),
+  wheel: byId("wheel"),
+  knob: byId("knob"),
+});
+const gamepads = createGamepadInput();
 const stepper = createFixedStepper(SIM.fixedDt, SIM.maxStepsPerFrame);
 let previous: GameState = game.initial();
 let current: GameState = previous;
@@ -107,7 +123,8 @@ const frame = (now: number) => {
   const frameSeconds = Math.min(0.25, (now - lastTime) / 1000);
   lastTime = now;
 
-  input = keyboard.read();
+  // キーボード・タッチ・ゲームパッドを足して、-1〜1 に収める（docs/game-rules.md「入力」）
+  input = mergeInputs([keyboard.read(), touch.read(), ...gamepads.read()]);
   const { alpha } = stepper.advance(frameSeconds, () => {
     previous = current;
     current = game.step(current, input);
