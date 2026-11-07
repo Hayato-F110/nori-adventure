@@ -177,6 +177,7 @@ export const ASSET = {
   maxGlbBytes: 524288,
   maxTriangles: 8000,
   sizeTolerance: 0.1,
+  maxWheelSteer: 0.5,
   carSize: { width: 1.8, height: 1.7, length: 3.4 },
   carNodes: ["body", "wheel_FL", "wheel_FR", "wheel_RL", "wheel_RR"],
   allowedExtensions: [

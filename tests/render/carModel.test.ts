@@ -73,3 +73,14 @@ describe("loadCarView", () => {
     expect(urls).toEqual(["/nori-adventure/models/car.glb"]);
   });
 });
+
+describe("前輪の切れる角度（ASSET.maxWheelSteer）", () => {
+  it("ハンドルいっぱいで、前輪は ASSET.maxWheelSteer だけ切れる", () => {
+    const model = modelWith(ASSET.carNodes);
+    carViewFromModel(model)?.update(0, 1);
+    expect(Math.abs((model.getObjectByName("wheel_FL") as THREE.Object3D).rotation.y)).toBeCloseTo(
+      ASSET.maxWheelSteer,
+      9,
+    );
+  });
+});

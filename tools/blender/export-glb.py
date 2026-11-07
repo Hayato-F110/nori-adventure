@@ -47,7 +47,7 @@ def export_glb(name: str) -> dict:
         export_draco_mesh_compression_enable=False,
         export_meshopt_compression_enable=False,
         export_use_gltfpack=False,
-        export_copyright="オーナー",
+        export_copyright="Hayato-F110 (CC BY 4.0)",  # LICENSE-ASSETS.md と同じ
     )
     objects = sorted(o.name for o in collection.all_objects)
     return {"ok": result == {"FINISHED"}, "path": path, "bytes": os.path.getsize(path), "objects": objects}
