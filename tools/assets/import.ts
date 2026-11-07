@@ -5,7 +5,7 @@ import { createHash } from "node:crypto";
 import { copyFileSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { type AssetKind, checkGlb, inspectGlb, validateGlb } from "./inspect.ts";
-import { type Manifest, upsertEntry } from "./manifest.ts";
+import { ASSET_LICENSE, type Manifest, upsertEntry } from "./manifest.ts";
 
 const NAME_PATTERN = /^[a-z][a-z0-9-]{0,31}$/; // ファイル名に使うので、フォルダをまたぐ文字（/ \ ..）を許さない
 const KINDS: Record<string, AssetKind> = { car: "car" };
@@ -53,8 +53,8 @@ const next = upsertEntry(manifest, {
     process.env.NORI_CREATED_WITH ??
     "Blender 5.2.3（noriblender の隔離環境。Blender MCP で Claude が作成を補助）",
   source: `C:/NoriBlender/work/${name}.blend`,
-  author: "オーナー",
-  license: "オーナーの著作（リポジトリのライセンスに従う）",
+  author: "Hayato-F110",
+  license: ASSET_LICENSE,
   externalAssets: "なし",
   importedAt: new Date().toISOString().slice(0, 10),
 });

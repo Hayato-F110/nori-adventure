@@ -20,3 +20,8 @@ npm run e2e        # ビルドして、車を12秒走らせ FPS を測る
 ## 技術
 
 TypeScript（strict）/ Vite / Three.js / Rapier / Vitest / Playwright / GitHub Actions / GitHub Pages
+
+## ライセンス
+
+- コード：[MIT License](LICENSE)
+- 素材（3D モデル・画像・映像・音）：[CC BY 4.0](LICENSE-ASSETS.md)。すべてオリジナルで、出所は [`public/models/manifest.json`](public/models/manifest.json)

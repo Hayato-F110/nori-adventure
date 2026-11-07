@@ -3,7 +3,12 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { ASSET } from "../../src/config/index.ts";
-import { type Manifest, REQUIRED_TEXT_FIELDS, upsertEntry } from "../../tools/assets/manifest.ts";
+import {
+  ASSET_LICENSE,
+  type Manifest,
+  REQUIRED_TEXT_FIELDS,
+  upsertEntry,
+} from "../../tools/assets/manifest.ts";
 
 // public/models/ の出所の記録（アセット版の SBOM。脅威分析 S-05、公開チェックリスト #8）。
 const root = path.resolve(import.meta.dirname, "../..");
@@ -36,6 +41,16 @@ describe("public/models/manifest.json", () => {
       for (const field of REQUIRED_TEXT_FIELDS) expect(m[field], `${m.file} の ${field}`).not.toBe("");
       expect(m.externalAssets, m.file).toBe("なし");
     }
+  });
+
+  it("素材のライセンスは CC BY 4.0（LICENSE-ASSETS.md と同じ）", () => {
+    expect(ASSET_LICENSE).toBe("CC-BY-4.0");
+    expect(readFileSync(path.join(root, "LICENSE-ASSETS.md"), "utf8")).toContain("CC BY 4.0");
+    for (const m of manifest.models) expect(m.license, m.file).toBe(ASSET_LICENSE);
+  });
+
+  it("コードのライセンスは MIT", () => {
+    expect(readFileSync(path.join(root, "LICENSE"), "utf8")).toMatch(/^MIT License/);
   });
 
   it("manifest にないファイルが public/models/ にない", () => {
