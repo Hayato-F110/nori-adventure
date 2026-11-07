@@ -10,7 +10,6 @@ export type CarView = {
 };
 
 const WHEEL_RADIUS = 0.42;
-const MAX_WHEEL_STEER = 0.5; // 見た目だけの前輪の角度（rad）
 
 export const createCarView = (): CarView => {
   const root = new THREE.Group();
@@ -63,7 +62,7 @@ export const createCarView = (): CarView => {
     update(distanceDelta, steer) {
       for (const wheel of wheels) {
         wheel.spin.rotation.x -= distanceDelta / WHEEL_RADIUS;
-        if (wheel.front) wheel.pivot.rotation.y = -steer * MAX_WHEEL_STEER;
+        if (wheel.front) wheel.pivot.rotation.y = -steer * ASSET.maxWheelSteer;
       }
     },
   };
@@ -98,7 +97,7 @@ export const carViewFromModel = (model: THREE.Object3D): CarView | null => {
     update(distanceDelta, steer) {
       for (const wheel of wheels) {
         wheel.node.rotation.x -= distanceDelta / wheel.radius;
-        if (wheel.front) wheel.node.rotation.y = -steer * MAX_WHEEL_STEER;
+        if (wheel.front) wheel.node.rotation.y = -steer * ASSET.maxWheelSteer;
       }
     },
   };

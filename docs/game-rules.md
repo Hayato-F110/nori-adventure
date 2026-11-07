@@ -123,6 +123,7 @@ Blender で作った GLB を `npm run assets:import <名前>` で検査してか
 | 車の高さ                     | 1.7 m                                                   | `ASSET.carSize.height`    | 追従カメラ（高さ 4.5 m）から屋根ごしに前が見える                                                                                               |
 | 車の長さ                     | 3.4 m                                                   | `ASSET.carSize.length`    | 当たり判定（半径 1.0 m）と大きく変わらない。小さな、かわいい車                                                                                 |
 | 車のノードの名前             | `body`・`wheel_FL`・`wheel_FR`・`wheel_RL`・`wheel_RR`  | `ASSET.carNodes`          | タイヤを回す・前輪を切る（今の試作と同じ動き）。名前で探すので、Blender の作り直しに強い                                                       |
+| 前輪の見た目の切れ角         | 0.5 rad（約29°）                                        | `ASSET.maxWheelSteer`     | 描画だけ（向きの変わり方は `CAR.maxTurnRate`）。ハンドルを切ったのが目で分かる。当たり判定・動きには影響しない                                 |
 | 向きと原点                   | 前は −Z、上は +Y、原点は車体の底の中心                  | —                         | ゲームの座標（上の「単位」）と同じ。読み込んだまま置ける                                                                                       |
 | 使ってよい拡張               | Blender がよく使う材質の拡張と量子化（6つ。設定を見る） | `ASSET.allowedExtensions` | three.js が復号の部品なしで読めるものだけ。WASM や外部の読み込みが要るもの（Draco・meshopt・Basis）は入れない                                  |
 | 圧縮                         | しない（上限の検査で軽さを守る）                        | —                         | Draco・meshopt は復号の WASM が要り CSP を緩める。量子化の道具は画像処理のネイティブの部品を引き込む。上限を超えたら、そのとき量子化を検討する |

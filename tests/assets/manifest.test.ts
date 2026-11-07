@@ -87,3 +87,25 @@ describe("upsertEntry（取り込みで manifest を更新する）", () => {
     expect(next.models.map((m) => `${m.name}:${m.sha256}`)).toEqual(["car:c", "train:a"]);
   });
 });
+
+describe("Blender のスクリプトと ASSET の一致（tools/blender/build-car.py）", () => {
+  const py = readFileSync(path.join(root, "tools/blender/build-car.py"), "utf8");
+
+  it("車の幅・長さ・高さが ASSET.carSize と同じ", () => {
+    const m = /^WIDTH, LENGTH, HEIGHT = ([\d.]+), ([\d.]+), ([\d.]+)/m.exec(py);
+    expect(m?.slice(1, 4).map(Number)).toEqual([
+      ASSET.carSize.width,
+      ASSET.carSize.length,
+      ASSET.carSize.height,
+    ]);
+  });
+
+  it("オブジェクトの名前が ASSET.carNodes と同じ", () => {
+    for (const name of ASSET.carNodes) expect(py).toContain(`"${name}"`);
+  });
+
+  it("後ろの目印（テールライト）とタイヤの回転の目印がある（追従カメラは後ろから映すため）", () => {
+    expect(py).toMatch(/car_tail/);
+    expect(py).toMatch(/tread|トレッド/);
+  });
+});
