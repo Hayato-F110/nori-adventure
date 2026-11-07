@@ -81,11 +81,13 @@ test.describe("タブレット（1024×768・タッチ）", () => {
     expect(Number(await page.locator("#wheel").getAttribute("aria-valuenow"))).toBeGreaterThan(0.3);
 
     // 押したまま別のアプリに切りかえる（blur）と、押したままの扱いにしない
+    // 遅い CI（約3fps）では、読んでいる間にも進むので、blur の直後の速さと比べる（11/7 に CI で失敗）
     await page.evaluate(() => window.dispatchEvent(new Event("blur")));
+    const atBlur = await carState(page);
     await waitTicks(page, 60);
     const afterBlur = await carState(page);
     expect(Math.abs(afterBlur.steer)).toBeLessThan(0.05);
-    expect(afterBlur.speed).toBeLessThan(held.speed);
+    expect(afterBlur.speed).toBeLessThan(atBlur.speed);
     await expect(page.locator("#go")).not.toHaveClass(/pressed/);
     await expect(page.locator("#wheel")).not.toHaveClass(/active/);
 
@@ -94,7 +96,7 @@ test.describe("タブレット（1024×768・タッチ）", () => {
     await waitTicks(page, 60);
     const released = await carState(page);
     expect(Math.abs(released.steer)).toBeLessThan(0.05);
-    expect(released.speed).toBeLessThan(held.speed);
+    expect(released.speed).toBeLessThanOrEqual(afterBlur.speed);
 
     expect(errors).toEqual([]);
   });
