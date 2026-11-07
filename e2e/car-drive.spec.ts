@@ -1,5 +1,6 @@
 import { writeFileSync } from "node:fs";
 import { expect, test } from "@playwright/test";
+import { maskGpu } from "./report-mask";
 
 // 完了条件（S04）：ブラウザで車が10秒以上走り、PC で 60fps 前後。コンソールエラーなし。
 // NORI-13：建物の当たり判定が入ったので、道に沿って四角く回る（状態を読んでハンドルを切る）。建物に触れないこと。
@@ -117,11 +118,13 @@ test("車が12秒走り、FPS とコンソールエラーを記録する", async
     fpsMin: Math.min(...drivingSamples),
     consoleErrors,
     userAgent: await page.evaluate(() => navigator.userAgent),
-    gpu: await page.evaluate(() => {
-      const gl = document.createElement("canvas").getContext("webgl2");
-      const ext = gl?.getExtension("WEBGL_debug_renderer_info");
-      return ext ? String(gl?.getParameter(ext.UNMASKED_RENDERER_WEBGL)) : "unknown";
-    }),
+    gpu: maskGpu(
+      await page.evaluate(() => {
+        const gl = document.createElement("canvas").getContext("webgl2");
+        const ext = gl?.getExtension("WEBGL_debug_renderer_info");
+        return ext ? String(gl?.getParameter(ext.UNMASKED_RENDERER_WEBGL)) : "unknown";
+      }),
+    ),
   };
   writeFileSync(testInfo.outputPath("fps-report.json"), JSON.stringify(report, null, 2));
   console.info(JSON.stringify(report));
