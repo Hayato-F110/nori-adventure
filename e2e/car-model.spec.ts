@@ -20,6 +20,10 @@ test(`車のモデル：${hasCar ? "GLB を読み込む" : "箱の車のまま"}
 
   await page.goto("./");
   await page.waitForFunction(() => (window.__nori?.frames ?? 0) > 5, undefined, { timeout: 60_000 });
+  // NORI-16：本番のビルド（preview）では、CSP の style-src に 'unsafe-inline' がない。違反があればコンソールエラーになる
+  const csp = await page.locator('meta[http-equiv="Content-Security-Policy"]').getAttribute("content");
+  expect(csp).toContain("style-src 'self';");
+  expect(csp).not.toContain("'unsafe-inline'");
   if (hasCar) {
     await page.waitForFunction(() => window.__nori?.carModel === "glb", undefined, { timeout: 30_000 });
   } else {
