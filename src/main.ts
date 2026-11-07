@@ -1,11 +1,12 @@
 // 起動とゲームループ。状態（src/core）を固定刻みで進め、描画（src/render）はその状態を読むだけ。
 import * as THREE from "three";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { CAMERA, SIM } from "./config";
 import { createGame } from "./core/game";
 import { createFixedStepper } from "./core/loop";
 import type { CarState, GameState, InputFrame, Pose2D } from "./core/types";
 import { createKeyboardInput } from "./input/keyboard";
-import { createCarView } from "./render/carModel";
+import { type CarView, createCarView, loadCarView, type ModelManifest } from "./render/carModel";
 import { createCity } from "./render/city";
 import { createFollowCamera } from "./render/followCamera";
 
@@ -14,6 +15,8 @@ declare global {
     /** E2E テストと開発用の読み取り口（状態を書き換える手段は置かない） */
     __nori?: {
       fpsSamples: number[];
+      /** 車の見た目：GLB を読めたら "glb"、読む前・読めなかったときは "box" */
+      carModel: "box" | "glb";
       frames: number;
       state: () => GameState;
     };
@@ -44,8 +47,23 @@ const game = await createGame();
 const city = createCity(game.layout);
 scene.add(city.root);
 
-const carView = createCarView();
+// まず箱の車で始め、GLB が読めたら差しかえる（読み込みを待たせない。読めなければ箱のまま）
+let carView: CarView = createCarView();
 scene.add(carView.root);
+const gltfLoader = new GLTFLoader();
+void loadCarView({
+  base: import.meta.env.BASE_URL,
+  fetchManifest: async (url) => (await (await fetch(url)).json()) as ModelManifest,
+  loadModel: async (url) => (await gltfLoader.loadAsync(url)).scene,
+}).then((loaded) => {
+  if (loaded === null) return;
+  loaded.root.position.copy(carView.root.position);
+  loaded.root.rotation.copy(carView.root.rotation);
+  scene.remove(carView.root);
+  carView = loaded;
+  scene.add(carView.root);
+  if (window.__nori) window.__nori.carModel = "glb";
+});
 
 const camera = new THREE.PerspectiveCamera(CAMERA.fov, 1, 0.1, 400);
 const followCamera = createFollowCamera(camera, CAMERA, city.obstacles);
@@ -79,7 +97,7 @@ const fpsSamples: number[] = [];
 let frames = 0;
 let windowFrames = 0;
 let windowStart = performance.now();
-window.__nori = { fpsSamples, frames: 0, state: () => structuredClone(current) };
+window.__nori = { fpsSamples, carModel: "box", frames: 0, state: () => structuredClone(current) };
 
 let lastPose: Pose2D = interpolate(current.car, current.car, 1);
 followCamera.snap(lastPose);
