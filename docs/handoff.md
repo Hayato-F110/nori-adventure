@@ -6,12 +6,12 @@
 
 ## 1. いまの状態
 
-| 項目       | 状態                                                                                                                                    |
-| ---------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| リポジトリ | `Hayato-F110/nori-adventure`（**公開**、11/7）。古い履歴は `nori-adventure-archive`（非公開）。開いている PR は 0                       |
-| Jira       | スプリント1（ID 4）は 11/5 09:00〜11/10 23:02。31pt のうち **20pt 完了**                                                                |
-| Blender    | 5.2.3。**隔離は完了（NORI-17）**。MCP（Blender Lab 版 v1.0.3、`.mcp.json` でコミット固定）はつながる。`_for_cli` の6つは deny           |
-| 供給網     | Dependabot（npm・Actions、毎週月曜 9:00 JST）、CI の `npm audit --audit-level=high` と SBOM。未対応の警告 0（minimatch は受け入れ済み） |
+| 項目       | 状態                                                                                                                                                       |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| リポジトリ | `Hayato-F110/nori-adventure`（**公開**、11/7）。古い履歴は `nori-adventure-archive`（非公開）。開いている PR は 0                                          |
+| Jira       | スプリント1（ID 4）は 11/5 09:00〜11/10 23:02。31pt のうち **20pt 完了**                                                                                   |
+| Blender    | 5.2.3。**隔離は完了（NORI-17）**。MCP（Blender Lab 版 v1.0.3、`.mcp.json` でコミット固定）はつながる。`_for_cli` の6つは deny                              |
+| 供給網     | Dependabot（npm・Actions、毎週月曜 9:00 JST）、CI の `npm audit --audit-level=high` と SBOM。未対応の警告 0（minimatch は `overrides` で 11.0.5 に。11/7） |
 
 ### スプリント1
 
@@ -39,7 +39,7 @@
 - **E2E**：実際の12秒かつゲーム内6秒まで走る（PR #32）。CI はゲーム内 6.2 秒・平均 9.9 m/s
 - **リモートの古いブランチ**：マージ済みの `feature/NORI-*` 9本と `dependabot/...npm-minor-patch...` は消してよい（決まりどおり `git push origin --delete`）。`dependabot/.../types/node-26.6.6`・`typescript-7.0.2` は未マージ（Dependabot が閉じた PR）なので、消すならオーナーの承認
 - **TypeScript 7**：typescript-eslint が対応したら（TS 7.1 で API）、`dependabot.yml` の `ignore` を外す
-- **minimatch**：eslint が 11 系を使うようになったら更新し、警告 #1 を確かめる
+- **minimatch**：`overrides` で 11.0.5 に固定（11/7）。eslint が 11 系を使うようになったら `overrides` と `supply-chain.test.ts` の該当のテストを外す
 - **脅威分析 B-02**：DNS は止まらない（受け入れ）
 
 ## 4. 環境で分かっていること（つまずき防止）
