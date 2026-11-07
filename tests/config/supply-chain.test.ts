@@ -81,3 +81,31 @@ describe("CI（.github/workflows/ci.yml）", () => {
     for (const ref of uses) expect(ref).toMatch(/@[0-9a-f]{40}$/);
   });
 });
+
+describe("minimatch の固定（GHSA-g3hv-75wg-m249、脅威分析 S-02）", () => {
+  // eslint 10 は minimatch 10 系を指定するが、直った版は 11.0.1 から。overrides で 11 系にそろえる。
+  // eslint が自分で 11 系を使うようになったら、overrides とこのテストを外す。
+  const [fixedMajor, fixedMinor, fixedPatch] = [11, 0, 1];
+  const atLeastFixed = (v: string): boolean => {
+    const [a = 0, b = 0, c = 0] = v.split(".").map(Number);
+    return a !== fixedMajor ? a > fixedMajor : b !== fixedMinor ? b > fixedMinor : c >= fixedPatch;
+  };
+
+  it("package.json の overrides で、直った版以上を正確な版で指定している", () => {
+    const pkg = JSON.parse(read("package.json")) as { overrides?: Record<string, string> };
+    const v = pkg.overrides?.minimatch ?? "";
+    expect(v).toMatch(/^\d+\.\d+\.\d+$/);
+    expect(atLeastFixed(v)).toBe(true);
+  });
+
+  it("lockfile の minimatch がすべて直った版以上", () => {
+    const lock = JSON.parse(read("package-lock.json")) as {
+      packages: Record<string, { version?: string }>;
+    };
+    const versions = Object.entries(lock.packages)
+      .filter(([name]) => name.endsWith("node_modules/minimatch"))
+      .map(([, p]) => p.version ?? "");
+    expect(versions.length).toBeGreaterThan(0);
+    expect(versions.filter((v) => !atLeastFixed(v))).toEqual([]);
+  });
+});
