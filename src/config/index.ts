@@ -172,6 +172,15 @@ export const BOSS = {
   rockBumpSpeedFactor: 0.3,
 } as const;
 
+/** 入力（全ステージ共通）。キーボード・タッチ・ゲームパッドを InputFrame に直すときの数値 */
+export const INPUT = {
+  touchButtonSize: 96,
+  touchGoButtonSize: 120,
+  touchSteerRange: 80,
+  touchSteerDeadzone: 8,
+  stickDeadzone: 0.2,
+} as const;
+
 /** 3D モデル（アセット）。tools/assets/ の検査とゲームの読み込みで使う（NORI-18） */
 export const ASSET = {
   maxGlbBytes: 524288,
@@ -211,6 +220,7 @@ export const CONFIG = {
   BOSS,
   RESPAWN,
   CAMERA,
+  INPUT,
   ASSET,
   ASSIST,
 } as const;
