@@ -93,15 +93,18 @@ def main() -> None:
     write_result = can_write()
     env_results = env_points_outside(paths)
     resource_result = user_resource_ok()
+    # ユーザー名そのものは書かない（隔離に失敗するとオーナーの名前が入り、証跡と一緒にコミットされるおそれ）
+    dedicated = getpass.getuser().lower() == "noriblender"
     result = {
-        "user": getpass.getuser(),
+        "isDedicatedUser": dedicated,
         "protectedChecked": len(paths),
         "protected": read_results,
         "workDir": write_result,
         "network": network_results,
         "env": env_results,
         "blenderUserResource": resource_result,
-        "isolated": len(paths) > 0
+        "isolated": dedicated
+        and len(paths) > 0
         and not any(r["reachable"] for r in read_results)
         and bool(write_result["writable"])
         and not any(r["connected"] for r in network_results)
