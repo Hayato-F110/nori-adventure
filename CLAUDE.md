@@ -1,6 +1,6 @@
 # のりものアドベンチャー（nori-adventure）
 
-4〜8歳の子どもと家族が **Android のスマホ・タブレット**で遊ぶ、**オリジナルの3D乗り物アクションゲーム**。Google Play で無料・広告なし・課金なし・データ収集なしで世界へ届ける（2026-11-10 に変更。`docs/android/play-release.md`）。期間は 2026-11-05〜11-30（1週間 × 4スプリント）。紹介動画（5〜7分）も作る。12月以降のオンライン対戦（Docker・AWS）へ発展できる設計にする。
+4〜8歳の子どもと家族が**タブレット・スマホ・PC のブラウザ**で遊ぶ、**オリジナルの3D乗り物アクションゲーム**。GitHub Pages で無料・広告なし・課金なし・データ収集なしで世界へ届け、PWA でホーム画面から通信なしでも遊べるようにする（2026-11-10 に決定。Google Play・Android アプリは見送り。経緯は `docs/android/play-release.md`）。期間は 2026-11-05〜11-30（1週間 × 4スプリント）。紹介動画（5〜7分）も作る。12月以降のオンライン対戦（Docker・AWS）へ発展できる設計にする。
 
 | ステージ | 場所 | 乗り物   | ポイント                                |
 | -------- | ---- | -------- | --------------------------------------- |
@@ -17,7 +17,7 @@
 - TypeScript（strict）＋ Vite ＋ Three.js。物理は Rapier（`@dimforge/rapier3d-compat`）
 - テスト：Vitest（単体）、Playwright（E2E・紹介動画用の自動録画）
 - 3Dモデル：Blender ＋ Blender MCP → glTF/GLB。同じモデルをゲームと動画に使う
-- 公開：**Google Play**（Capacitor でゲームのファイルをアプリに入れる。TWA は使わない。targetSdk 36 以上。Android Studio の SDK でビルド）。開発と E2E はブラウザ（Vite・Playwright）のまま。GitHub Pages はプライバシーポリシーなどに使う。PWA はやめた
+- 公開：GitHub Pages（GitHub Actions で自動デプロイ）＋ **PWA**（ホーム画面に追加・機内モードで遊べる）。プライバシーポリシーも Pages に置く
 - 見た目：リアル寄り（CC0 の PBR テクスチャ・HDRI・Blender での光のベイク）。ただし子どもに大事なもの（道・ほし・ゴール）が見分けやすいことと、安い端末で 30fps を優先する
 - **状態と描画を分ける**：`src/core/` は Three.js・DOM・`Math.random`・`Date.now` に依存しない純粋な TypeScript。固定刻み（1/60秒）で進め、同じ入力記録 → 同じ結果になること
 - 依存は `save-exact` で固定し、lockfile をコミット。版は最新の安定版でよい（公開からの日数の制限はなし。2026-11-06 にオーナーが決定）。入れる前に公式の変更履歴とセキュリティ情報を確かめる
