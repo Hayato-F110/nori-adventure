@@ -42,7 +42,7 @@ coverage/
 npm-debug.log*
 .eslintcache
 
-# ---- Blender（作業ファイルは専用フォルダ。書き出した GLB だけを public/models/ に置く） ----
+# ---- Blender（作業フォルダは blender-work/。noriblender だけが書ける。書き出した GLB だけを public/models/ に置く） ----
 blender-work/
 *.blend1
 *.blend@
@@ -62,6 +62,9 @@ desktop.ini
 .vscode/*
 !.vscode/extensions.json
 !.vscode/settings.json
+
+# ---- 一時ファイル（プロジェクトの外にフォルダを作らない。作業用の一時ファイルはここ） ----
+tmp/
 
 # ---- その他 ----
 *.log

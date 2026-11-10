@@ -8,14 +8,25 @@
 # - 車のオブジェクトの名前：body・wheel_FL・wheel_FR・wheel_RL・wheel_RR。タイヤの回転は適用しておく
 # - 画像（テクスチャ）・カメラ・ライト・アニメーション・圧縮（Draco・meshopt）は書き出さない
 #
-# 使い方（Blender MCP の execute_blender_code など）：
-#   NAME = "car"; exec(open(r"<このファイル>", encoding="utf-8").read())
+# 使い方（Blender MCP の execute_blender_code など）：<リポジトリ>/blender-work/tools/ に写してから
+#   import runpy; runpy.run_path(r"<リポジトリ>\blender-work\tools\export-glb.py", init_globals={"NAME": "car"})
 import os
 import re
+from pathlib import Path
 
 import bpy
 
-EXPORT_DIR = r"C:\NoriBlender\work\export"
+
+def _work_dir() -> Path:
+    # 作業フォルダ = このファイルの置き場所（blender-work/tools）の1つ上。パスを直接書かない（PC が変わっても動く）
+    here = Path(globals().get("__file__", "")).resolve().parent
+    work = here.parent if here.name == "tools" else Path.cwd()
+    if work.name != "blender-work":
+        raise RuntimeError("blender-work/tools/ に写してから runpy.run_path で実行する")
+    return work
+
+
+EXPORT_DIR = str(_work_dir() / "export")
 NAME_PATTERN = re.compile(r"^[a-z][a-z0-9-]{0,31}$")  # ファイル名に使うので、フォルダをまたぐ文字を許さない
 
 

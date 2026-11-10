@@ -6,14 +6,14 @@ NORI-18。決まりの数値は [game-rules.md「3D モデル（アセット）�
 Blender（noriblender・隔離）                      オーナーのユーザー                         ゲーム
  コレクション car に作る                →   npm run assets:import car           →   models/manifest.json を見て
  tools/blender/export-glb.py で書き出し      ① glTF-Validator（Khronos）             models/car.glb を読む
- C:\NoriBlender\work\export\car.glb          ② 決まりの検査（tools/assets/inspect.ts）  読めなければ箱の車のまま
+ blender-work/export/car.glb                 ② 決まりの検査（tools/assets/inspect.ts）  読めなければ箱の車のまま
                                              ③ public/models/ に置き、manifest を更新
 ```
 
 ## 手順
 
 1. Blender を手順書④（[blender-mcp-isolation.md](../security/blender-mcp-isolation.md)）のコマンドで開く（noriblender として。ダブルクリックでは開かない）
-2. 作業ファイルは `C:\NoriBlender\work\<名前>.blend`。書き出すものは、名前と同じコレクションに入れる
+2. 作業ファイルは `blender-work/<名前>.blend`（リポジトリの中、Git の対象外）。書き出すものは、名前と同じコレクションに入れる
    - Blender では **前が +Y**、左が −X、上が +Z（書き出すと glTF の前 −Z・上 +Y になる）。原点は車体の底の中心
    - 車のオブジェクトの名前：`body`・`wheel_FL`・`wheel_FR`・`wheel_RL`・`wheel_RR`。タイヤの回転は適用しておく（Ctrl+A）
    - 画像（テクスチャ）は使わない。色は材質の色で付ける

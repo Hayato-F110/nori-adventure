@@ -20,7 +20,7 @@ Blender は**オーナーが** noriblender として開く。Claude がオーナ
 $cred = Get-Credential noriblender
 $nb = "C:\Users\noriblender"
 $nbEnv = @{ USERNAME = "noriblender"; USERPROFILE = $nb; HOMEPATH = "\Users\noriblender"; APPDATA = "$nb\AppData\Roaming"; LOCALAPPDATA = "$nb\AppData\Local"; TEMP = "$nb\AppData\Local\Temp"; TMP = "$nb\AppData\Local\Temp" }
-Start-Process "C:\Program Files\Blender Foundation\Blender 5.2\blender.exe" -Credential $cred -LoadUserProfile -UseNewEnvironment -Environment $nbEnv -WorkingDirectory C:\NoriBlender\work
+Start-Process "C:\Program Files\Blender Foundation\Blender 5.2\blender.exe" -Credential $cred -LoadUserProfile -UseNewEnvironment -Environment $nbEnv -WorkingDirectory "<このリポジトリの絶対パス>\blender-work"
 ```
 
 - `-LoadUserProfile -UseNewEnvironment -Environment $nbEnv` は**必須**（ないとオーナーの環境変数を引き継ぐ。11/6 に起きた）
@@ -34,13 +34,13 @@ Start-Process "C:\Program Files\Blender Foundation\Blender 5.2\blender.exe" -Cre
 ```python
 import runpy, sys, json
 old = sys.argv
-sys.argv = ["blender", "--", r"C:\Users\<オーナーのユーザー名>", r"<このリポジトリの絶対パス>", r"C:\Users\<オーナーのユーザー名>\Documents"]
+sys.argv = ["blender", "--", r"C:\Users\<オーナーのユーザー名>", r"C:\Users\<オーナーのユーザー名>\Documents"]
 try:
-    runpy.run_path(r"C:\NoriBlender\work\tools\isolation-check.py", run_name="__main__")
+    runpy.run_path(r"<このリポジトリの絶対パス>\blender-work\tools\isolation-check.py", run_name="__main__")
 finally:
     sys.argv = old
-res = json.load(open(r"C:\NoriBlender\work\isolation-result.json", encoding="utf-8"))
-result = {"isolated": res["isolated"], "protectedChecked": res["protectedChecked"], "dedicated": res["isDedicatedUser"]}
+res = json.load(open(r"<このリポジトリの絶対パス>\blender-work\isolation-result.json", encoding="utf-8"))
+result = {k: res[k] for k in ("isolated", "isDedicatedUser", "protectedChecked", "protected", "repoOutsideWork", "workDir", "network")}
 ```
 
 - 守る場所のパスは、この会話の作業フォルダから組み立てる。ユーザー名をリポジトリのファイルに書かない
@@ -49,13 +49,13 @@ result = {"isolated": res["isolated"], "protectedChecked": res["protectedChecked
 
 ## 4. スクリプトを写す
 
-noriblender はオーナーのフォルダを読めない。使うスクリプトを `tools/blender/` から `C:\NoriBlender\work\tools\` に写す（オーナーのユーザーで `cp`）。素材は `C:\NoriBlender\work\assets\`（各フォルダに出所とライセンスの `asset.json`）。
+noriblender が読み書きできるのは、リポジトリの中の `blender-work/`（Git の対象外）だけ。使うスクリプトを `tools/blender/` から `blender-work/tools/` に写す（オーナーのユーザーで `cp`。向きはリポジトリ → `blender-work` の一方向だけ。`blender-work` の中のコードをオーナーの側で実行しない）。素材は `blender-work/assets/`（各フォルダに出所とライセンスの `asset.json`）。スクリプトは自分の置き場所から作業フォルダを求めるので、パスを書かない。
 
 ## 5. 作業のときの決まり
 
-- 実行は MCP の `execute_blender_code` で `runpy.run_path(r"C:\NoriBlender\work\tools\<名前>.py")`。結果は `result`（dict）で返す
+- 実行は MCP の `execute_blender_code` で `runpy.run_path(r"<このリポジトリの絶対パス>\blender-work\tools\<名前>.py")`（変数を渡すときは `init_globals`）。結果は `result`（dict）で返す
 - 作り直すのは自分のコレクションだけ。ほかの物は消さない
 - ノードは名前でなく種類（`n.type == "BSDF_PRINCIPLED"`）、入力は `identifier` で探す（日本語の画面で名前が翻訳されるため）
 - GLB を読み込んだら、部品（タイヤなど）の位置は GLB のまま。原点に戻さない
-- 書き出しは `C:\NoriBlender\work\export\`。リポジトリの `public/` へは、オーナーのユーザーでコピーしてコミット
+- 書き出しは `blender-work/export/`。リポジトリの `public/` へは `npm run assets:import <名前>`（検査に通った GLB だけ）
 - できた絵・モデルは、Read で目で見て確かめてから「できた」と言う

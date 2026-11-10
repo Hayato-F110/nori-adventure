@@ -22,7 +22,7 @@ disable-model-invocation: true
    - `.github/workflows/`：`permissions` が必要な分だけか、外部のアクションがコミット ID（SHA）で固定されているか、公開されるフォルダが `dist/` だけか
    - リポジトリの公開に向けて `docs/security/public-release-checklist.md` の項目を確かめる（公開範囲の変更そのものはオーナーの承認が要る）
 5. **依存関係**：`npm audit`、`package.json` の版が固定（`save-exact`）か、新しい依存の公式の変更履歴・セキュリティ情報を確かめたか
-6. **AI と道具**：Blender MCP が専用ユーザー・`C:\NoriBlender\` で動く設定か（`docs/security/blender-mcp-isolation.md`）、`.mcp.json` の版が固定されているか、`_for_cli` の道具が deny か、Jira の MCP の削除系が deny のままか、AI 動画サービスに送るものが自作モデルの画像だけか
+6. **AI と道具**：Blender MCP が専用ユーザーで動き、書けるのが `blender-work/`（Git の対象外）だけか（`docs/security/blender-mcp-isolation.md`）、`.mcp.json` の版が固定されているか、`_for_cli` の道具が deny か、Jira の MCP の削除系が deny のままか、AI 動画サービスに送るものが自作モデルの画像だけか
 7. `docs/security/threat-model.md`（あれば）の対策と照らし、**実施済み／未実施／新しく見つかった脅威**を表にする
 
 報告は「重大度（高・中・低）／場所（ファイル:行）／内容／対処案」の表にする。deny で読めないファイルは、読もうとせず「読めないので未確認」と書く。
