@@ -13,6 +13,17 @@
             "onFailure": "block"
           }
         ]
+      },
+      {
+        "matcher": "Bash|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node",
+            "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/guard-inline-backslash.mjs"],
+            "timeout": 10
+          }
+        ]
       }
     ],
     "PostToolUse": [
