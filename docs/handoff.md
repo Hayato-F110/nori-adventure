@@ -29,8 +29,8 @@
 ## 2. 次の作業順（11/11〜）
 
 1. **`/start-day`**（いつもどおり最初に。このファイル・`CLAUDE.md`・最新の devlog・Jira を読む）
-2. **オーナー**：Jira でスプリント2を開始する。Firefly で `car-side.png` の動画を1本（指示は `C:\NoriBlender\work\ai-video\prompt.txt`、保存は同じフォルダ）。Blender を noriblender で開く（手順書④）。日割りの表は 11/10 の夜に Jira の期限にそろえ済み。課題を作る・移すときは、期限の欄もそろえる
-3. **NORI-20〜23 乗り物4台（11/11 の最初）**：Blender を noriblender で開き、隔離の確認（守る場所を `sys.argv` で渡す）をしてから、4台をまとめて作る。車（`tools/blender/build-car.py`）と同じ作り方・大きさの決まり（`game-rules.md`「3D モデル」）
+2. **オーナー**：Jira でスプリント2を開始する。Firefly で `car-side.png` の動画を1本（指示は `C:\NoriBlender\work\ai-video\prompt.txt`、保存は同じフォルダ）。Blender は `/blender-start` のコマンドで noriblender として開く。日割りの表は 11/10 の夜に Jira の期限にそろえ済み。課題を作る・移すときは、期限の欄もそろえる
+3. **NORI-20〜23 乗り物4台（11/11 の最初）**：`/blender-start 乗り物4台` で開く・つなぐ・隔離の確認（`isolated: true`）をしてから、4台をまとめて作る。車（`tools/blender/build-car.py`）と同じ作り方・大きさの決まり（`game-rules.md`「3D モデル」）
 4. **NORI-25 ステージ1（11/11）**：コース・ほし・チェックポイント・ゴール。`game-rules.md` との対応を添えたテストの一覧を先に見せる。カメラが壁に入る問題もここで直す
 5. **NORI-56（11/12）**：ゲームへの組み込みの前に、テストの一覧（FPS・画質の切り替え・素材の出所の記録・子どもに大事なものの見分けやすさ）を見せて承認をもらう。素材を `public/` へ（出所とライセンスを `asset.json`・クレジットに）。HDRI・AgX（three.js の `AgXToneMapping`）・PBR。道路は暗く、芝は鮮やかに（2版目の値）。11/12 に Firefly の3本目がそろったら NORI-40 を判断
 6. 1日の終わりに `/end-day`
