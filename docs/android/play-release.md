@@ -1,6 +1,8 @@
-# Android アプリと Google Play での公開（計画の変更）
+# Android アプリと Google Play での公開（見送り）
 
-> 2026-11-10 にオーナーが承認。公式のページは 2026-11-10 に確認した。値や決まりは変わるので、各作業の直前にもう一度確かめる。
+> **2026-11-10 の夜に見送りを決定**（オーナーが承認）。ブラウザ版＋PWA（GitHub Pages、無料）に戻した。理由は、品質が同じ（Capacitor の中身も同じ WebGL）、Play は US$25 の登録と本名の公開が要る、GitHub で APK を配っても 2027年から開発者の確認が要る（[Android Developers Blog](https://android-developers.googleblog.com/2026/03/android-developer-verification-rolling-out-to-all-developers.html)）、の3つ。このページは調べた記録として残す。NORI-52・53・55 は取りやめ。
+>
+> 以下は見送りの前の計画。2026-11-10 にオーナーが承認。公式のページは 2026-11-10 に確認した。値や決まりは変わるので、各作業の直前にもう一度確かめる。
 
 ## 1. 決まったこと
 
