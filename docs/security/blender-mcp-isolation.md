@@ -2,6 +2,8 @@
 
 > 調べた日：2026-11-05。完了条件：**大事なファイルに届かないことを確認**（Jira NORI-17）。
 > リスクの一覧は `docs/security/threat-model.md` の「Blender MCP」。
+>
+> **2026-11-10 の変更：作業フォルダを `C:\NoriBlender\work\` から、リポジトリの中の `blender-work/`（Git の対象外）に移した**（オーナーの方針「プロジェクトの外にフォルダを作らない」）。noriblender の権限は `blender-work/` だけ（オーナーが `icacls "<リポジトリ>\blender-work" /grant "noriblender:(OI)(CI)M"`）。途中のフォルダの権限がなくても届く（Windows の既定）。移したあと、MCP 経由の確認で `isolated: true`、リポジトリのほかの場所（ルート・`package.json`・`CLAUDE.md`）は `PermissionError` で読めないことを確かめた。スクリプトは自分の置き場所から作業フォルダを求める（パスを書かない）。ふだんの手順はスキル `/blender-start`。下の③〜⑦の `C:\NoriBlender\...` は、11/6 に作ったときの記録として残す
 
 ## 1. 使う MCP サーバー
 
@@ -157,7 +159,7 @@ Blender（noriblender）を開いた状態で、Claude が次の2つを確かめ
 
 ## 4. ふだんの使い方
 
-1. ④のコマンド（`-LoadUserProfile -UseNewEnvironment -Environment $nbEnv` つき）で、noriblender の Blender を開く（アドオンのサーバーは自動で開始）
-2. Claude Code から MCP の道具を使う。モデルの作業ファイル（`.blend`）は `C:\NoriBlender\work\` に置く
-3. できたモデルは GLB に書き出し（`C:\NoriBlender\work\export\`）、オーナーのユーザーでリポジトリの `public/models/` にコピーしてコミットする
+1. スキル `/blender-start` で始める。④のコマンド（`-LoadUserProfile -UseNewEnvironment -Environment $nbEnv` つき、`-WorkingDirectory` は `<リポジトリ>\blender-work`）で noriblender の Blender を開き、毎回、隔離の確認をする
+2. Claude Code から MCP の道具を使う。モデルの作業ファイル（`.blend`）は `blender-work/` に置く
+3. できたモデルは GLB に書き出し（`blender-work/export/`）、オーナーのユーザーで `npm run assets:import <名前>`（検査に通ったものだけ `public/models/` へ）してコミットする
 4. AI 動画サービスに送るのは、自作モデルの画像だけ（CLAUDE.md「安全」）

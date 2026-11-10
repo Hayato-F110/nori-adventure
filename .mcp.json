@@ -10,7 +10,7 @@
         "blender-mcp"
       ],
       "env": {
-        "BLENDER_PATH": "C:/NoriBlender/cli-disabled/blender-cli-is-disabled.exe"
+        "BLENDER_PATH": "blender-work/cli-disabled/blender-cli-is-disabled.exe"
       }
     }
   }

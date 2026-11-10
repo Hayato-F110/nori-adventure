@@ -12,7 +12,7 @@
         "length": 3.46
       },
       "createdWith": "Blender 5.2.3（noriblender の隔離環境。Blender MCP で Claude が作成を補助）",
-      "source": "C:/NoriBlender/work/car.blend",
+      "source": "blender-work/car.blend",
       "author": "Hayato-F110",
       "license": "CC-BY-4.0",
       "externalAssets": "なし",

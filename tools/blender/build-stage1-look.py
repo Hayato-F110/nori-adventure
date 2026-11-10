@@ -3,9 +3,9 @@
 # AgX の色の処理をつけて、EEVEE（リアルタイム向けの描き方）で、ゲームのスタート地点と同じカメラから1枚描く。
 #
 # 座標：ゲーム（three.js）は x 右・y 上・z 手前。Blender は x 右・y 奥・z 上 → (x, -z, y)。単位は m。
-# 素材は C:\NoriBlender\work\assets\（noriblender が読める場所）。出所とライセンスは各フォルダの asset.json。
+# 素材はリポジトリの blender-work/assets/（noriblender が読める唯一の場所）。出所とライセンスは各フォルダの asset.json。
 #
-# 使い方：exec(open(r"C:\NoriBlender\work\tools\build-stage1-look.py", encoding="utf-8").read())
+# 使い方：blender-work/tools/ に写してから import runpy; runpy.run_path(r"<リポジトリ>\blender-work\tools\build-stage1-look.py")
 #   コレクション stage1_look の中だけを作り直す（ほかの物には触らない）。
 import json
 import math
@@ -14,8 +14,21 @@ import os
 import bpy
 import bmesh
 
-ASSETS = r"C:\NoriBlender\work\assets"
-OUT = r"C:\NoriBlender\work\renders\stage1-after.png"
+from pathlib import Path
+
+
+def _work_dir():
+    # 作業フォルダ = このファイルの置き場所（blender-work/tools）の1つ上。パスを直接書かない
+    here = Path(globals().get("__file__", "")).resolve().parent
+    work = here.parent if here.name == "tools" else Path.cwd()
+    if work.name != "blender-work":
+        raise RuntimeError("blender-work/tools/ に写してから runpy.run_path で実行する")
+    return work
+
+
+WORK = _work_dir()
+ASSETS = str(WORK / "assets")
+OUT = str(WORK / "renders" / "stage1-after.png")
 COLL = "stage1_look"
 # ゲームの建物の色（src/render/city.ts の BUILDING_COLORS と同じ）。白い外壁に乗せて、色で見分けられるようにする
 BUILDING_COLORS = [0xFFD166, 0x8ECAE6, 0xF4978E, 0xB5E48C, 0xCDB4DB, 0xFFFFFF]

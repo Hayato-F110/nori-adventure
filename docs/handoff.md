@@ -6,15 +6,15 @@
 
 ## 1. いまの状態
 
-| 項目       | 状態                                                                                                                                                                                 |
-| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| リポジトリ | `Hayato-F110/nori-adventure`（公開）。公開版 https://hayato-f110.github.io/nori-adventure/ 。開いている PR は 0（11/10 夜の時点）                                                    |
-| 計画       | **ブラウザ版＋PWA（GitHub Pages、無料）**。Android アプリ・Google Play は 11/10 に見送り（`docs/android/play-release.md`）。見た目はリアル寄り（NORI-56）、リプレイ（NORI-57）を追加 |
-| Jira       | スプリント1は終了（オーナーが画面で）。スプリント2（ID 5、11/11〜11/17）は**まだ開始していない**（開始はオーナーが画面で）                                                           |
-| 守り       | Vite 8.3.7（GHSA-p4f5-76q4-ffq7 の修正版）、Playwright 1.65.0。未対応の警告 0                                                                                                        |
-| Blender    | 5.2.3。11/10 も `isolated: true`（守る場所3つを引数で渡して確認）。素材は `C:\NoriBlender\work\assets\`（CC0。各フォルダに `asset.json`）                                            |
-| NORI-56    | 試作の静止画（2版目）を描いた：`C:\NoriBlender\work\renders\stage1-after.png`。作り方は `tools/blender/build-stage1-look.py`。オーナーが方向を承認                                   |
-| NORI-40    | Firefly 1本・DeeVid 1本を作って比べた（`docs/video/ai-video-comparison.md`）。Firefly の無料枠は1日1本                                                                               |
+| 項目       | 状態                                                                                                                                                                                                                                                                                                                                                |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| リポジトリ | `Hayato-F110/nori-adventure`（公開）。公開版 https://hayato-f110.github.io/nori-adventure/ 。開いている PR は 0（11/10 夜の時点）                                                                                                                                                                                                                   |
+| 計画       | **ブラウザ版＋PWA（GitHub Pages、無料）**。Android アプリ・Google Play は 11/10 に見送り（`docs/android/play-release.md`）。見た目はリアル寄り（NORI-56）、リプレイ（NORI-57）を追加                                                                                                                                                                |
+| Jira       | スプリント1は終了（オーナーが画面で）。スプリント2（ID 5、11/11〜11/17）は**まだ開始していない**（開始はオーナーが画面で）                                                                                                                                                                                                                          |
+| 守り       | Vite 8.3.7（GHSA-p4f5-76q4-ffq7 の修正版）、Playwright 1.65.0。未対応の警告 0                                                                                                                                                                                                                                                                       |
+| Blender    | 5.2.3。**作業フォルダはリポジトリの中の `blender-work/`**（11/10 に `C:\NoriBlender\` から移した。Git の対象外。noriblender の権限はこのフォルダだけ）。移したあとも `isolated: true`（リポジトリのほかの場所も読めない）。素材は `blender-work/assets/`（CC0。各フォルダに `asset.json`）。古い `C:\NoriBlender\` は、オーナーが消すまで残っている |
+| NORI-56    | 試作の静止画（2版目）を描いた：`blender-work/renders/stage1-after.png`。作り方は `tools/blender/build-stage1-look.py`。オーナーが方向を承認                                                                                                                                                                                                         |
+| NORI-40    | Firefly 1本・DeeVid 1本を作って比べた（`docs/video/ai-video-comparison.md`）。Firefly の無料枠は1日1本                                                                                                                                                                                                                                              |
 
 ### スプリント2（11/11〜11/17）
 
@@ -29,7 +29,7 @@
 ## 2. 次の作業順（11/11〜）
 
 1. **`/start-day`**（いつもどおり最初に。このファイル・`CLAUDE.md`・最新の devlog・Jira を読む）
-2. **オーナー**：Jira でスプリント2を開始する。Firefly で `car-side.png` の動画を1本（指示は `C:\NoriBlender\work\ai-video\prompt.txt`、保存は同じフォルダ）。Blender は `/blender-start` のコマンドで noriblender として開く。日割りの表は 11/10 の夜に Jira の期限にそろえ済み。課題を作る・移すときは、期限の欄もそろえる
+2. **オーナー**：Jira でスプリント2を開始する。Firefly で `car-side.png` の動画を1本（指示は `blender-work/ai-video/prompt.txt`、保存は同じフォルダ）。Blender は `/blender-start` のコマンドで noriblender として開く。日割りの表は 11/10 の夜に Jira の期限にそろえ済み。課題を作る・移すときは、期限の欄もそろえる
 3. **NORI-20〜23 乗り物4台（11/11 の最初）**：`/blender-start 乗り物4台` で開く・つなぐ・隔離の確認（`isolated: true`）をしてから、4台をまとめて作る。車（`tools/blender/build-car.py`）と同じ作り方・大きさの決まり（`game-rules.md`「3D モデル」）
 4. **NORI-25 ステージ1（11/11）**：コース・ほし・チェックポイント・ゴール。`game-rules.md` との対応を添えたテストの一覧を先に見せる。カメラが壁に入る問題もここで直す
 5. **NORI-56（11/12）**：ゲームへの組み込みの前に、テストの一覧（FPS・画質の切り替え・素材の出所の記録・子どもに大事なものの見分けやすさ）を見せて承認をもらう。素材を `public/` へ（出所とライセンスを `asset.json`・クレジットに）。HDRI・AgX（three.js の `AgXToneMapping`）・PBR。道路は暗く、芝は鮮やかに（2版目の値）。11/12 に Firefly の3本目がそろったら NORI-40 を判断
@@ -82,7 +82,7 @@
 | テストの一覧           | 大きな機能（ステージ・ボス・物理の仕組み）は、`game-rules.md` との対応を添えた一覧を見せて承認を待つ。小さな修正は PR に一覧を書いて進める                                                                                                                |
 | kids-play              | 見本は kids-play のリポジトリの `docs/handoff-to-nori.md` 7章（playbook、provenance、動画の作り方、12月用の ci.yml）                                                                                                                                      |
 | Blender の日本語の画面 | 新しく作ったノードの名前が翻訳される（`nodes.get("Principled BSDF")` が None）。ノードは種類（`n.type == "BSDF_PRINCIPLED"`）、入力は `identifier` で探す                                                                                                 |
-| Blender のスクリプト   | noriblender はオーナーのフォルダを読めない。`tools/blender/*.py` を `C:\NoriBlender\work\tools\` に写してから MCP の `execute_blender_code` で `runpy.run_path`。作り直しは自分の `car` コレクションだけ（`REBUILD = True`）                              |
+| Blender のスクリプト   | noriblender が読み書きできるのは `blender-work/` だけ。`tools/blender/*.py` を `blender-work/tools/` に写してから MCP の `execute_blender_code` で `runpy.run_path`。作り直しは自分の `car` コレクションだけ（`REBUILD = True`）                          |
 | バックスラッシュ       | `node -e` や Bash の文字列に入れると消えることがある（正規表現の `\s`、Windows のパス）。含む書き換えは Edit の道具で行う                                                                                                                                 |
 | Hook と jq             | jq の `.key` が「鍵のファイル（.key）」と判定されて止まる。`map_values` などに書き換える                                                                                                                                                                  |
 | 遅い CI の再現         | 手元で CDP の `Emulation.setCPUThrottlingRate`（20倍）を使うと、CI の約3fps に近い状態でテストできる                                                                                                                                                      |

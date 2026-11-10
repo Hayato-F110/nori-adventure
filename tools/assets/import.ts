@@ -1,6 +1,6 @@
 // 使い方：npm run assets:import <名前>   例：npm run assets:import car
 // Blender（隔離した noriblender）が書き出した GLB を検査し、合格したら public/models/ に置いて manifest を更新する。
-// 書き出しの場所は C:\NoriBlender\work\export\（NORI_EXPORT_DIR で変えられる）。
+// 書き出しの場所はリポジトリの blender-work/export/（.gitignore 済み。NORI_EXPORT_DIR で変えられる）。
 import { createHash } from "node:crypto";
 import { copyFileSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
@@ -11,7 +11,7 @@ const NAME_PATTERN = /^[a-z][a-z0-9-]{0,31}$/; // ファイル名に使うので
 const KINDS: Record<string, AssetKind> = { car: "car" };
 
 const root = path.resolve(import.meta.dirname, "../..");
-const exportDir = process.env.NORI_EXPORT_DIR ?? "C:/NoriBlender/work/export";
+const exportDir = process.env.NORI_EXPORT_DIR ?? path.join(root, "blender-work/export");
 const modelsDir = path.join(root, "public/models");
 
 const fail = (lines: string[]): never => {
@@ -52,7 +52,7 @@ const next = upsertEntry(manifest, {
   createdWith:
     process.env.NORI_CREATED_WITH ??
     "Blender 5.2.3（noriblender の隔離環境。Blender MCP で Claude が作成を補助）",
-  source: `C:/NoriBlender/work/${name}.blend`,
+  source: `blender-work/${name}.blend`,
   author: "Hayato-F110",
   license: ASSET_LICENSE,
   externalAssets: "なし",

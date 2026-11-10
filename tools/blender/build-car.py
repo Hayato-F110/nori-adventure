@@ -3,7 +3,7 @@
 # 大きさ・名前・向きは docs/game-rules.md「3D モデル（アセット）」に合わせる（数値は下の定数。ゲーム側の ASSET と同じ）。
 #
 # Blender の座標：前 +Y、左 −X、上 +Z（書き出すと glTF の前 −Z・上 +Y）。原点は車体の底の中心。
-# 作ったあと C:\NoriBlender\work\car.blend に保存する。書き出しは tools/blender/export-glb.py。
+# 作ったあと blender-work/car.blend に保存する。書き出しは tools/blender/export-glb.py。
 #
 # 使い方：REBUILD = False; exec(open(r"<このファイル>", encoding="utf-8").read())
 #   コレクション car にすでに物があれば止まる（REBUILD = True のときだけ、car の中の物を消して作り直す）
@@ -15,7 +15,18 @@ import bpy
 WIDTH, LENGTH, HEIGHT = 1.8, 3.4, 1.7  # ASSET.carSize（幅・長さ・高さ）
 WHEEL_R, WHEEL_W = 0.42, 0.30
 WHEEL_X, WHEEL_Y = 0.80, 1.15  # タイヤを少し外に出して、後ろからも見えるようにする（幅 1.94 m。±10% の内側）
-SAVE_PATH = r"C:\NoriBlender\work\car.blend"
+def _work_dir():
+    # 作業フォルダ = このファイルの置き場所（blender-work/tools）の1つ上。パスを直接書かない
+    from pathlib import Path
+
+    here = Path(globals().get("__file__", "")).resolve().parent
+    work = here.parent if here.name == "tools" else Path.cwd()
+    if work.name != "blender-work":
+        raise RuntimeError("blender-work/tools/ に写してから runpy.run_path で実行する")
+    return work
+
+
+SAVE_PATH = str(_work_dir() / "car.blend")
 
 
 def material(name, rgb, roughness=0.55, emission=None):

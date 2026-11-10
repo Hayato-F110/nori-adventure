@@ -48,4 +48,27 @@ describe("隔離の確認スクリプト（tools/blender/isolation-check.py）",
   it("専用ユーザーでなければ isolated にしない", () => {
     expect(text).toMatch(/"isolated":\s*dedicated\s*\n\s*and /);
   });
+
+  it("リポジトリのほかの場所を読めたら isolated にしない（11/10 に作業フォルダをリポジトリの中へ移した）", () => {
+    expect(text).toMatch(/REPO_PROBES\s*=/);
+    expect(text).toMatch(/and not any\(r\["reachable"\] for r in repo_results\)/);
+  });
+});
+
+describe("Blender の作業フォルダはリポジトリの中（blender-work/）", () => {
+  const scripts = readdirSync(path.join(root, "tools/blender")).filter((f) => f.endsWith(".py"));
+
+  it.each(scripts)("%s は C:\\NoriBlender を直接書かず、blender-work の外では止まる", (name) => {
+    const text = read(`tools/blender/${name}`);
+    expect(text).not.toMatch(/NoriBlender/);
+    expect(text).toMatch(/blender-work/);
+  });
+
+  it("blender-work/ は Git の対象外", () => {
+    expect(read(".gitignore")).toMatch(/^blender-work\/$/m);
+  });
+
+  it("取り込みの既定の場所も blender-work/export", () => {
+    expect(read("tools/assets/import.ts")).toMatch(/path\.join\(root, "blender-work\/export"\)/);
+  });
 });
