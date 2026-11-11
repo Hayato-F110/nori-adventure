@@ -1,13 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { ASSET } from "../../src/config/index.ts";
-import { checkGlb, inspectGlb, validateGlb } from "../../tools/assets/inspect.ts";
-import { makeCarGlb, rewriteGlbJson } from "./fixture.ts";
+import { type AssetKind, checkGlb, inspectGlb, validateGlb } from "../../tools/assets/inspect.ts";
+import { makeCarGlb, makeVehicleGlb, rewriteGlbJson, type VehicleKind } from "./fixture.ts";
 
 // docs/game-rules.md「3D モデル（アセット）」の決まりを、tools/assets/ の検査が守らせることを確かめる。
 // 数値は ASSET から読む（直書きしない）。
 
-const problemsOf = async (glb: Uint8Array, kind: "car" | "generic" = "car") =>
-  checkGlb(await inspectGlb(glb), kind);
+const problemsOf = async (glb: Uint8Array, kind: AssetKind = "car") => checkGlb(await inspectGlb(glb), kind);
 
 describe("正しい仮の車", () => {
   it("Khronos の glTF-Validator でエラーが0", async () => {
@@ -81,6 +80,80 @@ describe("車の形（ASSET.carSize・ASSET.sizeTolerance・ASSET.carNodes）", 
 
   it("車以外（generic）は、形と名前を調べない", async () => {
     expect(await problemsOf(await makeCarGlb({ omitNodes: ["body"], scale: 2 }), "generic")).toEqual([]);
+  });
+});
+
+// 車のほかの4台（NORI-20〜23。docs/game-rules.md「車のほかの4台」）
+const VEHICLES = Object.keys(ASSET.vehicles) as VehicleKind[];
+const WHEELED = VEHICLES.filter((k) => (ASSET.vehicles[k].nodes as readonly string[]).includes("wheel_FL"));
+const PROPELLED = VEHICLES.filter((k) =>
+  (ASSET.vehicles[k].nodes as readonly string[]).includes("propeller"),
+);
+
+describe.each(VEHICLES)("乗り物 %s（ASSET.vehicles）", (kind) => {
+  const spec = ASSET.vehicles[kind];
+
+  it("正しい形は、glTF-Validator のエラーが0で、決まりの検査も問題が0", async () => {
+    const glb = await makeVehicleGlb(kind);
+    expect((await validateGlb(glb)).messages).toEqual([]);
+    expect(await problemsOf(glb, kind)).toEqual([]);
+  });
+
+  it("大きさを設計値どおりに読み取れる", async () => {
+    const report = await inspectGlb(await makeVehicleGlb(kind));
+    expect(report.size.width).toBeCloseTo(spec.size.width, 1);
+    expect(report.size.height).toBeCloseTo(spec.size.height, 1);
+    expect(report.size.length).toBeCloseTo(spec.size.length, 1);
+  });
+
+  it("許容より大きいと問題になり、許容の内側なら問題にしない", async () => {
+    const big = await problemsOf(await makeVehicleGlb(kind, { scale: 1 + ASSET.sizeTolerance * 2 }), kind);
+    expect(big.join("\n")).toMatch(/幅|高さ|長さ/);
+    const ok = await problemsOf(await makeVehicleGlb(kind, { scale: 1 + ASSET.sizeTolerance / 2 }), kind);
+    expect(ok).toEqual([]);
+  });
+
+  it.each(spec.nodes)("ノード %s がないと問題になる", async (name) => {
+    const problems = await problemsOf(await makeVehicleGlb(kind, { omitNodes: [name] }), kind);
+    expect(problems.join("\n")).toContain(name);
+  });
+
+  it("原点が底にないと問題になる", async () => {
+    const problems = await problemsOf(await makeVehicleGlb(kind, { liftY: 1 }), kind);
+    expect(problems.join("\n")).toMatch(/原点|底/);
+  });
+
+  it("車の決まりで調べると、名前か大きさが合わない（取り違えに気づける）", async () => {
+    expect((await problemsOf(await makeVehicleGlb(kind), "car")).length).toBeGreaterThan(0);
+  });
+});
+
+describe.each(WHEELED)("タイヤのある乗り物 %s", (kind) => {
+  it("前が +Z を向いていると問題になる", async () => {
+    const problems = await problemsOf(await makeVehicleGlb(kind, { backwards: true }), kind);
+    expect(problems.join("\n")).toMatch(/前/);
+  });
+
+  it("タイヤに回転が入っていると問題になる", async () => {
+    const problems = await problemsOf(await makeVehicleGlb(kind, { rotateWheel: true }), kind);
+    expect(problems.join("\n")).toMatch(/wheel_FL.*回転/);
+  });
+});
+
+describe.each(PROPELLED)("プロペラのある乗り物 %s", (kind) => {
+  it("プロペラが決めた側（propellerAt）の反対にあると問題になる", async () => {
+    const problems = await problemsOf(await makeVehicleGlb(kind, { propellerWrongSide: true }), kind);
+    expect(problems.join("\n")).toMatch(/propeller/);
+  });
+
+  it("プロペラが左右の中心からずれていると問題になる（回る軸の上にない）", async () => {
+    const problems = await problemsOf(await makeVehicleGlb(kind, { propellerOffsetX: 0.5 }), kind);
+    expect(problems.join("\n")).toMatch(/propeller.*中心/);
+  });
+
+  it("プロペラに回転が入っていると問題になる", async () => {
+    const problems = await problemsOf(await makeVehicleGlb(kind, { rotatePropeller: true }), kind);
+    expect(problems.join("\n")).toMatch(/propeller.*回転/);
   });
 });
 

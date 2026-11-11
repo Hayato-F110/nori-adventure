@@ -122,7 +122,21 @@ export const inspectGlb = async (glb: Uint8Array): Promise<GlbReport> => {
   };
 };
 
-export type AssetKind = "car" | "generic";
+export type VehicleKind = keyof typeof ASSET.vehicles;
+export type AssetKind = "car" | VehicleKind | "generic";
+
+/** 名前（npm run assets:import <名前>）から、使う決まりを選ぶ。乗り物でなければ generic */
+export const kindOf = (name: string): AssetKind =>
+  name === "car" || Object.hasOwn(ASSET.vehicles, name) ? (name as AssetKind) : "generic";
+
+type ShapeSpec = {
+  size: { width: number; height: number; length: number };
+  nodes: readonly string[];
+  propellerAt?: "front" | "rear";
+};
+
+const specOf = (kind: Exclude<AssetKind, "generic">): ShapeSpec =>
+  kind === "car" ? { size: ASSET.carSize, nodes: ASSET.carNodes } : ASSET.vehicles[kind];
 
 const pct = (v: number) => `${Math.round(v * 100)}%`;
 
@@ -147,16 +161,21 @@ export const checkGlb = (report: GlbReport, kind: AssetKind): string[] => {
   if (report.nonTrianglePrimitives > 0) {
     problems.push(`三角形でない面（線・点など）が ${report.nonTrianglePrimitives} 個ある`);
   }
-  if (kind === "car") problems.push(...checkCarShape(report));
+  if (kind !== "generic") problems.push(...checkShape(report, specOf(kind)));
   return problems;
 };
 
-const checkCarShape = (report: GlbReport): string[] => {
+const hasNoRotation = (rotation: number[] | undefined): boolean => {
+  const [qx = 0, qy = 0, qz = 0, qw = 1] = rotation ?? [];
+  return Math.abs(qx) <= 1e-4 && Math.abs(qy) <= 1e-4 && Math.abs(qz) <= 1e-4 && Math.abs(qw - 1) <= 1e-4;
+};
+
+const checkShape = (report: GlbReport, spec: ShapeSpec): string[] => {
   const problems: string[] = [];
   const tol = ASSET.sizeTolerance;
   const labels = { width: "幅", height: "高さ", length: "長さ" } as const;
   for (const key of ["width", "height", "length"] as const) {
-    const want = ASSET.carSize[key];
+    const want = spec.size[key];
     const got = report.size[key];
     if (Math.abs(got - want) > want * tol) {
       problems.push(`${labels[key]}が ${got.toFixed(2)} m で、${want} m ±${pct(tol)} の外`);
@@ -168,29 +187,41 @@ const checkCarShape = (report: GlbReport): string[] => {
   const cx = (minX + maxX) / 2;
   const cz = (minZ + maxZ) / 2;
   if (
-    Math.abs(minY) > ASSET.carSize.height * tol ||
-    Math.abs(cx) > ASSET.carSize.width * tol ||
-    Math.abs(cz) > ASSET.carSize.length * tol
+    Math.abs(minY) > spec.size.height * tol ||
+    Math.abs(cx) > spec.size.width * tol ||
+    Math.abs(cz) > spec.size.length * tol
   ) {
     problems.push(
       `原点が車体の底の中心にない（底の高さ ${minY.toFixed(2)} m、中心 x ${cx.toFixed(2)}・z ${cz.toFixed(2)} m）`,
     );
   }
-  const missing = ASSET.carNodes.filter((name) => !(name in report.nodes));
+  const missing = spec.nodes.filter((name) => !(name in report.nodes));
   for (const name of missing) problems.push(`ノード ${name} がない`);
   if (missing.length > 0) return problems;
 
   const z = (name: string) => report.nodes[name]?.translation[2] ?? 0;
   const x = (name: string) => report.nodes[name]?.translation[0] ?? 0;
-  if (!(z("wheel_FL") < z("wheel_RL") && z("wheel_FR") < z("wheel_RR"))) {
-    problems.push("前輪が後輪より −Z の側にない（前は −Z）");
+  const wheels = spec.nodes.filter((n) => n.startsWith("wheel_"));
+  if (wheels.length > 0) {
+    if (!(z("wheel_FL") < z("wheel_RL") && z("wheel_FR") < z("wheel_RR"))) {
+      problems.push("前輪が後輪より −Z の側にない（前は −Z）");
+    }
+    if (!(x("wheel_FL") < 0 && x("wheel_RL") < 0 && x("wheel_FR") > 0 && x("wheel_RR") > 0)) {
+      problems.push("左のタイヤ（_L）が −X、右のタイヤ（_R）が +X の側にない");
+    }
   }
-  if (!(x("wheel_FL") < 0 && x("wheel_RL") < 0 && x("wheel_FR") > 0 && x("wheel_RR") > 0)) {
-    problems.push("左のタイヤ（_L）が −X、右のタイヤ（_R）が +X の側にない");
+  if (spec.propellerAt !== undefined) {
+    const wantFront = spec.propellerAt === "front";
+    if (wantFront ? !(z("propeller") < 0) : !(z("propeller") > 0)) {
+      problems.push(`propeller が${wantFront ? "前（−Z）" : "後ろ（+Z）"}の側にない`);
+    }
+    // 回る軸（前後の向き）が、左右の中心の上にあること
+    if (Math.abs(x("propeller")) > spec.size.width * tol) {
+      problems.push(`propeller が左右の中心にない（x ${x("propeller").toFixed(2)} m。回る軸の上にない）`);
+    }
   }
-  for (const name of ASSET.carNodes.filter((n) => n.startsWith("wheel_"))) {
-    const [qx = 0, qy = 0, qz = 0, qw = 1] = report.nodes[name]?.rotation ?? [];
-    if (Math.abs(qx) > 1e-4 || Math.abs(qy) > 1e-4 || Math.abs(qz) > 1e-4 || Math.abs(qw - 1) > 1e-4) {
+  for (const name of [...wheels, ...(spec.propellerAt !== undefined ? ["propeller"] : [])]) {
+    if (!hasNoRotation(report.nodes[name]?.rotation)) {
       problems.push(`${name} に回転が入っている（回す・切るのはゲームがする。Blender で回転を適用する）`);
     }
   }

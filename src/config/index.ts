@@ -187,8 +187,30 @@ export const ASSET = {
   maxTriangles: 8000,
   sizeTolerance: 0.1,
   maxWheelSteer: 0.5,
+  maxTotalGlbBytes: 2621440,
   carSize: { width: 1.8, height: 1.7, length: 3.4 },
   carNodes: ["body", "wheel_FL", "wheel_FR", "wheel_RL", "wheel_RR"],
+  /** 車のほかの4台（NORI-20〜23）。向き・原点は車と同じ。propellerAt はプロペラの付く側 */
+  vehicles: {
+    train: {
+      size: { width: 2.2, height: 2.6, length: 6.0 },
+      nodes: ["body", "wheel_FL", "wheel_FR", "wheel_RL", "wheel_RR"],
+    },
+    plane: {
+      size: { width: 4.4, height: 1.4, length: 3.6 },
+      nodes: ["body", "propeller"],
+      propellerAt: "front",
+    },
+    sub: {
+      size: { width: 1.8, height: 1.8, length: 3.2 },
+      nodes: ["body", "propeller", "light"],
+      propellerAt: "rear",
+    },
+    rover: {
+      size: { width: 2.0, height: 1.6, length: 2.8 },
+      nodes: ["body", "wheel_FL", "wheel_FR", "wheel_RL", "wheel_RR"],
+    },
+  },
   allowedExtensions: [
     "KHR_materials_emissive_strength",
     "KHR_materials_ior",
