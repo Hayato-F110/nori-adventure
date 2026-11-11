@@ -125,7 +125,6 @@ export const STAGE2 = {
 export const PLANE = {
   cruiseSpeed: 14,
   minSpeed: 9,
-  maxSpeed: 20,
   speedChange: 4,
   maxBank: 0.6,
   maxTurnRate: 0.8,
@@ -144,6 +143,29 @@ export const STAGE3 = {
   ringCount: 10,
   ringRadius: 6,
   ringSpacing: 70,
+  /** 輪10個とゴール1個を、ringSpacing ずつ円の上に（770 m ÷ 2π） */
+  ringPathRadius: 122.5,
+  ringBaseHeight: 25,
+  ringHeightWave: 10,
+  goalRingRadius: 10,
+  /** スタートは、ゴールの輪からこの距離だけ先（円の上） */
+  startAfterGoal: 20,
+  /** 山（円すい。x・z は底の中心、radius は底の半径） */
+  mountains: [
+    { x: 0, z: 0, radius: 40, height: 60 },
+    { x: 205, z: 20, radius: 35, height: 55 },
+    { x: -175, z: 125, radius: 35, height: 70 },
+    { x: -150, z: -175, radius: 30, height: 50 },
+    { x: 110, z: -200, radius: 35, height: 65 },
+  ],
+  /** 気球（球。動かない） */
+  balloons: [
+    { x: 130, y: 30, z: 90, radius: 4 },
+    { x: -60, y: 20, z: 60, radius: 4 },
+    { x: -40, y: 35, z: -150, radius: 4 },
+  ],
+  cameraDistance: 10,
+  cameraHeight: 3,
 } as const;
 
 /** ステージ4の潜水艇 */
