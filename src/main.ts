@@ -5,6 +5,7 @@ import { CAMERA, LOOK, RESPAWN, SIM, STAGE1 } from "./config";
 import { createGame } from "./core/game";
 import { createFixedStepper } from "./core/loop";
 import type { Stage2State } from "./core/stage2";
+import type { Ring, Stage3State } from "./core/stage3";
 import type { CarState, GameState, InputFrame, Pose2D } from "./core/types";
 import { createGamepadInput } from "./input/gamepad";
 import { createKeyboardInput } from "./input/keyboard";
@@ -30,7 +31,16 @@ declare global {
       /** ステージ1の状態（ステージ2では使わない） */
       state: () => GameState;
       /** 遊んでいるステージ（ステージ2のときだけ 2） */
-      stage?: 2;
+      stage?: 2 | 3;
+      /** ステージ3の状態（NORI-27） */
+      plane?: () => Stage3State;
+      /** ステージ3の輪（最後はゴール） */
+      rings?: () => Ring[];
+      /** ステージ3の輪（i。-1 はゴール）の上の端と、その少し上の空（E2E で明るさの比を測る） */
+      ringMarker?: (i: number) => {
+        ring: { x: number; y: number; z: number };
+        sky: { x: number; y: number; z: number };
+      };
       /** ステージ2の状態（NORI-26） */
       train?: () => Stage2State;
       /** ステージ2の駅ごとの、旗の真ん中とそばの土手（3D の点。E2E で明るさの比を測る） */
@@ -70,6 +80,13 @@ if (params.has("models")) {
 if (params.get("stage") === "2") {
   const { startStage2 } = await import("./stage2Main");
   await startStage2(canvas, hud, showDebug);
+  await new Promise<never>(() => undefined);
+}
+
+// ?stage=3：空を飛行機で飛ぶステージ（NORI-27）
+if (params.get("stage") === "3") {
+  const { startStage3 } = await import("./stage3Main");
+  await startStage3(canvas, hud, showDebug);
   await new Promise<never>(() => undefined);
 }
 
