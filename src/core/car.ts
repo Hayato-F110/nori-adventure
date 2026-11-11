@@ -32,7 +32,11 @@ export const createCarState = (start: Pose2D): CarState => ({
 const approachZero = (value: number, amount: number): number =>
   Math.abs(value) <= amount ? 0 : value - Math.sign(value) * amount;
 
-const nextSpeed = (speed: number, throttle: number, dt: number, car: CarConfig): number => {
+/** 速さの変わり方（加速・ブレーキ・惰性）。車と列車で同じ決まりを使う */
+export type SpeedConfig = Pick<CarConfig, "acceleration" | "brakeDeceleration" | "coastDeceleration">;
+
+/** 次の刻みの速さ（上限で切る前）。throttle は -1〜1 */
+export const nextSpeed = (speed: number, throttle: number, dt: number, car: SpeedConfig): number => {
   if (throttle === 0) return approachZero(speed, car.coastDeceleration * dt);
   // 進んでいる向きと逆に入力したらブレーキ。ブレーキで 0 を越えたら、そこで止める
   const braking = speed !== 0 && Math.sign(speed) !== Math.sign(throttle);

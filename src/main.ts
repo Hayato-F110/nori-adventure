@@ -4,6 +4,7 @@ import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { CAMERA, LOOK, RESPAWN, SIM, STAGE1 } from "./config";
 import { createGame } from "./core/game";
 import { createFixedStepper } from "./core/loop";
+import type { Stage2State } from "./core/stage2";
 import type { CarState, GameState, InputFrame, Pose2D } from "./core/types";
 import { createGamepadInput } from "./input/gamepad";
 import { createKeyboardInput } from "./input/keyboard";
@@ -25,7 +26,17 @@ declare global {
       /** 車の見た目：GLB を読めたら "glb"、読む前・読めなかったときは "box" */
       carModel: "box" | "glb";
       frames: number;
+      /** ステージ1の状態（ステージ2では使わない） */
       state: () => GameState;
+      /** 遊んでいるステージ（ステージ2のときだけ 2） */
+      stage?: 2;
+      /** ステージ2の状態（NORI-26） */
+      train?: () => Stage2State;
+      /** ステージ2の駅ごとの、旗の真ん中とそばの土手（3D の点。E2E で明るさの比を測る） */
+      stationMarkers?: () => {
+        flag: { x: number; y: number; z: number };
+        bed: { x: number; y: number; z: number };
+      }[];
       /** 見た目（NORI-56）：素材を読む前 "loading"・貼った "textured"・単色 "plain" */
       look: "loading" | "textured" | "plain";
       /** 画質（NORI-56）：一度 "low" になったら戻らない */
@@ -49,6 +60,13 @@ if (params.has("models")) {
   const { startModelGallery } = await import("./render/modelGallery");
   await startModelGallery(canvas, import.meta.env.BASE_URL);
   // ここで止める（下のゲームの起動に進まない）。確認用の画面は描き続ける
+  await new Promise<never>(() => undefined);
+}
+
+// ?stage=2：山道を列車で進むステージ（NORI-26）。タイトル画面（NORI-30）ができるまでのつなぎ
+if (params.get("stage") === "2") {
+  const { startStage2 } = await import("./stage2Main");
+  await startStage2(canvas, hud, showDebug);
   await new Promise<never>(() => undefined);
 }
 
