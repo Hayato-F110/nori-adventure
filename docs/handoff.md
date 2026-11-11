@@ -4,6 +4,14 @@
 > 新しいセッションでは `/start-day` を使う（このファイル、`CLAUDE.md`、最新の devlog、Jira を読む）。
 > 4週間の予定・成果物・学ぶことは `docs/schedule.md`（11/10 の計画の変更は「決まったこと」と「変更後のスプリント」）。
 
+## 0. 11/11 13:50 の状態（使用量 86% で区切り）
+
+- **完了**：NORI-20〜23（乗り物4台）、NORI-25（ステージ1）、NORI-56（見た目・光のベイク）。PR #24〜#29 はマージ済み
+- **開いている PR**：#30（NORI-56 のレビューの反映＋CLAUDE.md の「応答を遅くしない」）。CI が緑ならマージ
+- **途中**：NORI-26（ステージ2）。ブランチ `feature/NORI-26-stage2-train` に数値だけコミット済み（push していない）。#30 をマージしたら main を merge してから実装（線路・列車・駅・`?stage=2`）。テストの一覧は承認済み（会話の表）
+- **Firefly（明日）**：元の画像 `blender-work/renders/sub-front-ai.png`・`rover-front-ai.png`。指示の文は `blender-work/ai-video/plane-prompt.txt` を乗り物に合わせて直す
+- **ffmpeg** 9.0.2 を入れた（winget）。Blender は 5.3.0（ファイアウォールの規則も 5.3 に付け替え済み）
+
 ## 1. いまの状態
 
 | 項目       | 状態                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |

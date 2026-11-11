@@ -270,6 +270,22 @@ export const LOOK = {
   bakeSamples: 64,
   aoIntensity: 1.0,
   aoDirect: 0.5,
+  /** 空と地面の光の強さ：単色のとき・素材を貼ったとき（HDRI のまわりの光が入るので弱める） */
+  hemiPlain: 1.4,
+  hemiTextured: 0.5,
+  /** 低画質のときの画素の倍率 */
+  lowPixelRatio: 1,
+  /** テクスチャの異方性フィルタの上限（斜めから見た道がぼやけないように） */
+  maxAnisotropy: 4,
+  /** 色（16進の文字列）。ほし・道の明るさの比（minStarContrast）はこれらで決まる */
+  starColor: "#ffd23f",
+  starEmissive: "#e0a800",
+  plainRoadColor: "#3a3e48",
+  /** 道の白線：幅と、道の端からの距離（中央線は引かない。ほしとまぎれるため） */
+  roadLineWidth: 0.25,
+  roadLineInset: 0.6,
+  /** 素材を貼るのは、最初の画質の判定（lowFpsSeconds）が済んでから。読み込み直後の何秒を FPS に数えないか */
+  settleSeconds: 1,
 } as const;
 
 export const CONFIG = {
