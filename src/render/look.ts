@@ -25,6 +25,10 @@ export type LookDeps = {
   base: string;
   renderer: THREE.WebGLRenderer;
   surfaces: Readonly<Record<SurfaceName, SurfaceSpec>>;
+  /** 焼き付けた地面の陰の強さ（LOOK.aoIntensity） */
+  aoIntensity?: number;
+  /** 焼き付けた陰を、太陽の直接の光にも効かせる割合（LOOK.aoDirect。0 なら効かせない） */
+  aoDirect?: number;
   fetchManifest?: (url: string) => Promise<TextureManifest>;
 };
 
@@ -58,6 +62,10 @@ export const loadLook = async (deps: LookDeps): Promise<Look | null> => {
         maps.set(name, { color, normal, roughness } as Record<(typeof MAPS)[number], THREE.Texture>);
       }),
     );
+    // 焼き付けた地面の陰（AO）。uv1（setGroundUv1）で地面と道に重ねる
+    const groundAo = await load("ground_ao.webp", false);
+    groundAo.wrapS = groundAo.wrapT = THREE.ClampToEdgeWrapping;
+    groundAo.channel = 1;
     if (!listed.has("sky.hdr")) throw new Error("manifest に sky.hdr がない");
     const hdr = await new HDRLoader().loadAsync(`${deps.base}textures/sky.hdr`);
     hdr.mapping = THREE.EquirectangularReflectionMapping;
@@ -86,7 +94,23 @@ export const loadLook = async (deps: LookDeps): Promise<Look | null> => {
           roughnessMap: m.roughness,
           color,
           roughness: surface === "grass" ? 0.95 : 1,
+          // 地面と道だけに、焼き付けた陰を重ねる（建物の壁には使わない）
+          ...(surface === "grass" || surface === "road"
+            ? { aoMap: groundAo, aoMapIntensity: deps.aoIntensity ?? 1 }
+            : {}),
         });
+        if (mat.aoMap !== null) {
+          // three.js の aoMap は「まわりからの光」だけを暗くする。建物の足元の陰が見えるよう、
+          // 太陽の直接の光にも aoDirect の割合だけ効かせる（シェーダーに1行足す）
+          const direct = deps.aoDirect ?? 0;
+          mat.onBeforeCompile = (shader) => {
+            shader.fragmentShader = shader.fragmentShader.replace(
+              "#include <aomap_fragment>",
+              `#include <aomap_fragment>\n#ifdef USE_AOMAP\nreflectedLight.directDiffuse *= mix(1.0, ambientOcclusion, ${direct.toFixed(3)});\n#endif`,
+            );
+          };
+          mat.customProgramCacheKey = () => `ao-direct-${direct}`;
+        }
         cache.set(key, mat);
         return mat;
       },
@@ -119,6 +143,26 @@ export const setBoxUvMeters = (geo: THREE.BufferGeometry, w: number, h: number, 
   });
   uv.needsUpdate = true;
   return geo;
+};
+
+/**
+ * 2つ目の UV（uv1）を、世界の位置から地面全体の 0〜1 にする（焼き付けた地面の陰を重ねるため）。
+ * u = (x + 半分) / 大きさ、v = (−z + 半分) / 大きさ（tools/blender/bake-ground-ao.py と同じ）。
+ * 形（geometry）はメッシュごとに別のものにしておく（同じ形を共有すると、置き場所の違いが反映されない）
+ */
+export const setGroundUv1 = (mesh: THREE.Mesh, groundSize: number) => {
+  mesh.updateMatrixWorld(true);
+  const pos = mesh.geometry.getAttribute("position");
+  const half = groundSize / 2;
+  const p = new THREE.Vector3();
+  const uv1 = new Float32Array(pos.count * 2);
+  for (let i = 0; i < pos.count; i++) {
+    p.fromBufferAttribute(pos, i).applyMatrix4(mesh.matrixWorld);
+    uv1[i * 2] = (p.x + half) / groundSize;
+    uv1[i * 2 + 1] = (-p.z + half) / groundSize;
+  }
+  mesh.geometry.setAttribute("uv1", new THREE.BufferAttribute(uv1, 2));
+  return mesh;
 };
 
 /** 平面（PlaneGeometry）の UV を、幅・長さ（m）÷ 素材の大きさにする */

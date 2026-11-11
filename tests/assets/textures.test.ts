@@ -5,6 +5,8 @@ import { describe, expect, it } from "vitest";
 import { LOOK } from "../../src/config/index.ts";
 import {
   checkTextureFiles,
+  LIGHTMAP_FILE,
+  OWN_LICENSE,
   requiredTextureFiles,
   TEXTURE_LICENSE,
   type TextureManifest,
@@ -27,6 +29,13 @@ const ok = (name: string, bytes: Uint8Array) => ({ name, bytes, license: TEXTURE
 describe("checkTextureFiles（LOOK の上限）", () => {
   it("決まりどおりなら問題なし", () => {
     expect(checkTextureFiles([ok("Grass004_color.webp", webp(1000)), ok("sky.hdr", hdr(1000))])).toEqual([]);
+  });
+
+  it(`地面の陰（${LIGHTMAP_FILE}）は自作なので CC BY 4.0。上限は LOOK.maxLightmapBytes`, () => {
+    const own = (bytes: Uint8Array, license = OWN_LICENSE) => ({ name: LIGHTMAP_FILE, bytes, license });
+    expect(checkTextureFiles([own(webp(LOOK.maxTextureBytes + 1))])).toEqual([]);
+    expect(checkTextureFiles([own(webp(LOOK.maxLightmapBytes + 1))]).join("\n")).toMatch(/上限/);
+    expect(checkTextureFiles([own(webp(16), TEXTURE_LICENSE)]).join("\n")).toMatch(/ライセンス/);
   });
 
   it("テクスチャ1枚の上限を超えると問題", () => {
@@ -78,15 +87,21 @@ describe("public/textures/manifest.json（取り込んだ素材の出所の記�
     }
   });
 
-  it("ファイルは上限以内で、CC0。出所の URL は ambientCG か Poly Haven", () => {
+  it("ファイルは上限以内。外部の素材は CC0 で出所は ambientCG か Poly Haven、自作の地面の陰は CC BY 4.0", () => {
     const files = manifest.textures.map((t) => ({
       name: t.file,
       bytes: new Uint8Array(readFileSync(path.join(dir, t.file))),
       license: t.license,
     }));
     expect(checkTextureFiles(files)).toEqual([]);
-    for (const t of manifest.textures)
-      expect(t.sourceUrl, t.file).toMatch(/^https:\/\/(ambientcg\.com|polyhaven\.com)\//);
+    for (const t of manifest.textures) {
+      // 外部の素材は配布元、自作の地面の陰はこのリポジトリの作り方のスクリプト
+      const pattern =
+        t.file === LIGHTMAP_FILE
+          ? /^https:\/\/github\.com\/Hayato-F110\/nori-adventure\//
+          : /^https:\/\/(ambientcg\.com|polyhaven\.com)\//;
+      expect(t.sourceUrl, t.file).toMatch(pattern);
+    }
   });
 
   it("manifest にないファイルが public/textures/ にない", () => {
