@@ -327,7 +327,7 @@ def clear_scene():
     # オブジェクトの名前はファイル全体で一意（2台目の body が body.001 になる）。そのため1台ずつ別のファイルで作る。
     # 消してよいのは、まだ保存していない新しいファイル（起動時の Cube など）か、このスクリプトが作った乗り物のファイルだけ
     current = Path(bpy.data.filepath).name if bpy.data.filepath else ""
-    allowed = {""} | {f"{n}.blend" for n in BUILDERS}
+    allowed = {"", "stage1-bake.blend"} | {f"{n}.blend" for n in BUILDERS}
     if current not in allowed:
         raise RuntimeError(f"開いているファイル {current!r} は消さない。新しいファイルにしてから実行する")
     for o in list(bpy.data.objects):

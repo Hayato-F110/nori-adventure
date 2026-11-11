@@ -2,6 +2,7 @@
 // 状態（core の CourseState）を読んで描くだけ。場所は core と同じ（STAGE1.route・starPositions）。
 import * as THREE from "three";
 import type { CourseState, Point } from "../core/course";
+import { LOOK } from "../config";
 
 export type CourseViewConfig = {
   readonly route: readonly Point[];
@@ -12,7 +13,6 @@ export type CourseViewConfig = {
 };
 
 const COLORS = {
-  star: 0xffd23f,
   next: 0xff8a1f, // 次に行く門：オレンジ（光る）
   later: 0xc9ccd6, // まだ先の門：うすい灰色
   passed: 0x5fcf6b, // 通った門：緑
@@ -75,9 +75,9 @@ export const createCourseView = (stars: readonly Point[], config: CourseViewConf
   // ほし
   const starGeo = starShape();
   const starMat = new THREE.MeshStandardMaterial({
-    color: COLORS.star,
+    color: LOOK.starColor,
     // 自ら少し光らせて、まわりの光（HDRI・AgX）が弱いところでも道との差を保つ（NORI-56）
-    emissive: 0xe0a800,
+    emissive: LOOK.starEmissive,
     roughness: 0.35,
     metalness: 0,
   });

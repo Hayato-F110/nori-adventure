@@ -90,13 +90,24 @@ const checkLook = async (page: Page, testInfo: TestInfo, mode: "高画質" | "�
   // ほし（2個目。(0, 1, −21)）と、そのすぐ横の道 (2.5, 0, −21)。道 (−2.5, 0, −12) と、道の外の芝 (−6.2, 0, −12)
   const points = await page.evaluate(() => {
     const s = (x: number, y: number, z: number) => window.__nori?.screenOf(x, y, z) ?? { x: 0, y: 0 };
-    return [s(0, 1, -21), s(2.5, 0.02, -21), s(-2.5, 0.02, -12), s(-6.2, 0, -12)];
+    return [s(0, 1, -21), s(2.5, 0.02, -21), s(-2.5, 0.02, -12), s(-6.2, 0, -12), s(0, 0.02, -15)];
   });
-  const [star = 0, roadByStar = 0, road = 0, grass = 0] = await luminanceAt(page, points);
-  const starContrast = ratio(star, roadByStar);
+  const [star = 0, roadByStar = 0, road = 0, grass = 0, roadCenter = 0] = await luminanceAt(page, points);
+  // ほしは道の中心に並ぶ。横の道だけでなく、ほしの手前の道の中心（前は中央線があった所）とも比べる（奥の点は、画面ではほしに重なる）
+  const starContrast = Math.min(ratio(star, roadByStar), ratio(star, roadCenter));
   const roadGrass = ratio(road, grass);
   await testInfo.attach("contrast", {
-    body: JSON.stringify({ quality, starContrast, roadGrass, star, roadByStar, road, grass, points }),
+    body: JSON.stringify({
+      quality,
+      starContrast,
+      roadGrass,
+      star,
+      roadByStar,
+      roadCenter,
+      road,
+      grass,
+      points,
+    }),
     contentType: "application/json",
   });
   expect(starContrast).toBeGreaterThanOrEqual(LOOK.minStarContrast);
