@@ -18,7 +18,7 @@ describe("galleryLayout", () => {
     expect(galleryLayout([])).toEqual([]);
   });
 
-  it("並べる順は、ステージの順（車・列車・飛行機・潜水艇・ローバー）", () => {
-    expect(GALLERY_ORDER).toEqual(["car", "train", "plane", "sub", "rover"]);
+  it("並べる順は、ステージの順（車・列車・飛行機・潜水艇・ローバー）、最後に木2種類", () => {
+    expect(GALLERY_ORDER).toEqual(["car", "train", "plane", "sub", "rover", "tree-a", "tree-b"]);
   });
 });
