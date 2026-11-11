@@ -13,14 +13,17 @@ MCP の `get_objects_summary` を呼ぶ。つながれば 3 へ。「Cannot conn
 
 ## 2. オーナーに開いてもらう（Claude は開かない）
 
-Blender は**オーナーが** noriblender として開く。Claude がオーナーのアカウントで Blender を動かすことはしない（隔離の外で AI のコードが動くため。パスワードも扱わない）。次の1行をそのまま渡す（PowerShell 7.4 以降、リポジトリの一番上で）。
+Blender は noriblender として開く。Claude は `tools/blender/start-blender.ps1` を**オーナーの画面の別の窓**で開くだけにし、パスワードはオーナーがその窓に入れる（Claude には見えない・扱わない）。Claude がオーナーのアカウントで Blender そのものを動かすことはしない（隔離の外で AI のコードが動くため）。
+
+PowerShell の道具で次を実行し、オーナーに「開いた窓に noriblender のパスワードを入れてください」と伝える。
 
 ```powershell
-.\tools\blender\start-blender.ps1
+Start-Process pwsh -ArgumentList '-NoProfile', '-File', "<このリポジトリの絶対パス>\tools\blender\start-blender.ps1"
 ```
 
-- 中身は手順書④と同じ `Start-Process -Credential -LoadUserProfile -UseNewEnvironment -Environment`（ないとオーナーの環境変数を引き継ぐ。11/6 に起きた）。パスワードは `Get-Credential` の画面でオーナーが入れる
-- Claude はこのスクリプトを実行しない（オーナーのパスワードが要り、秘密情報に当たるため）
+- 中身は手順書④と同じ `Start-Process -Credential -LoadUserProfile -UseNewEnvironment -Environment`（ないとオーナーの環境変数を引き継ぐ。11/6 に起きた）
+- 窓に「Blender x.y が見つかりません」と出たら、winget で版が上がっている。公式のリリースノートで Python・アドオンの非互換を確かめ、オーナーに伝えてから `$version` を直す（11/11 に 5.2 → 5.3）
+- 新しい版を初めて開いたときは、起動の画面で「Import Preferences From Previous Version」を選んでもらう（MCP のアドオンも引き継がれる。[Defaults](https://docs.blender.org/manual/en/latest/getting_started/configuration/defaults.html)）。そのあと 3 の隔離の確認を必ず行う
 - アドオン「MCP」のサーバーは自動で始まる。「開いた」と言われたら 1 に戻る
 - つながらないとき：初回の `uvx` の準備が 30 秒を超えることがある → オーナーのターミナルで `.mcp.json` と同じ `uvx … blender-mcp --help` を1回実行してから `/mcp` で Reconnect（handoff の「Blender MCP」）
 

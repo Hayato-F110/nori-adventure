@@ -5,14 +5,28 @@
 # パスワードは Get-Credential の画面で入れる。このファイルには書かない。
 
 $ErrorActionPreference = 'Stop'
+# エラーのとき、窓がすぐ閉じないように止める（Claude が別の窓で開くため）
+trap { Write-Host "エラー: $_" -ForegroundColor Red; Read-Host 'Enter で閉じる'; exit 1 }
 
-# Blender の場所（版を固定して使う。版を上げたらここを直す）
-$blender = 'C:\Program Files\Blender Foundation\Blender 5.2\blender.exe'
+# Blender の版（固定して使う。winget で上げたら、ここと docs/security/blender-mcp-isolation.md を直す）
+$version = '5.3'
+$blender = "C:\Program Files\Blender Foundation\Blender $version\blender.exe"
 # 作業フォルダ：このファイルの2つ上（リポジトリの一番上）の blender-work。noriblender が書けるのはここだけ
 $work = Join-Path (Resolve-Path (Join-Path $PSScriptRoot '..\..')) 'blender-work'
 
-if (-not (Test-Path $blender)) { throw "Blender が見つかりません: $blender" }
+if (-not (Test-Path $blender)) {
+    # 版が変わったときに、入っている版を見せる（11/11 に 5.2 → 5.3 で止まった）
+    $found = (Get-ChildItem 'C:\Program Files\Blender Foundation' -Directory -ErrorAction SilentlyContinue).Name -join ', '
+    throw "Blender $version が見つかりません。入っている版: $found。start-blender.ps1 の `$version を直してください"
+}
 if (-not (Test-Path $work)) { throw "作業フォルダが見つかりません: $work" }
+
+# 外への通信を止めるファイアウォールの規則が、この版の exe に効いているか（規則は exe のパスに結びつく。11/11 に 5.3 で外れていた）
+$blocked = Get-NetFirewallRule -DisplayName 'NoriBlender*' -ErrorAction SilentlyContinue |
+    Where-Object { $_.Enabled -eq 'True' -and $_.Action -eq 'Block' -and $_.Direction -eq 'Outbound' -and ($_ | Get-NetFirewallApplicationFilter).Program -eq $blender }
+if (-not $blocked) {
+    throw "Blender $version の外への通信を止める規則がありません。docs/security/blender-mcp-isolation.md ② の規則を、管理者の PowerShell でこの exe に合わせてください"
+}
 
 # noriblender のパスワードを聞く
 $cred = Get-Credential noriblender
