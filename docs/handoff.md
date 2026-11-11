@@ -4,14 +4,20 @@
 > 新しいセッションでは `/start-day` を使う（このファイル、`CLAUDE.md`、最新の devlog、Jira を読む）。
 > 4週間の予定・成果物・学ぶことは `docs/schedule.md`（11/10 の計画の変更は「決まったこと」と「変更後のスプリント」）。
 
-## 0. 11/11 13:50 の状態（使用量 86% で区切り）
+## 0. 11/11 19:30 の状態
 
-- **完了**：NORI-20〜23（乗り物4台）、NORI-25（ステージ1）、NORI-56（見た目・光のベイク）。PR #24〜#29 はマージ済み
-- **開いている PR**：#30（NORI-56 のレビューの反映＋CLAUDE.md の「応答を遅くしない」）。CI が緑ならマージ
-- **途中**：NORI-26（ステージ2）。ブランチ `feature/NORI-26-stage2-train` に数値だけコミット済み（push していない）。#30 をマージしたら main を merge してから実装（線路・列車・駅・`?stage=2`）。テストの一覧は承認済み（会話の表）
-- **Firefly（明日）**：元の画像 `blender-work/renders/sub-front-ai.png`・`rover-front-ai.png`。指示の文は `blender-work/ai-video/plane-prompt.txt` を乗り物に合わせて直す
-- **見た目をステージ2〜5にも広げる（11/11 にオーナーが決定）**：NORI-26〜29 の完了条件に入れた。各ステージで、ステージ1と同じやり方（CC0 の PBR 素材・HDRI・AgX・画質の自動切り替え・光のベイク）を使い、ほし・ゴールと道の明るさの比 3 以上、CPU を4倍遅くして 30fps 以上を確かめる。**木**も軽い自作のモデル（Blender、素材は数 MB に縮める）に作り直し、ステージ1・2で共通に使う（NORI-26 で作る。低画質では今の簡単な木）。木の数値は実装前に `game-rules.md` に書く
-- **ffmpeg** 9.0.2 を入れた（winget）。Blender は 5.3.0（ファイアウォールの規則も 5.3 に付け替え済み）
+- **完了**：NORI-20〜23（乗り物4台）、NORI-25（ステージ1）、NORI-56（見た目・光のベイク）、**NORI-26（ステージ2）**。PR #24〜#35 はマージ済み
+- **NORI-26 でできたこと**：`?stage=2` で山道を列車で走る（線路・3駅・ゴール）。木を Blender で作り直し（`tree-a`・`tree-b`、ステージ1・2で共通、まとめて描く）。ステージ2の光のベイク（`tools/blender/bake-stage2-ao.py`）
+- **覚えておくこと**
+  - 景色の配置は `src/core/stage2Layout.ts`（描画と Blender で同じ）。`npm run layout:export` でステージ1・2の JSON を書き出す
+  - 木は、素材が読めた時点でシェーダーを先に用意する（`trees.prepare`）。切り替えの瞬間に約0.7秒止まっていたのを減らした
+  - E2E の FPS のテスト（`@fps` の5件）は、ほかのテストのあとに1本ずつ（`playwright.config.ts` の `fps` の組）。同時に走ると値が下がる
+  - 設定のキーに数字を入れない（`rules-sync` の正規表現が数字を読まない。例：`LOOK.mountainBakeSize`）
+  - 芝の素材は、ステージ2の手前の地面でざらついて白っぽく見える（空の照り返し）。陰を重ねて目立たなくなった。気になれば設定で弱める
+- **次**：NORI-27（ステージ3：空・飛行機）→ NORI-28（ステージ4：海）→ NORI-54（プライバシーポリシー）。スプリント2は 11/13 まで
+- **Firefly（明日）**：元の画像 `blender-work/renders/sub-front-ai.png`・`rover-front-ai.png`。指示の文は `blender-work/ai-video/plane-prompt.txt` を乗り物に合わせて直す。乗り物5台の 360° 回転動画（`blender-work/renders/turntable/*.mp4`、作り方は `tools/blender/render-turntable.py`）は紹介動画（NORI-43）の素材
+- **見た目をステージ2〜5にも広げる（11/11 にオーナーが決定）**：NORI-27〜29 の完了条件にも入れた。ステージ1・2と同じやり方（PBR 素材・HDRI・AgX・画質の自動切り替え・光のベイク）、ゴールの明るさの比 3 以上、CPU を4倍遅くして 30fps 以上
+- **PowerShell** は 7.7.0（Microsoft Store 版になり、前の Program Files の場所はなくなった）。**ffmpeg** 9.0.2。Blender は 5.3.0
 
 ## 1. いまの状態
 
