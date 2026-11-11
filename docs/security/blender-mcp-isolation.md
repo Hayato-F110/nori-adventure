@@ -78,6 +78,9 @@ icacls C:\NoriBlender\work
 New-NetFirewallRule -DisplayName "NoriBlender - Blender の外部通信を止める" -Direction Outbound -Action Block -Profile Any -Program "C:\Program Files\Blender Foundation\Blender 5.2\blender.exe" -RemoteAddress "0.0.0.0-126.255.255.255", "128.0.0.0-255.255.255.255", "::2-ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"
 ```
 
+- **規則は exe のパスに結びつく。Blender の版を上げたら（winget で `Blender 5.2` → `Blender 5.3` のようにフォルダが変わる）、新しい exe に付け替える**（管理者の PowerShell。11/11 に 5.3 で外れていたのを `start-blender.ps1` の起動前の確認で見つけた）：
+  `Get-NetFirewallRule -DisplayName "NoriBlender - Blender の外部通信を止める" | Get-NetFirewallApplicationFilter | Set-NetFirewallApplicationFilter -Program "C:\Program Files\Blender Foundation\Blender 5.3\blender.exe"`
+  （出典：<https://learn.microsoft.com/powershell/module/netsecurity/set-netfirewallapplicationfilter>）
 - ファイアウォールの設定は、オーナーがふだん使う Blender にも効く（アドオンのオンラインの検索などが使えなくなる）。外すときは `Remove-NetFirewallRule -DisplayName "NoriBlender - Blender の外部通信を止める"`
 - 出典：`New-NetFirewallRule`（<https://learn.microsoft.com/powershell/module/netsecurity/new-netfirewallrule>）、`icacls`（<https://learn.microsoft.com/windows-server/administration/windows-commands/icacls>。資料では `/inheritancelevel:r` と書かれているが、この PC の `icacls /?` には `/inheritance:e|d|r` とある。ja-JP の Windows でも `SYSTEM`・`Administrators` の名前で通ることを 11/6 に確かめた）
 
@@ -159,7 +162,7 @@ Blender（noriblender）を開いた状態で、Claude が次の2つを確かめ
 
 ## 4. ふだんの使い方
 
-1. スキル `/blender-start` で始める。④のコマンド（`-LoadUserProfile -UseNewEnvironment -Environment $nbEnv` つき、`-WorkingDirectory` は `<リポジトリ>\blender-work`）で noriblender の Blender を開き、毎回、隔離の確認をする
+1. スキル `/blender-start` で始める。スキルが別の窓で `tools\blender\start-blender.ps1` を開き、オーナーがその窓に noriblender のパスワードを入れる（④のコマンドをまとめたもの。起動の前に、ファイアウォールの規則がその版の exe に効いているかを確かめる。`-LoadUserProfile -UseNewEnvironment -Environment` つき、作業フォルダは `<リポジトリ>\blender-work`。2026-11-11 に追加）で noriblender の Blender を開き、毎回、隔離の確認をする
 2. Claude Code から MCP の道具を使う。モデルの作業ファイル（`.blend`）は `blender-work/` に置く
 3. できたモデルは GLB に書き出し（`blender-work/export/`）、オーナーのユーザーで `npm run assets:import <名前>`（検査に通ったものだけ `public/models/` へ）してコミットする
 4. AI 動画サービスに送るのは、自作モデルの画像だけ（CLAUDE.md「安全」）

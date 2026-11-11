@@ -13,17 +13,17 @@ MCP の `get_objects_summary` を呼ぶ。つながれば 3 へ。「Cannot conn
 
 ## 2. オーナーに開いてもらう（Claude は開かない）
 
-Blender は**オーナーが** noriblender として開く。Claude がオーナーのアカウントで Blender を動かすことはしない（隔離の外で AI のコードが動くため）。次をそのまま渡す。
+Blender は noriblender として開く。Claude は `tools/blender/start-blender.ps1` を**オーナーの画面の別の窓**で開くだけにし、パスワードはオーナーがその窓に入れる（Claude には見えない・扱わない）。Claude がオーナーのアカウントで Blender そのものを動かすことはしない（隔離の外で AI のコードが動くため）。
+
+PowerShell の道具で次を実行し、オーナーに「開いた窓に noriblender のパスワードを入れてください」と伝える。
 
 ```powershell
-# noriblender のパスワードを聞かれる
-$cred = Get-Credential noriblender
-$nb = "C:\Users\noriblender"
-$nbEnv = @{ USERNAME = "noriblender"; USERPROFILE = $nb; HOMEPATH = "\Users\noriblender"; APPDATA = "$nb\AppData\Roaming"; LOCALAPPDATA = "$nb\AppData\Local"; TEMP = "$nb\AppData\Local\Temp"; TMP = "$nb\AppData\Local\Temp" }
-Start-Process "C:\Program Files\Blender Foundation\Blender 5.2\blender.exe" -Credential $cred -LoadUserProfile -UseNewEnvironment -Environment $nbEnv -WorkingDirectory "<このリポジトリの絶対パス>\blender-work"
+Start-Process pwsh -ArgumentList '-NoProfile', '-File', "<このリポジトリの絶対パス>\tools\blender\start-blender.ps1"
 ```
 
-- `-LoadUserProfile -UseNewEnvironment -Environment $nbEnv` は**必須**（ないとオーナーの環境変数を引き継ぐ。11/6 に起きた）
+- 中身は手順書④と同じ `Start-Process -Credential -LoadUserProfile -UseNewEnvironment -Environment`（ないとオーナーの環境変数を引き継ぐ。11/6 に起きた）
+- 窓に「Blender x.y が見つかりません」と出たら、winget で版が上がっている。公式のリリースノートで Python・アドオンの非互換を確かめ、オーナーに伝えてから `$version` を直す（11/11 に 5.2 → 5.3）
+- 新しい版を初めて開いたときは、起動の画面で「Import Preferences From Previous Version」を選んでもらう（MCP のアドオンも引き継がれる。[Defaults](https://docs.blender.org/manual/en/latest/getting_started/configuration/defaults.html)）。そのあと 3 の隔離の確認を必ず行う
 - アドオン「MCP」のサーバーは自動で始まる。「開いた」と言われたら 1 に戻る
 - つながらないとき：初回の `uvx` の準備が 30 秒を超えることがある → オーナーのターミナルで `.mcp.json` と同じ `uvx … blender-mcp --help` を1回実行してから `/mcp` で Reconnect（handoff の「Blender MCP」）
 
