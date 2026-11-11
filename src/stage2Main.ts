@@ -17,6 +17,7 @@ import { type Look, loadLook } from "./render/look";
 import { createQualityGovernor } from "./render/quality";
 import { createStage2View } from "./render/stage2View";
 import { createStatusView } from "./render/statusView";
+import { loadTreeModels } from "./render/trees";
 
 export const startStage2 = async (canvas: HTMLCanvasElement, hud: HTMLElement, showDebug: boolean) => {
   const byId = (id: string) => {
@@ -93,6 +94,14 @@ export const startStage2 = async (canvas: HTMLCanvasElement, hud: HTMLElement, s
   let trainView: CarView = createBoxTrain();
   scene.add(trainView.root);
   const gltfLoader = new GLTFLoader();
+  // 木（NORI-26）：Blender の木の形が読めたら渡す（素材が貼れたときだけ使う。読めなければ今の簡単な木）
+  void loadTreeModels({
+    base: import.meta.env.BASE_URL,
+    fetchManifest: async (url) => (await (await fetch(url)).json()) as ModelManifest,
+    loadModel: async (url) => (await gltfLoader.loadAsync(url)).scene,
+  }).then((models) => {
+    if (models !== null) view.trees.setModels(models);
+  });
   let trainModel: "box" | "glb" = "box";
   void loadCarView({
     base: import.meta.env.BASE_URL,
@@ -197,6 +206,9 @@ export const startStage2 = async (canvas: HTMLCanvasElement, hud: HTMLElement, s
     },
     get quality() {
       return quality.quality;
+    },
+    get trees() {
+      return view.trees.mode;
     },
     screenOf: (x, y, z) => {
       projected.set(x, y, z).project(camera);

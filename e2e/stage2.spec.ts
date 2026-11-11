@@ -91,6 +91,10 @@ const checkLook = async (page: Page, testInfo: TestInfo, mode: "高画質" | "�
   await page.waitForFunction(() => window.__nori?.look !== "loading", undefined, { timeout: 60_000 });
   const quality = await page.evaluate(() => window.__nori?.quality);
   expect(await page.evaluate(() => window.__nori?.look)).toBe(quality === "low" ? "plain" : "textured");
+  // 木（NORI-26）：高画質は Blender の木、低画質は今の簡単な木
+  await page.waitForFunction((q) => window.__nori?.trees === (q === "low" ? "simple" : "model"), quality, {
+    timeout: 30_000,
+  });
   // 子どもが旗を見て止まるときの見え方で測る：1つ目の駅まで走って止まる
   await driveToFirstStation(page);
   await page.waitForTimeout(1500);

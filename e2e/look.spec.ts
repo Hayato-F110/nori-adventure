@@ -52,6 +52,10 @@ const checkLook = async (page: Page, testInfo: TestInfo, mode: "高画質" | "�
   // 見た目は、そのときの画質で決まる（高画質なら素材、低画質なら単色）
   const quality = await page.evaluate(() => window.__nori?.quality);
   expect(await page.evaluate(() => window.__nori?.look)).toBe(quality === "low" ? "plain" : "textured");
+  // 木（NORI-26）：高画質は Blender の木、低画質は今の簡単な木
+  await page.waitForFunction((q) => window.__nori?.trees === (q === "low" ? "simple" : "model"), quality, {
+    timeout: 30_000,
+  });
   // 車の後ろのカメラが落ち着くまで待つ
   await page.waitForTimeout(1500);
   await page.screenshot({ path: testInfo.outputPath(`look-${quality}.png`) });

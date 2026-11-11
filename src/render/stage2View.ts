@@ -5,7 +5,8 @@ import * as THREE from "three";
 import type { Stage2State } from "../core/stage2";
 import type { Track } from "../core/track";
 import type { Pose2D } from "../core/types";
-import { type Look, setPlaneUvMeters } from "./look";
+import { type Look, setPlaneUvMeters, withoutAo } from "./look";
+import { createTreeField, type TreeField } from "./trees";
 
 // ---- 線路の断面（m）。見た目だけの寸法 ----
 const BED_TOP = 0.3; // 土手の上面（線路の点からの高さ）
@@ -84,6 +85,8 @@ export type Stage2View = {
   root: THREE.Group;
   /** 素材を貼る（null なら単色に戻す） */
   applyLook(look: Look | null): void;
+  /** 木（Blender の木の形は、読めたら trees.setModels で渡す） */
+  trees: TreeField;
   /** 列車の位置と向き（描画の補間のあと） */
   trainPose(distance: number): Pose2D & { y: number; pitch: number };
   update(state: Stage2State, seconds: number, reducedMotion: boolean): void;
@@ -288,7 +291,7 @@ export const createStage2View = (track: Track, stations: readonly number[]): Sta
     }
   }
 
-  // 木（線路の両側。まとめて描く）。NORI-26 の後半で Blender の木に差しかえる
+  // 木（線路の両側。まとめて描く。ステージ1と同じ木）
   const treeSpots: THREE.Vector3[] = [];
   for (let i = 0; treeSpots.length < 150 && i < 600; i++) {
     const s = hash(i + 1000) * track.length;
@@ -300,31 +303,23 @@ export const createStage2View = (track: Track, stations: readonly number[]): Sta
       continue;
     treeSpots.push(p.setY(0));
   }
-  const trunks = new THREE.InstancedMesh(
-    new THREE.CylinderGeometry(0.25, 0.3, 1.6, 6).translate(0, 0.8, 0),
-    new THREE.MeshStandardMaterial({ color: 0x8d5a2b }),
-    treeSpots.length,
+  const trees = createTreeField(
+    treeSpots.map((p, i) => ({
+      x: p.x,
+      z: p.z,
+      rotation: hash(i + 5000) * Math.PI * 2,
+      scale: 0.85 + hash(i + 4000) * 0.4,
+    })),
   );
-  const leaves = new THREE.InstancedMesh(
-    new THREE.IcosahedronGeometry(1.4, 0).translate(0, 2.4, 0),
-    new THREE.MeshStandardMaterial({ color: 0x3fa34d, roughness: 0.9 }),
-    treeSpots.length,
-  );
-  treeSpots.forEach((p, i) => {
-    const scale = 0.85 + hash(i + 4000) * 0.4;
-    q.setFromAxisAngle(up, hash(i + 5000) * Math.PI * 2);
-    m.compose(p, q, new THREE.Vector3(scale, scale, scale));
-    trunks.setMatrixAt(i, m);
-    leaves.setMatrixAt(i, m);
-  });
-  leaves.castShadow = true;
-  root.add(trunks, leaves);
+  root.add(trees.root);
 
   return {
     root,
     markers,
+    trees,
     applyLook(look) {
       for (const swap of swaps) swap.mesh.material = look === null ? swap.plain : swap.pick(look);
+      trees.applyLook(look);
     },
     trainPose(distance) {
       const p = track.pointAt(distance);
@@ -346,16 +341,6 @@ export const createStage2View = (track: Track, stations: readonly number[]): Sta
       }
     },
   };
-};
-
-/** 地面の焼き付けた陰（ステージ1の配置）を外した材質。ステージ2の陰は、あとで焼く */
-const withoutAo = (mat: THREE.MeshStandardMaterial): THREE.MeshStandardMaterial => {
-  if (mat.aoMap === null) return mat;
-  const copy = mat.clone();
-  copy.aoMap = null;
-  copy.onBeforeCompile = () => undefined;
-  copy.customProgramCacheKey = () => "stage2-no-ao";
-  return copy;
 };
 
 const ANIMAL_COLORS = [0xf7c59f, 0xffffff, 0xc89f7a, 0xf2a6b8, 0xd7d7d7, 0xffe08a];

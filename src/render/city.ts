@@ -4,6 +4,7 @@ import * as THREE from "three";
 import { LOOK, STAGE1 } from "../config";
 import { roadLines, type Stage1Layout } from "../core/stage1Layout";
 import { type Look, setBoxUvMeters, setGroundUv1, setPlaneUvMeters } from "./look";
+import { createTreeField, type TreeField, treeHash } from "./trees";
 
 const BUILDING_COLORS = [0xffd166, 0x8ecae6, 0xf4978e, 0xb5e48c, 0xcdb4db, 0xffffff];
 
@@ -13,6 +14,8 @@ export type CityView = {
   obstacles: THREE.Object3D[];
   /** 素材を貼る（null なら単色に戻す：低画質・読めなかったとき） */
   applyLook(look: Look | null): void;
+  /** 木（NORI-26。Blender の木の形は、読めたら trees.setModels で渡す） */
+  trees: TreeField;
 };
 
 export const createCity = (layout: Stage1Layout): CityView => {
@@ -87,11 +90,6 @@ export const createCity = (layout: Stage1Layout): CityView => {
 
   // 建物と木（配置は core で決まっている）。建物は大きさごとの形にして、UV をメートル単位にする（素材が伸びない）
   const materials = BUILDING_COLORS.map((color) => new THREE.MeshStandardMaterial({ color, roughness: 0.8 }));
-  const trunkMat = new THREE.MeshStandardMaterial({ color: 0x8d5a2b });
-  const leafMat = new THREE.MeshStandardMaterial({ color: 0x3fa34d, roughness: 0.9 });
-  const leafGeo = new THREE.IcosahedronGeometry(1.4, 0);
-  const trunkGeo = new THREE.CylinderGeometry(0.25, 0.3, 1.6, 6);
-  trunkGeo.translate(0, 0.8, 0);
 
   const obstacles: THREE.Object3D[] = [];
   layout.buildings.forEach((b, index) => {
@@ -114,21 +112,23 @@ export const createCity = (layout: Stage1Layout): CityView => {
       pick: (look) => (index % 3 === 0 ? look.material("brick") : look.material("facade", color)),
     });
   });
-  for (const t of layout.trees) {
-    const tree = new THREE.Group();
-    tree.add(new THREE.Mesh(trunkGeo, trunkMat));
-    const leaves = new THREE.Mesh(leafGeo, leafMat);
-    leaves.position.y = 2.4;
-    leaves.castShadow = true;
-    tree.add(leaves);
-    tree.position.set(t.x, 0, t.z);
-    city.add(tree);
-  }
+  // 木（まとめて描く。向きと大きさは場所ごとに少し変える。当たり判定は core の幹の円柱のまま）
+  const trees = createTreeField(
+    layout.trees.map((t, i) => ({
+      x: t.x,
+      z: t.z,
+      rotation: treeHash(i + 5000) * Math.PI * 2,
+      scale: 0.9 + treeHash(i + 4000) * 0.2,
+    })),
+  );
+  city.add(trees.root);
   return {
     root: city,
     obstacles,
+    trees,
     applyLook(look) {
       for (const s of swaps) s.mesh.material = look === null ? s.plain : s.pick(look);
+      trees.applyLook(look);
     },
   };
 };

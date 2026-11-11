@@ -282,10 +282,10 @@ export const LOOK = {
     road: { texture: "Asphalt031", tileMeters: 4, tint: [0.2, 0.21, 0.24] },
     brick: { texture: "Facade018A", tileMeters: 13, tint: [1, 1, 1] },
     facade: { texture: "Facade006", tileMeters: 12, tint: [1, 1, 1] },
-    bark: { texture: "Bark001", tileMeters: 1, tint: [0.8, 0.7, 0.6] },
+    bark: { texture: "Bark001", tileMeters: 1, tint: [0.75, 0.55, 0.4] },
   },
-  /** 木の葉：芝の素材を濃い緑に染めて使う（新しく読む素材を増やさない）。線形の RGB */
-  leafTint: [0.25, 0.5, 0.18],
+  /** 木の葉：芝の素材（芝の tint の上）にかける色。芝より少し暗い緑（新しく読む素材を増やさない）。線形の RGB */
+  leafTint: [0.75, 0.85, 0.7],
   /** 木の素材（幹）の大きさの上限（color・normal・roughness の合計） */
   maxTreeTextureBytes: 1048576,
   lowFps: 40,

@@ -17,6 +17,7 @@ import { createFollowCamera } from "./render/followCamera";
 import { type Look, loadLook } from "./render/look";
 import { createQualityGovernor, type Quality } from "./render/quality";
 import { createStatusView } from "./render/statusView";
+import { loadTreeModels } from "./render/trees";
 
 declare global {
   interface Window {
@@ -39,6 +40,8 @@ declare global {
       }[];
       /** 見た目（NORI-56）：素材を読む前 "loading"・貼った "textured"・単色 "plain" */
       look: "loading" | "textured" | "plain";
+      /** 木（NORI-26）："simple"（今の簡単な木）か "model"（Blender の木） */
+      trees: "simple" | "model";
       /** 画質（NORI-56）：一度 "low" になったら戻らない */
       quality: Quality;
       /** 3D の点が、画面（CSS の px）のどこに映るか（E2E で明るさを測るため。読むだけ） */
@@ -147,6 +150,14 @@ const lowerQuality = () => {
 let carView: CarView = createCarView();
 scene.add(carView.root);
 const gltfLoader = new GLTFLoader();
+// 木（NORI-26）：Blender の木の形が読めたら渡す（素材が貼れたときだけ使う。読めなければ今の簡単な木）
+void loadTreeModels({
+  base: import.meta.env.BASE_URL,
+  fetchManifest: async (url) => (await (await fetch(url)).json()) as ModelManifest,
+  loadModel: async (url) => (await gltfLoader.loadAsync(url)).scene,
+}).then((models) => {
+  if (models !== null) city.trees.setModels(models);
+});
 void loadCarView({
   base: import.meta.env.BASE_URL,
   fetchManifest: async (url) => (await (await fetch(url)).json()) as ModelManifest,
@@ -226,6 +237,9 @@ window.__nori = {
   },
   get quality() {
     return quality.quality;
+  },
+  get trees() {
+    return city.trees.mode;
   },
   screenOf: (x, y, z) => {
     projected.set(x, y, z).project(camera);
