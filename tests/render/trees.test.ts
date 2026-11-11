@@ -78,6 +78,76 @@ describe("木をまとめて描く（InstancedMesh）", () => {
   });
 });
 
+describe("シェーダーを先に用意してから入れ替える（切り替えで一瞬止まらない）", () => {
+  const deferred = () => {
+    let resolve = () => {};
+    const promise = new Promise<void>((r) => {
+      resolve = r;
+    });
+    return { promise, resolve };
+  };
+
+  it("用意している間は今の木のまま。用意できたら Blender の木", async () => {
+    const d = deferred();
+    const field = createTreeField(spots, { precompile: () => d.promise });
+    field.setModels(ASSET.tree.variants.map(fakeModel));
+    field.applyLook(fakeLook());
+    expect(field.mode).toBe("simple");
+    expect(meshes(field.root)).toHaveLength(2);
+    d.resolve();
+    await d.promise;
+    await Promise.resolve();
+    expect(field.mode).toBe("model");
+    expect(meshes(field.root)).toHaveLength(ASSET.tree.variants.length * 2);
+  });
+
+  it("prepare で先に用意すると、あとの applyLook は同じ木を使い、二度は用意しない", async () => {
+    let calls = 0;
+    const field = createTreeField(spots, {
+      precompile: async () => {
+        calls++;
+      },
+    });
+    field.setModels(ASSET.tree.variants.map(fakeModel));
+    const look = fakeLook();
+    field.prepare(look);
+    expect(calls).toBe(1);
+    expect(field.mode).toBe("simple"); // 用意するだけで、まだ画面には出さない
+    field.applyLook(look);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(calls).toBe(1);
+    expect(field.mode).toBe("model");
+  });
+
+  it("形がまだのときに prepare しても、形が読めた時点で用意する", () => {
+    let calls = 0;
+    const field = createTreeField(spots, {
+      precompile: async () => {
+        calls++;
+      },
+    });
+    field.prepare(fakeLook());
+    expect(calls).toBe(0);
+    field.setModels(ASSET.tree.variants.map(fakeModel));
+    expect(calls).toBe(1);
+    expect(field.mode).toBe("simple");
+  });
+
+  it("用意している途中で低画質に下がったら（applyLook(null)）、入れ替えない", async () => {
+    const d = deferred();
+    const field = createTreeField(spots, { precompile: () => d.promise });
+    field.setModels(ASSET.tree.variants.map(fakeModel));
+    field.applyLook(fakeLook());
+    field.applyLook(null);
+    d.resolve();
+    await d.promise;
+    await Promise.resolve();
+    expect(field.mode).toBe("simple");
+    expect(meshes(field.root)).toHaveLength(2);
+  });
+});
+
 describe("GLB の木を読む", () => {
   const glbScene = (names: readonly string[]) => {
     const scene = new THREE.Group();

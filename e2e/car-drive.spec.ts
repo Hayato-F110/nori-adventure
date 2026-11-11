@@ -41,7 +41,7 @@ const snapshot = (page: import("@playwright/test").Page) =>
     return { fpsSamples: [...nori.fpsSamples], frames: nori.frames, tick: state.tick, car: state.car };
   });
 
-test("車が12秒走り、FPS とコンソールエラーを記録する", async ({ page }, testInfo) => {
+test("車が12秒走り、FPS とコンソールエラーを記録する", { tag: "@fps" }, async ({ page }, testInfo) => {
   // 遅い環境ではゲーム内の時間が6秒進むまで走るので、テスト全体の上限を延ばす
   test.setTimeout((MAX_DRIVE_SECONDS + 60) * 1000);
   const consoleErrors: string[] = [];

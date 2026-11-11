@@ -93,7 +93,10 @@ Object.assign(sun.shadow.camera, { left: -30, right: 30, top: 30, bottom: -30, n
 scene.add(sun, sun.target);
 // 当たり判定（Rapier の WASM）の準備を待ってから始める
 const game = await createGame();
-const city = createCity(game.layout);
+// 木を Blender の木に切り替える前に、シェーダーを用意する（切り替えで一瞬止まらないように。NORI-26）
+const city = createCity(game.layout, {
+  precompile: (staged) => renderer.compileAsync(staged, camera, scene),
+});
 scene.add(city.root);
 const courseView = createCourseView(game.stars, STAGE1);
 scene.add(courseView.root);
@@ -131,6 +134,8 @@ void loadLook({
   maxAnisotropy: LOOK.maxAnisotropy,
 }).then((look) => {
   loadedLook = look;
+  // 切り替えの前に、Blender の木のシェーダーを裏で用意しておく（切り替えで一瞬止まらないように。NORI-26）
+  if (look !== null) city.trees.prepare(look);
   tryApplyLook();
 });
 const lowerQuality = () => {

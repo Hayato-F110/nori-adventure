@@ -10,7 +10,7 @@ const manifest = JSON.parse(
 const names = manifest.models.map((m) => m.name);
 const MIN_AVERAGE_FPS = 55;
 
-test("乗り物のモデルを並べて表示する（?models）", async ({ page }, testInfo) => {
+test("乗り物のモデルを並べて表示する（?models）", { tag: "@fps" }, async ({ page }, testInfo) => {
   const consoleErrors: string[] = [];
   page.on("console", (message) => {
     if (message.type() === "error") consoleErrors.push(message.text());

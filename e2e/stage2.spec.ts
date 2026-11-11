@@ -124,7 +124,7 @@ const checkLook = async (page: Page, testInfo: TestInfo, mode: "高画質" | "�
   expect(errors).toEqual([]);
 };
 
-test("ステージ2：CPU を4倍遅くしても 30fps 以上", async ({ page }) => {
+test("ステージ2：CPU を4倍遅くしても 30fps 以上", { tag: "@fps" }, async ({ page }) => {
   test.skip(skipFps, "GPU のない CI では FPS を測らない");
   test.setTimeout(120_000);
   const cdp = await page.context().newCDPSession(page);

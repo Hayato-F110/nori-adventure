@@ -19,6 +19,11 @@ export type TreeField = {
   setModels(models: readonly TreeModel[]): void;
   /** 素材を貼る（null なら今の簡単な木に戻す：低画質・素材が読めないとき） */
   applyLook(look: Look | null): void;
+  /**
+   * 素材が読めた時点で、Blender の木を裏で組み立ててシェーダーを用意しておく（まだ画面には出さない）。
+   * あとで applyLook したときに、一瞬止まらずに切り替えられる
+   */
+  prepare(look: Look): void;
   /** 今の描き方（E2E・テスト用） */
   readonly mode: "simple" | "model";
 };
@@ -31,7 +36,15 @@ const simpleModel = (): TreeModel => ({
 const SIMPLE_TRUNK = new THREE.MeshStandardMaterial({ color: 0x8d5a2b });
 const SIMPLE_LEAVES = new THREE.MeshStandardMaterial({ color: 0x3fa34d, roughness: 0.9 });
 
-export const createTreeField = (spots: readonly TreeSpot[]): TreeField => {
+export type TreeFieldOptions = {
+  /**
+   * Blender の木に切り替える前に、シェーダーを用意する（renderer.compileAsync）。
+   * 渡さなければ、すぐに切り替える（テスト用）
+   */
+  precompile?: (staged: THREE.Object3D) => Promise<unknown>;
+};
+
+export const createTreeField = (spots: readonly TreeSpot[], options: TreeFieldOptions = {}): TreeField => {
   const root = new THREE.Group();
   root.name = "trees";
   const simple = simpleModel();
@@ -45,14 +58,10 @@ export const createTreeField = (spots: readonly TreeSpot[]): TreeField => {
   const size = new THREE.Vector3();
 
   /** 種類ごとに、その種類の木の場所へ InstancedMesh を作る（場所 i は種類 i % 種類の数） */
-  const rebuild = (kinds: readonly TreeModel[], trunkMat: THREE.Material, leafMat: THREE.Material) => {
-    for (const child of [...root.children]) {
-      root.remove(child);
-      (child as THREE.InstancedMesh).dispose();
-    }
-    kinds.forEach((kind, k) => {
+  const build = (kinds: readonly TreeModel[], trunkMat: THREE.Material, leafMat: THREE.Material) =>
+    kinds.flatMap((kind, k) => {
       const mine = spots.filter((_, i) => i % kinds.length === k);
-      if (mine.length === 0) return;
+      if (mine.length === 0) return [];
       const trunk = new THREE.InstancedMesh(kind.trunk, trunkMat, mine.length);
       const leaves = new THREE.InstancedMesh(kind.leaves, leafMat, mine.length);
       mine.forEach((s, i) => {
@@ -65,23 +74,61 @@ export const createTreeField = (spots: readonly TreeSpot[]): TreeField => {
       leaves.castShadow = true;
       trunk.name = `trunk-${k}`;
       leaves.name = `leaves-${k}`;
-      root.add(trunk, leaves);
+      return [trunk, leaves];
     });
+  /** 組み立て済みの Blender の木（素材と形ごとに1回だけ作る）と、シェーダーの用意ができたか */
+  let staged: {
+    look: Look;
+    models: readonly TreeModel[];
+    meshes: THREE.InstancedMesh[];
+    ready: Promise<unknown>;
+  } | null = null;
+  const swap = (meshes: readonly THREE.InstancedMesh[], next: "simple" | "model") => {
+    for (const child of [...root.children]) {
+      root.remove(child);
+      // 組み立て済みの Blender の木は、また使うことがあるので捨てない
+      if (!(staged?.meshes as THREE.Object3D[] | undefined)?.includes(child))
+        (child as THREE.InstancedMesh).dispose();
+    }
+    root.add(...meshes);
+    mode = next;
   };
-  rebuild([simple], SIMPLE_TRUNK, SIMPLE_LEAVES);
+  swap(build([simple], SIMPLE_TRUNK, SIMPLE_LEAVES), "simple");
 
   let look: Look | null = null;
-  const refresh = () => {
-    if (look === null || models.length === 0) {
-      if (mode === "simple" && root.children.length > 0) return;
-      rebuild([simple], SIMPLE_TRUNK, SIMPLE_LEAVES);
-      mode = "simple";
-      return;
-    }
+  let prepared: Look | null = null;
+  const stageFor = (forLook: Look) => {
+    if (staged !== null && staged.look === forLook && staged.models === models) return staged;
     const [r = 1, g = 1, b = 1] = LOOK.leafTint;
     const leafTint = new THREE.Color().setRGB(r, g, b, THREE.LinearSRGBColorSpace);
-    rebuild(models, look.material("bark"), leafMaterial(look.material("grass", leafTint)));
-    mode = "model";
+    const meshes = build(models, forLook.material("bark"), leafMaterial(forLook.material("grass", leafTint)));
+    const group = new THREE.Group();
+    group.add(...meshes);
+    const ready =
+      options.precompile === undefined ? Promise.resolve() : options.precompile(group).catch(() => undefined);
+    group.remove(...meshes);
+    staged = { look: forLook, models, meshes, ready };
+    return staged;
+  };
+  /** 切り替えの番号（シェーダーを用意している間に、また切り替わったら古いほうは捨てる） */
+  let version = 0;
+  const refresh = () => {
+    version++;
+    if (look === null || models.length === 0) {
+      if (mode !== "simple") swap(build([simple], SIMPLE_TRUNK, SIMPLE_LEAVES), "simple");
+      if (prepared !== null && models.length > 0) stageFor(prepared);
+      return;
+    }
+    const next = stageFor(look);
+    if (options.precompile === undefined) {
+      swap(next.meshes, "model");
+      return;
+    }
+    // シェーダーの用意ができてから入れ替える（その間は今の木を描き続ける）
+    const mine = version;
+    void next.ready.then(() => {
+      if (mine === version) swap(next.meshes, "model");
+    });
   };
 
   return {
@@ -96,6 +143,10 @@ export const createTreeField = (spots: readonly TreeSpot[]): TreeField => {
     applyLook(next) {
       look = next;
       refresh();
+    },
+    prepare(next) {
+      prepared = next;
+      if (models.length > 0) stageFor(next);
     },
   };
 };

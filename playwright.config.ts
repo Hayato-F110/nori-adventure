@@ -5,6 +5,12 @@ import { defineConfig, devices } from "@playwright/test";
 //   例：NORI_BASE_URL=https://hayato-f110.github.io/nori-adventure/ npm run e2e
 const LOCAL_URL = "http://localhost:4173/nori-adventure/";
 const remoteUrl = process.env["NORI_BASE_URL"];
+const chrome = {
+  ...devices["Desktop Chrome"],
+  viewport: { width: 1280, height: 720 },
+  // 手元の PC では GPU を使う（ヘッドレスでも WebGL をハードウェアで描く）
+  launchOptions: { args: ["--enable-gpu", "--ignore-gpu-blocklist", "--use-angle=default"] },
+};
 
 export default defineConfig({
   testDir: "e2e",
@@ -18,12 +24,17 @@ export default defineConfig({
   projects: [
     {
       name: "chromium",
-      use: {
-        ...devices["Desktop Chrome"],
-        viewport: { width: 1280, height: 720 },
-        // 手元の PC では GPU を使う（ヘッドレスでも WebGL をハードウェアで描く）
-        launchOptions: { args: ["--enable-gpu", "--ignore-gpu-blocklist", "--use-angle=default"] },
-      },
+      use: chrome,
+      grepInvert: /@fps/,
+    },
+    // FPS を測るテスト（@fps）は、ほかのテストが終わってから1本ずつ動かす。
+    // CPU を遅くするテストなどが同時に走ると、測る値がそれに左右されるため（NORI-26）
+    {
+      name: "fps",
+      use: chrome,
+      grep: /@fps/,
+      workers: 1,
+      dependencies: ["chromium"],
     },
   ],
   ...(remoteUrl === undefined

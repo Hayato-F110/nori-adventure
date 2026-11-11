@@ -52,7 +52,10 @@ export const startStage2 = async (canvas: HTMLCanvasElement, hud: HTMLElement, s
   scene.add(sun, sun.target);
 
   const game = createStage2Game();
-  const view = createStage2View(game.track, game.stations);
+  // 木を Blender の木に切り替える前に、シェーダーを用意する（切り替えで一瞬止まらないように）
+  const view = createStage2View(game.track, game.stations, {
+    precompile: (staged) => renderer.compileAsync(staged, camera, scene),
+  });
   scene.add(view.root);
 
   // ---- 見た目と画質（ステージ1と同じ決まり。素材は最初の画質の判定が済んでから貼る） ----
@@ -87,6 +90,8 @@ export const startStage2 = async (canvas: HTMLCanvasElement, hud: HTMLElement, s
     maxAnisotropy: LOOK.maxAnisotropy,
   }).then((look) => {
     loadedLook = look;
+    // 切り替えの前に、Blender の木のシェーダーを裏で用意しておく（切り替えで一瞬止まらないように。NORI-26）
+    if (look !== null) view.trees.prepare(look);
     tryApplyLook();
   });
 

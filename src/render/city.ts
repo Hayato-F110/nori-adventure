@@ -4,7 +4,7 @@ import * as THREE from "three";
 import { LOOK, STAGE1 } from "../config";
 import { roadLines, type Stage1Layout } from "../core/stage1Layout";
 import { type Look, setBoxUvMeters, setGroundUv1, setPlaneUvMeters } from "./look";
-import { createTreeField, type TreeField, treeHash } from "./trees";
+import { createTreeField, type TreeField, type TreeFieldOptions, treeHash } from "./trees";
 
 const BUILDING_COLORS = [0xffd166, 0x8ecae6, 0xf4978e, 0xb5e48c, 0xcdb4db, 0xffffff];
 
@@ -18,7 +18,7 @@ export type CityView = {
   trees: TreeField;
 };
 
-export const createCity = (layout: Stage1Layout): CityView => {
+export const createCity = (layout: Stage1Layout, treeOptions: TreeFieldOptions = {}): CityView => {
   const city = new THREE.Group();
   city.name = "city";
   const { groundSize, roadWidth, boundsHalfSize } = STAGE1;
@@ -120,6 +120,7 @@ export const createCity = (layout: Stage1Layout): CityView => {
       rotation: treeHash(i + 5000) * Math.PI * 2,
       scale: 0.9 + treeHash(i + 4000) * 0.2,
     })),
+    treeOptions,
   );
   city.add(trees.root);
   return {

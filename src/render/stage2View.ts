@@ -6,7 +6,7 @@ import type { Stage2State } from "../core/stage2";
 import type { Track } from "../core/track";
 import type { Pose2D } from "../core/types";
 import { type Look, setPlaneUvMeters, withoutAo } from "./look";
-import { createTreeField, type TreeField } from "./trees";
+import { createTreeField, type TreeField, type TreeFieldOptions } from "./trees";
 
 // ---- 線路の断面（m）。見た目だけの寸法 ----
 const BED_TOP = 0.3; // 土手の上面（線路の点からの高さ）
@@ -94,7 +94,11 @@ export type Stage2View = {
   readonly markers: readonly { flag: THREE.Vector3; bed: THREE.Vector3 }[];
 };
 
-export const createStage2View = (track: Track, stations: readonly number[]): Stage2View => {
+export const createStage2View = (
+  track: Track,
+  stations: readonly number[],
+  treeOptions: TreeFieldOptions = {},
+): Stage2View => {
   const root = new THREE.Group();
   root.name = "stage2";
   const samples = Array.from({ length: Math.ceil(track.length / 4) }, (_, i) => track.pointAt(i * 4));
@@ -310,6 +314,7 @@ export const createStage2View = (track: Track, stations: readonly number[]): Sta
       rotation: hash(i + 5000) * Math.PI * 2,
       scale: 0.85 + hash(i + 4000) * 0.4,
     })),
+    treeOptions,
   );
   root.add(trees.root);
 
