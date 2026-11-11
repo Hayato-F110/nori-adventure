@@ -12,6 +12,8 @@ export type FollowCameraConfig = {
   readonly wallPadding: number;
   /** 車からの最短距離 */
   readonly minDistance: number;
+  /** 建物の手前に寄せると最短距離より近くなるときに、上げる高さ */
+  readonly blockedHeight: number;
 };
 
 export const createFollowCamera = (
@@ -35,8 +37,18 @@ export const createFollowCamera = (
     raycaster.far = distance;
     const hit = raycaster.intersectObjects(obstacles as THREE.Object3D[], false)[0];
     if (hit === undefined) return;
-    const allowed = Math.max(config.minDistance, hit.distance - config.wallPadding);
-    if (allowed < distance) camera.position.copy(pivot).addScaledVector(direction, allowed);
+    const allowed = hit.distance - config.wallPadding;
+    if (allowed >= config.minDistance) {
+      if (allowed < distance) camera.position.copy(pivot).addScaledVector(direction, allowed);
+      return;
+    }
+    // 建物が近すぎる（後ろ向きに壁へ押し付けたときなど）：最短距離を守ると建物の中に入るので、
+    // 建物の手前（水平の向きで余白つき）のまま、高く上げて見下ろす
+    const horizontal = Math.hypot(direction.x, direction.z);
+    const along = horizontal > 1e-6 ? Math.max(0, allowed) * horizontal : 0;
+    const hx = horizontal > 1e-6 ? direction.x / horizontal : 0;
+    const hz = horizontal > 1e-6 ? direction.z / horizontal : 0;
+    camera.position.set(pivot.x + hx * along, config.blockedHeight, pivot.z + hz * along);
   };
   const target = new THREE.Vector3();
   const lookAt = new THREE.Vector3();

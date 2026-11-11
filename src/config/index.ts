@@ -36,7 +36,19 @@ export const STAGE1 = {
   starCount: 20,
   starPickupRadius: 1.5,
   checkpointCount: 3,
-  checkpointRadius: 6,
+  checkpointRadius: 8,
+  /** コースの道すじ（道の中心線の角の点）。先頭がスタート、2〜4番目がチェックポイント、最後がゴール */
+  route: [
+    { x: 0, z: 0 },
+    { x: 0, z: -80 },
+    { x: 80, z: -80 },
+    { x: 80, z: 40 },
+    { x: 0, z: 40 },
+  ],
+  starStart: 3,
+  starSpacing: 18,
+  starHeight: 1.0,
+  guideArrowHeight: 3,
   roadSpacing: 40,
   roadWidth: 10,
   buildingMargin: 2,
@@ -53,6 +65,9 @@ export const STAGE1 = {
 export const RESPAWN = {
   stuckSeconds: 2,
   invincibleSeconds: 2.0,
+  blinkMs: 250,
+  stuckSpeed: 0.3,
+  stuckThrottle: 0.5,
 } as const;
 
 /** 追従カメラ（描画だけ。状態には影響しない） */
@@ -65,6 +80,7 @@ export const CAMERA = {
   fov: 60,
   wallPadding: 0.5,
   minDistance: 2,
+  blockedHeight: 10,
 } as const;
 
 // ---- ステージ2〜5（最初の案。各ステージを作るときに、テストプレイで見直す） ----
