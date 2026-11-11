@@ -9,7 +9,7 @@ import { type Look, setPlaneUvMeters } from "./look";
 
 // ---- 線路の断面（m）。見た目だけの寸法 ----
 const BED_TOP = 0.3; // 土手の上面（線路の点からの高さ）
-const BED_HALF = 2.2; // 土手の上面の半分の幅
+const BED_HALF = 1.6; // 土手の上面の半分の幅（枕木 2.4 m より少し広い）
 const SLEEPER = { width: 2.4, height: 0.12, depth: 0.28, spacing: 0.9 };
 const RAIL = { gauge: 0.75, width: 0.1, height: 0.15 };
 /** 列車の車輪が乗る高さ（線路の点から） */
@@ -107,22 +107,37 @@ export const createStage2View = (track: Track, stations: readonly number[]): Sta
   root.add(ground);
   swaps.push({ mesh: ground, plain: groundPlain, pick: (look) => withoutAo(look.material("grass")) });
 
-  // 土手（線路の下。地面まで斜めに下ろす）
-  const bedGeo = sweep(track, (_s, y) => {
-    const foot = BED_HALF + Math.max(0.6, y + BED_TOP) * 1.2;
-    return [
-      [-foot, -y - 0.05],
-      [-BED_HALF, BED_TOP],
-      [BED_HALF, BED_TOP],
-      [foot, -y - 0.05],
-    ];
-  });
+  // 土手：上面は砂利（線路の下だけ）、斜面は芝。線路が高い所では斜面が横に長くなるので、
+  // 斜面まで砂利にすると道路のような太い帯に見える（本物の鉄道の土手と同じ分け方）
+  const foot = (y: number) => BED_HALF + 0.3 + (y + BED_TOP) * 0.8;
+  const bedGeo = sweep(track, () => [
+    [-BED_HALF, BED_TOP],
+    [BED_HALF, BED_TOP],
+  ]);
   // 暗い灰色の砂利（黄色の旗・明るいホームとの差を大きくする）
-  const bedPlain = new THREE.MeshStandardMaterial({ color: 0x4a4744, roughness: 1 });
+  const bedPlain = new THREE.MeshStandardMaterial({ color: 0x3d3a37, roughness: 1 });
   const bed = new THREE.Mesh(bedGeo, bedPlain);
   bed.receiveShadow = true;
   root.add(bed);
-  swaps.push({ mesh: bed, plain: bedPlain, pick: (look) => withoutAo(look.material("road")) });
+  // 茶色がかった暗い砂利
+  swaps.push({ mesh: bed, plain: bedPlain, pick: (look) => withoutAo(look.material("road", 0x6e655d)) });
+  for (const side of [-1, 1]) {
+    const slopeGeo = sweep(track, (_s, y) =>
+      side < 0
+        ? [
+            [-foot(y), -y - 0.05],
+            [-BED_HALF, BED_TOP],
+          ]
+        : [
+            [BED_HALF, BED_TOP],
+            [foot(y), -y - 0.05],
+          ],
+    );
+    const slope = new THREE.Mesh(slopeGeo, groundPlain);
+    slope.receiveShadow = true;
+    root.add(slope);
+    swaps.push({ mesh: slope, plain: groundPlain, pick: (look) => withoutAo(look.material("grass")) });
+  }
 
   // 枕木（同じ形をまとめて描く）
   const sleeperCount = Math.floor(track.length / SLEEPER.spacing);
@@ -170,7 +185,8 @@ export const createStage2View = (track: Track, stations: readonly number[]): Sta
   const platformPlain = new THREE.MeshStandardMaterial({ color: 0xd9cbb5, roughness: 0.9 });
   const roofMat = new THREE.MeshStandardMaterial({ color: 0xd8574a, roughness: 0.7 });
   const poleMat = new THREE.MeshStandardMaterial({ color: 0xf4f1ea, roughness: 0.6 });
-  const flagMat = new THREE.MeshStandardMaterial({ color: 0xffd23f, emissive: 0x553f00, roughness: 0.5 });
+  // 駅の旗は子どもが探す目印。光の当たり方・色の仕上げに左右されない、いつも同じ明るい黄色（信号灯と同じ扱い）
+  const flagMat = new THREE.MeshBasicMaterial({ color: 0xffd23f, toneMapped: false });
   const borderMat = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide });
   const markers: { flag: THREE.Vector3; bed: THREE.Vector3 }[] = [];
   const animals: { group: THREE.Group; station: number; phase: number }[] = [];
@@ -218,15 +234,23 @@ export const createStage2View = (track: Track, stations: readonly number[]): Sta
     flag.position.set(PLATFORM.width / 2 + 0.4, PLATFORM.height + 5, PLATFORM.length / 2);
     flag.rotation.y = Math.PI / 2;
     station.add(flag);
-    // 白い縁（空を背にしても形が分かる）。旗の少し後ろに、ひとまわり大きく
-    const border = new THREE.Mesh(new THREE.ShapeGeometry(flagShape).scale(1.18, 1.18, 1), borderMat);
-    border.position.set(PLATFORM.width / 2 + 0.43, PLATFORM.height + 5.12, PLATFORM.length / 2 + 0.05);
+    // 白い縁（空を背にしても形が分かる）。旗の形をくり抜いた枠を、旗と同じ面に置く。
+    // 旗の後ろに板を置くと、反対側から見たときに板が旗を隠すため
+    const frame = new THREE.Shape([
+      new THREE.Vector2(-0.15, 0.25),
+      new THREE.Vector2(2.4, -0.6),
+      new THREE.Vector2(-0.15, -1.55),
+    ]);
+    frame.holes.push(new THREE.Path(flagShape.getPoints()));
+    const border = new THREE.Mesh(new THREE.ShapeGeometry(frame), borderMat);
+    border.position.copy(flag.position);
     border.rotation.y = Math.PI / 2;
     station.add(border);
     station.updateMatrixWorld(true);
     markers.push({
       flag: new THREE.Vector3(0.6, -0.6, 0).applyMatrix4(flag.matrixWorld),
-      bed: offsetPoint(track, at, -(BED_HALF - 0.4), BED_TOP),
+      // 駅に止まった列車の左横の砂利（ホームの反対側。枕木 ±1.2 m の外、列車 ±1.1 m の外）
+      bed: offsetPoint(track, at - 2, -(BED_HALF - 0.15), BED_TOP),
     });
     // 動物の乗客（2ひき）
     for (let k = 0; k < 2; k++) {

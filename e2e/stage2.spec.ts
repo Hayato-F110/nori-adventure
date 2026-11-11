@@ -23,6 +23,27 @@ const ready = async (page: Page) => {
   await page.waitForFunction(() => (window.__nori?.frames ?? 0) > 5, undefined, { timeout: 60_000 });
 };
 
+/** ブレーキで駅のホーム（±6 m）に止まれる所まで、すすむ。そのあとブレーキで止める（刻みで待つので CI の遅さに左右されない） */
+const driveToFirstStation = async (page: Page, testInfo?: TestInfo) => {
+  await page.keyboard.down("ArrowUp");
+  await page.waitForFunction(
+    ({ station, brake }) => {
+      const s = window.__nori?.train?.();
+      if (!s) return false;
+      return s.train.distance + (s.train.speed * s.train.speed) / (2 * brake) >= station - 1;
+    },
+    { station: FIRST_STATION, brake: BRAKE },
+    { timeout: 120_000 },
+  );
+  await page.keyboard.up("ArrowUp");
+  if (testInfo) await page.screenshot({ path: testInfo.outputPath("02-running.png") });
+  await page.keyboard.down("ArrowDown");
+  await page.waitForFunction(() => (window.__nori?.train?.()?.train.speed ?? 9) <= 0.3, undefined, {
+    timeout: 30_000,
+  });
+  await page.keyboard.up("ArrowDown");
+};
+
 const train = (page: Page) => page.evaluate(() => window.__nori?.train?.());
 
 test("ステージ2：走って駅に止まると、上の表示の旗に色が付く", async ({ page }, testInfo) => {
@@ -37,25 +58,7 @@ test("ステージ2：走って駅に止まると、上の表示の旗に色が�
   await expect(page.locator("#flags svg.passed")).toHaveCount(0);
   await page.screenshot({ path: testInfo.outputPath("01-start.png") });
 
-  // ブレーキで駅のホーム（±6 m）に止まれる所まで、すすむ（刻みで待つので CI の遅さに左右されない）
-  await page.keyboard.down("ArrowUp");
-  await page.waitForFunction(
-    ({ station, brake }) => {
-      const s = window.__nori?.train?.();
-      if (!s) return false;
-      return s.train.distance + (s.train.speed * s.train.speed) / (2 * brake) >= station - 1;
-    },
-    { station: FIRST_STATION, brake: BRAKE },
-    { timeout: 120_000 },
-  );
-  await page.keyboard.up("ArrowUp");
-  await page.screenshot({ path: testInfo.outputPath("02-running.png") });
-  await page.keyboard.down("ArrowDown");
-  await page.waitForFunction(() => (window.__nori?.train?.()?.train.speed ?? 9) <= 0.3, undefined, {
-    timeout: 30_000,
-  });
-  await page.keyboard.up("ArrowDown");
-
+  await driveToFirstStation(page, testInfo);
   await page.waitForFunction(() => window.__nori?.train?.()?.nextStation === 1, undefined, {
     timeout: 30_000,
   });
@@ -88,17 +91,8 @@ const checkLook = async (page: Page, testInfo: TestInfo, mode: "高画質" | "�
   await page.waitForFunction(() => window.__nori?.look !== "loading", undefined, { timeout: 60_000 });
   const quality = await page.evaluate(() => window.__nori?.quality);
   expect(await page.evaluate(() => window.__nori?.look)).toBe(quality === "low" ? "plain" : "textured");
-  // 1つ目の駅が画面に入る所まで進む（約 100 m）
-  await page.keyboard.down("ArrowUp");
-  await page.waitForFunction(() => (window.__nori?.train?.()?.train.distance ?? 0) >= 100, undefined, {
-    timeout: 90_000,
-  });
-  await page.keyboard.up("ArrowUp");
-  await page.keyboard.down("ArrowDown");
-  await page.waitForFunction(() => (window.__nori?.train?.()?.train.speed ?? 9) <= 0.3, undefined, {
-    timeout: 30_000,
-  });
-  await page.keyboard.up("ArrowDown");
+  // 子どもが旗を見て止まるときの見え方で測る：1つ目の駅まで走って止まる
+  await driveToFirstStation(page);
   await page.waitForTimeout(1500);
   await page.screenshot({ path: testInfo.outputPath(`stage2-look-${quality}.png`) });
 
@@ -108,6 +102,14 @@ const checkLook = async (page: Page, testInfo: TestInfo, mode: "高画質" | "�
       p === undefined ? { x: 0, y: 0 } : (window.__nori?.screenOf(p.x, p.y, p.z) ?? { x: 0, y: 0 });
     return [s(m?.flag), s(m?.bed)];
   });
+  // 画面の外の点は黒として測られ、比が大きく出てしまうので、2点とも画面の中にあることを先に確かめる
+  const viewport = page.viewportSize() ?? { width: 0, height: 0 };
+  for (const p of points) {
+    expect(p.x).toBeGreaterThanOrEqual(2);
+    expect(p.x).toBeLessThanOrEqual(viewport.width - 3);
+    expect(p.y).toBeGreaterThanOrEqual(2);
+    expect(p.y).toBeLessThanOrEqual(viewport.height - 3);
+  }
   const [flag = 0, bed = 0] = await luminanceAt(page, points);
   const contrast = ratio(flag, bed);
   await testInfo.attach("contrast", {
