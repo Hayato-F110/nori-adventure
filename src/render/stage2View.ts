@@ -3,26 +3,21 @@
 // 並びは決まった式で作る（Math.random を使わない。毎回同じ景色）。
 import * as THREE from "three";
 import type { Stage2State } from "../core/stage2";
+import { createStage2Scenery, STAGE2_SCENERY } from "../core/stage2Layout";
 import type { Track } from "../core/track";
 import type { Pose2D } from "../core/types";
 import { type Look, setPlaneUvMeters, withoutAo } from "./look";
 import { createTreeField, type TreeField, type TreeFieldOptions } from "./trees";
 
 // ---- 線路の断面（m）。見た目だけの寸法 ----
-const BED_TOP = 0.3; // 土手の上面（線路の点からの高さ）
-const BED_HALF = 1.6; // 土手の上面の半分の幅（枕木 2.4 m より少し広い）
-const SLEEPER = { width: 2.4, height: 0.12, depth: 0.28, spacing: 0.9 };
-const RAIL = { gauge: 0.75, width: 0.1, height: 0.15 };
+const BED_TOP = STAGE2_SCENERY.bedTop; // 土手の上面（線路の点からの高さ）
+const BED_HALF = STAGE2_SCENERY.bedHalf; // 土手の上面の半分の幅（枕木 2.4 m より少し広い）
+const SLEEPER = STAGE2_SCENERY.sleeper;
+const RAIL = STAGE2_SCENERY.rail;
 /** 列車の車輪が乗る高さ（線路の点から） */
 export const RAIL_TOP = BED_TOP + SLEEPER.height + RAIL.height;
-const PLATFORM = { length: 12, width: 3, offset: 3.1, height: 0.9 };
+const PLATFORM = STAGE2_SCENERY.platform;
 const SAMPLE_STEP = 2; // 線路に沿って断面を置く間隔
-
-/** 0〜1 の決まった値（見た目の並びだけに使う） */
-const hash = (i: number): number => {
-  const v = Math.sin(i * 12.9898 + 78.233) * 43758.5453;
-  return v - Math.floor(v);
-};
 
 /** 進む向きの右（上から見て） */
 const rightOf = (heading: number) => ({ x: Math.cos(heading), z: -Math.sin(heading) });
@@ -77,10 +72,6 @@ const offsetPoint = (track: Track, s: number, lateral: number, up: number) => {
   return new THREE.Vector3(p.x + r.x * lateral, p.y + up, p.z + r.z * lateral);
 };
 
-/** 点から線路までの、上から見た近い距離（粗く調べる。並べる場所を決めるときだけ使う） */
-const distanceToTrack = (samples: readonly { x: number; z: number }[], x: number, z: number) =>
-  Math.min(...samples.map((p) => Math.hypot(p.x - x, p.z - z)));
-
 export type Stage2View = {
   root: THREE.Group;
   /** 素材を貼る（null なら単色に戻す） */
@@ -101,11 +92,10 @@ export const createStage2View = (
 ): Stage2View => {
   const root = new THREE.Group();
   root.name = "stage2";
-  const samples = Array.from({ length: Math.ceil(track.length / 4) }, (_, i) => track.pointAt(i * 4));
   const swaps: { mesh: THREE.Mesh; plain: THREE.Material; pick: (look: Look) => THREE.Material }[] = [];
 
   // 地面（芝）
-  const groundSize = 640;
+  const groundSize = STAGE2_SCENERY.groundSize;
   const groundGeo = setPlaneUvMeters(new THREE.PlaneGeometry(groundSize, groundSize), groundSize, groundSize);
   groundGeo.rotateX(-Math.PI / 2);
   const groundPlain = new THREE.MeshStandardMaterial({ color: 0x6cc35a, roughness: 0.95 });
@@ -269,53 +259,27 @@ export const createStage2View = (
     root.add(station);
   });
 
-  // 山（線路の外と、輪の内側）。線路にかからない場所だけに置く
+  // 山（線路の外と、輪の内側）と木。配置は core（stage2Layout）と同じもの（光のベイクも同じ配置を使う）
+  const scenery = createStage2Scenery(track, stations);
   const mountainMat = new THREE.MeshStandardMaterial({ color: 0x7c8f6a, roughness: 1, flatShading: true });
   const snowMat = new THREE.MeshStandardMaterial({ color: 0xf2f4f7, roughness: 0.8, flatShading: true });
-  for (let i = 0; i < 26; i++) {
-    const inner = i < 3;
-    const angle = (i / (inner ? 3 : 23)) * Math.PI * 2 + hash(i) * 0.4;
-    const distance = inner ? 18 + hash(i + 50) * 14 : 150 + hash(i + 100) * 90;
-    const radius = inner ? 16 + hash(i + 7) * 8 : 30 + hash(i + 200) * 30;
-    const height = inner ? 16 + hash(i + 9) * 10 : 40 + hash(i + 300) * 50;
-    const x = Math.cos(angle) * distance;
-    const z = Math.sin(angle) * distance;
-    if (distanceToTrack(samples, x, z) < radius + 10) continue;
+  for (const { x, z, radius, height, rotation } of scenery.mountains) {
     const cone = new THREE.Mesh(new THREE.ConeGeometry(radius, height, 7, 1), mountainMat);
     cone.position.set(x, height / 2, z);
-    cone.rotation.y = hash(i + 400) * Math.PI;
+    cone.rotation.y = rotation;
     cone.receiveShadow = true;
     root.add(cone);
     if (height > 60) {
       const capH = height * 0.25;
       const cap = new THREE.Mesh(new THREE.ConeGeometry(radius * 0.25 + 0.2, capH, 7, 1), snowMat);
       cap.position.set(x, height - capH / 2 + 0.05, z);
-      cap.rotation.y = cone.rotation.y;
+      cap.rotation.y = rotation;
       root.add(cap);
     }
   }
 
   // 木（線路の両側。まとめて描く。ステージ1と同じ木）
-  const treeSpots: THREE.Vector3[] = [];
-  for (let i = 0; treeSpots.length < 150 && i < 600; i++) {
-    const s = hash(i + 1000) * track.length;
-    const side = hash(i + 2000) < 0.5 ? -1 : 1;
-    const lateral = side * (9 + hash(i + 3000) * 26);
-    const p = offsetPoint(track, s, lateral, 0);
-    if (distanceToTrack(samples, p.x, p.z) < 8) continue;
-    if (stations.some((at) => offsetPoint(track, at, PLATFORM.offset, 0).distanceTo(p.setY(0)) < 12))
-      continue;
-    treeSpots.push(p.setY(0));
-  }
-  const trees = createTreeField(
-    treeSpots.map((p, i) => ({
-      x: p.x,
-      z: p.z,
-      rotation: hash(i + 5000) * Math.PI * 2,
-      scale: 0.85 + hash(i + 4000) * 0.4,
-    })),
-    treeOptions,
-  );
+  const trees = createTreeField(scenery.trees, treeOptions);
   root.add(trees.root);
 
   return {
