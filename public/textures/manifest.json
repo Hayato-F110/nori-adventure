@@ -1,0 +1,160 @@
+{
+  "textures": [
+    {
+      "file": "Grass004_color.webp",
+      "sha256": "91e46890bc257461c6da9a2692bb0b2302607c4fd6a185f0fcb24ba10a71b58a",
+      "bytes": 92362,
+      "sourceId": "Grass004",
+      "sourceName": "Grass 004",
+      "sourceUrl": "https://ambientcg.com/a/Grass004",
+      "provider": "ambientCG",
+      "license": "CC0-1.0",
+      "createdWith": "Blender 5.3.0（noriblender の隔離環境）で縮小（tools/blender/export-textures.py）",
+      "importedAt": "2026-11-11"
+    },
+    {
+      "file": "Grass004_normal.webp",
+      "sha256": "57fc82b5b5141a6507a1d0f7fb20d0575585e3427b92f7a5f6ecd5f8d60e00aa",
+      "bytes": 87208,
+      "sourceId": "Grass004",
+      "sourceName": "Grass 004",
+      "sourceUrl": "https://ambientcg.com/a/Grass004",
+      "provider": "ambientCG",
+      "license": "CC0-1.0",
+      "createdWith": "Blender 5.3.0（noriblender の隔離環境）で縮小（tools/blender/export-textures.py）",
+      "importedAt": "2026-11-11"
+    },
+    {
+      "file": "Grass004_roughness.webp",
+      "sha256": "b5207d8c29193accadcaac17c19e2a6978315548ac85bc1667b7480558e7f6c5",
+      "bytes": 77190,
+      "sourceId": "Grass004",
+      "sourceName": "Grass 004",
+      "sourceUrl": "https://ambientcg.com/a/Grass004",
+      "provider": "ambientCG",
+      "license": "CC0-1.0",
+      "createdWith": "Blender 5.3.0（noriblender の隔離環境）で縮小（tools/blender/export-textures.py）",
+      "importedAt": "2026-11-11"
+    },
+    {
+      "file": "Asphalt031_color.webp",
+      "sha256": "8de85ee58765e1a579975dca34b21dc93ba185e58c414d64b91cf92ed5e7decd",
+      "bytes": 77514,
+      "sourceId": "Asphalt031",
+      "sourceName": "Asphalt 031",
+      "sourceUrl": "https://ambientcg.com/a/Asphalt031",
+      "provider": "ambientCG",
+      "license": "CC0-1.0",
+      "createdWith": "Blender 5.3.0（noriblender の隔離環境）で縮小（tools/blender/export-textures.py）",
+      "importedAt": "2026-11-11"
+    },
+    {
+      "file": "Asphalt031_normal.webp",
+      "sha256": "719bc0c9fa5115130b5816ff31f6d1945b7d8c054e102b11186e03f0bd6e7b14",
+      "bytes": 41246,
+      "sourceId": "Asphalt031",
+      "sourceName": "Asphalt 031",
+      "sourceUrl": "https://ambientcg.com/a/Asphalt031",
+      "provider": "ambientCG",
+      "license": "CC0-1.0",
+      "createdWith": "Blender 5.3.0（noriblender の隔離環境）で縮小（tools/blender/export-textures.py）",
+      "importedAt": "2026-11-11"
+    },
+    {
+      "file": "Asphalt031_roughness.webp",
+      "sha256": "42ef9fb7e419eb865e1d9d6723b6f2f5a7f62fe903b056a43324fdd59221a239",
+      "bytes": 75664,
+      "sourceId": "Asphalt031",
+      "sourceName": "Asphalt 031",
+      "sourceUrl": "https://ambientcg.com/a/Asphalt031",
+      "provider": "ambientCG",
+      "license": "CC0-1.0",
+      "createdWith": "Blender 5.3.0（noriblender の隔離環境）で縮小（tools/blender/export-textures.py）",
+      "importedAt": "2026-11-11"
+    },
+    {
+      "file": "Facade018A_color.webp",
+      "sha256": "5a376bf207999cf988a4c3dc4f04f2981a8314b16d7dde4b875f5f17d9ef4fa8",
+      "bytes": 35216,
+      "sourceId": "Facade018A",
+      "sourceName": "Facade 018 A",
+      "sourceUrl": "https://ambientcg.com/a/Facade018A",
+      "provider": "ambientCG",
+      "license": "CC0-1.0",
+      "createdWith": "Blender 5.3.0（noriblender の隔離環境）で縮小（tools/blender/export-textures.py）",
+      "importedAt": "2026-11-11"
+    },
+    {
+      "file": "Facade018A_normal.webp",
+      "sha256": "0376ea08845b3768deeca15709e10bcb5bc4a15bd9605286018e3164d6d2cfaa",
+      "bytes": 48476,
+      "sourceId": "Facade018A",
+      "sourceName": "Facade 018 A",
+      "sourceUrl": "https://ambientcg.com/a/Facade018A",
+      "provider": "ambientCG",
+      "license": "CC0-1.0",
+      "createdWith": "Blender 5.3.0（noriblender の隔離環境）で縮小（tools/blender/export-textures.py）",
+      "importedAt": "2026-11-11"
+    },
+    {
+      "file": "Facade018A_roughness.webp",
+      "sha256": "8a949ac84e79316e5a4fc8f39f2b2e88b5d060b13bd18d12c6118370d2b65c46",
+      "bytes": 41960,
+      "sourceId": "Facade018A",
+      "sourceName": "Facade 018 A",
+      "sourceUrl": "https://ambientcg.com/a/Facade018A",
+      "provider": "ambientCG",
+      "license": "CC0-1.0",
+      "createdWith": "Blender 5.3.0（noriblender の隔離環境）で縮小（tools/blender/export-textures.py）",
+      "importedAt": "2026-11-11"
+    },
+    {
+      "file": "Facade006_color.webp",
+      "sha256": "c7e8b53a53aea0a115fa25348b6420478dd0bbfcb80a339acd99314d18561729",
+      "bytes": 10296,
+      "sourceId": "Facade006",
+      "sourceName": "Facade 006",
+      "sourceUrl": "https://ambientcg.com/a/Facade006",
+      "provider": "ambientCG",
+      "license": "CC0-1.0",
+      "createdWith": "Blender 5.3.0（noriblender の隔離環境）で縮小（tools/blender/export-textures.py）",
+      "importedAt": "2026-11-11"
+    },
+    {
+      "file": "Facade006_normal.webp",
+      "sha256": "e35be21191b323605a96a42c66ae63655f658e62449f5be19b8d4a3255a9e432",
+      "bytes": 6010,
+      "sourceId": "Facade006",
+      "sourceName": "Facade 006",
+      "sourceUrl": "https://ambientcg.com/a/Facade006",
+      "provider": "ambientCG",
+      "license": "CC0-1.0",
+      "createdWith": "Blender 5.3.0（noriblender の隔離環境）で縮小（tools/blender/export-textures.py）",
+      "importedAt": "2026-11-11"
+    },
+    {
+      "file": "Facade006_roughness.webp",
+      "sha256": "ad4f4ea0b308f8d858b5d92e78b94595f59ae84a55f54189f258fb0e68a35c42",
+      "bytes": 4942,
+      "sourceId": "Facade006",
+      "sourceName": "Facade 006",
+      "sourceUrl": "https://ambientcg.com/a/Facade006",
+      "provider": "ambientCG",
+      "license": "CC0-1.0",
+      "createdWith": "Blender 5.3.0（noriblender の隔離環境）で縮小（tools/blender/export-textures.py）",
+      "importedAt": "2026-11-11"
+    },
+    {
+      "file": "sky.hdr",
+      "sha256": "03c6671290ec38bf93396f0171deb7ad8076e099c1f8856ea54342f8ffee2a11",
+      "bytes": 377101,
+      "sourceId": "kloofendal_48d_partly_cloudy_puresky",
+      "sourceName": "Kloofendal 48d Partly Cloudy (Pure Sky)",
+      "sourceUrl": "https://polyhaven.com/a/kloofendal_48d_partly_cloudy_puresky",
+      "provider": "Poly Haven",
+      "license": "CC0-1.0",
+      "createdWith": "Blender 5.3.0（noriblender の隔離環境）で縮小（tools/blender/export-textures.py）",
+      "importedAt": "2026-11-11"
+    }
+  ]
+}

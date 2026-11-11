@@ -48,7 +48,7 @@ export const STAGE1 = {
   starStart: 3,
   starSpacing: 18,
   starHeight: 1.0,
-  guideArrowHeight: 3,
+  guideArrowHeight: 4.5,
   roadSpacing: 40,
   roadWidth: 10,
   buildingMargin: 2,
@@ -242,6 +242,30 @@ export const ASSIST = {
   steerToRoad: false,
 } as const;
 
+/** 見た目（リアル寄り。NORI-56）。tint は素材の色にかける色（線形の RGB） */
+export const LOOK = {
+  textureSize: 512,
+  maxTextureBytes: 262144,
+  hdriWidth: 512,
+  maxHdriBytes: 1048576,
+  maxTotalBytes: 4194304,
+  exposure: 1.0,
+  environmentIntensity: 0.7,
+  surfaces: {
+    grass: { texture: "Grass004", tileMeters: 2.5, tint: [0.6, 1.0, 0.35] },
+    road: { texture: "Asphalt031", tileMeters: 4, tint: [0.2, 0.21, 0.24] },
+    brick: { texture: "Facade018A", tileMeters: 13, tint: [1, 1, 1] },
+    facade: { texture: "Facade006", tileMeters: 12, tint: [1, 1, 1] },
+  },
+  lowFps: 40,
+  lowFpsSeconds: 3,
+  minStarContrast: 3,
+  minRoadGrassContrast: 1.5,
+  targetFps: 55,
+  throttledFps: 30,
+  cpuThrottle: 4,
+} as const;
+
 export const CONFIG = {
   SIM,
   PHYSICS,
@@ -261,4 +285,5 @@ export const CONFIG = {
   INPUT,
   ASSET,
   ASSIST,
+  LOOK,
 } as const;

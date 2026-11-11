@@ -18,7 +18,8 @@
     "test:watch": "vitest",
     "e2e": "playwright test",
     "assets:import": "node tools/assets/import.ts",
-    "check": "npm run typecheck && npm run lint && npm run format:check && npm test"
+    "check": "npm run typecheck && npm run lint && npm run format:check && npm test",
+    "textures:import": "node tools/assets/import-textures.ts"
   },
   "dependencies": {
     "@dimforge/rapier3d-compat": "0.21.0",
