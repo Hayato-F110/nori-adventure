@@ -4,7 +4,13 @@
 import { createHash } from "node:crypto";
 import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { checkTextureFiles, requiredTextureFiles, type TextureManifest } from "./textures.ts";
+import {
+  checkTextureFiles,
+  LIGHTMAP_FILE,
+  OWN_LICENSE,
+  requiredTextureFiles,
+  type TextureManifest,
+} from "./textures.ts";
 
 type Source = { source: string; id: string; name: string; url: string; license: string };
 
@@ -22,8 +28,16 @@ const sources = JSON.parse(readFileSync(path.join(fromDir, "sources.json"), "utf
   string,
   Source
 >;
+// 自作の地面の陰（Blender の Cycles で焼き付け。tools/blender/bake-ground-ao.py）
+const OWN: Source = {
+  source: "自作（のりものアドベンチャー）",
+  id: "ground_ao",
+  name: "ステージ1の地面の陰（AO）",
+  url: "https://github.com/Hayato-F110/nori-adventure/blob/main/tools/blender/bake-ground-ao.py",
+  license: OWN_LICENSE,
+};
 const sourceOf = (file: string): Source | undefined =>
-  sources[file === "sky.hdr" ? "sky" : (file.split("_")[0] ?? "")];
+  file === LIGHTMAP_FILE ? OWN : sources[file === "sky.hdr" ? "sky" : (file.split("_")[0] ?? "")];
 // asset.json の "CC0 1.0" を SPDX の書き方に
 const spdx = (license: string) =>
   license.replace(/\s+/g, "-").toUpperCase() === "CC0-1.0" ? "CC0-1.0" : license;
@@ -53,8 +67,10 @@ const manifest: TextureManifest = {
       provider: src.source,
       license: f.license,
       createdWith:
-        process.env.NORI_CREATED_WITH ??
-        "Blender 5.3.0（noriblender の隔離環境）で縮小（tools/blender/export-textures.py）",
+        f.name === LIGHTMAP_FILE
+          ? "Blender 5.3.0（noriblender の隔離環境）の Cycles で焼き付け（tools/blender/bake-ground-ao.py）"
+          : (process.env.NORI_CREATED_WITH ??
+            "Blender 5.3.0（noriblender の隔離環境）で縮小（tools/blender/export-textures.py）"),
       importedAt: today,
     };
   }),

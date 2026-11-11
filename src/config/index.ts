@@ -264,6 +264,12 @@ export const LOOK = {
   targetFps: 55,
   throttledFps: 30,
   cpuThrottle: 4,
+  lightmapSize: 1024,
+  maxLightmapBytes: 524288,
+  aoDistance: 6,
+  bakeSamples: 64,
+  aoIntensity: 1.0,
+  aoDirect: 0.5,
 } as const;
 
 export const CONFIG = {

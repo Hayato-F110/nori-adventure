@@ -35,8 +35,12 @@ export const isWebp = (bytes: Uint8Array) => startsWith(bytes, 0, RIFF) && start
 export const isRadianceHdr = (bytes: Uint8Array) =>
   new TextDecoder().decode(bytes.subarray(0, RADIANCE.length)) === RADIANCE;
 
-/** ファイル名の決まり：<素材>_<color|normal|roughness>.webp と sky.hdr だけ（フォルダをまたぐ文字は許さない） */
-export const FILE_PATTERN = /^(?:[A-Za-z0-9]+_(?:color|normal|roughness)\.webp|sky\.hdr)$/;
+/** 自作の素材（Blender で焼き付けた地面の陰）。ライセンスは自作の素材と同じ CC BY 4.0（LICENSE-ASSETS.md） */
+export const LIGHTMAP_FILE = "ground_ao.webp";
+export const OWN_LICENSE = "CC-BY-4.0";
+
+/** ファイル名の決まり：<素材>_<color|normal|roughness>.webp、sky.hdr、ground_ao.webp だけ（フォルダをまたぐ文字は許さない） */
+export const FILE_PATTERN = /^(?:[A-Za-z0-9]+_(?:color|normal|roughness)\.webp|sky\.hdr|ground_ao\.webp)$/;
 
 /** 決まりに合わない点を、日本語の文の一覧で返す（空なら合格） */
 export const checkTextureFiles = (
@@ -47,13 +51,18 @@ export const checkTextureFiles = (
   for (const f of files) {
     total += f.bytes.byteLength;
     if (!FILE_PATTERN.test(f.name)) problems.push(`ファイル名が決まりに合わない：${f.name}`);
-    if (f.license !== TEXTURE_LICENSE) problems.push(`${f.name} のライセンスが ${f.license}（CC0 だけ使う）`);
+    const own = f.name === LIGHTMAP_FILE;
+    const wantLicense = own ? OWN_LICENSE : TEXTURE_LICENSE;
+    if (f.license !== wantLicense) {
+      problems.push(
+        `${f.name} のライセンスが ${f.license}（${own ? "自作は CC BY 4.0" : "外部の素材は CC0 だけ使う"}）`,
+      );
+    }
     if (f.name.endsWith(".webp")) {
       if (!isWebp(f.bytes)) problems.push(`${f.name} が WebP でない`);
-      if (f.bytes.byteLength > LOOK.maxTextureBytes) {
-        problems.push(
-          `${f.name} が ${f.bytes.byteLength} バイトで、上限 ${LOOK.maxTextureBytes} を超えている`,
-        );
+      const limit = own ? LOOK.maxLightmapBytes : LOOK.maxTextureBytes;
+      if (f.bytes.byteLength > limit) {
+        problems.push(`${f.name} が ${f.bytes.byteLength} バイトで、上限 ${limit} を超えている`);
       }
     }
     if (f.name.endsWith(".hdr")) {
@@ -68,10 +77,11 @@ export const checkTextureFiles = (
   return problems;
 };
 
-/** LOOK.surfaces が使う素材のファイルの一覧（3枚ずつ）と sky.hdr */
+/** LOOK.surfaces が使う素材のファイルの一覧（3枚ずつ）と sky.hdr、地面の陰 */
 export const requiredTextureFiles = (): string[] => [
   ...Object.values(LOOK.surfaces).flatMap((s) =>
     ["color", "normal", "roughness"].map((m) => `${s.texture}_${m}.webp`),
   ),
   "sky.hdr",
+  LIGHTMAP_FILE,
 ];

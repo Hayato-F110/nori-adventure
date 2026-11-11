@@ -155,6 +155,18 @@
       "license": "CC0-1.0",
       "createdWith": "Blender 5.3.0（noriblender の隔離環境）で縮小（tools/blender/export-textures.py）",
       "importedAt": "2026-11-11"
+    },
+    {
+      "file": "ground_ao.webp",
+      "sha256": "27e66f285d24be95518415f97aec3e8b81d382f135b23f6b90fa4a50ada702f7",
+      "bytes": 40796,
+      "sourceId": "ground_ao",
+      "sourceName": "ステージ1の地面の陰（AO）",
+      "sourceUrl": "https://github.com/Hayato-F110/nori-adventure/blob/main/tools/blender/bake-ground-ao.py",
+      "provider": "自作（のりものアドベンチャー）",
+      "license": "CC-BY-4.0",
+      "createdWith": "Blender 5.3.0（noriblender の隔離環境）の Cycles で焼き付け（tools/blender/bake-ground-ao.py）",
+      "importedAt": "2026-11-11"
     }
   ]
 }

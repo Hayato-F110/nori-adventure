@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { describe, expect, it } from "vitest";
 import { LOOK } from "../../src/config";
-import { loadLook, setBoxUvMeters, setPlaneUvMeters } from "../../src/render/look";
+import { loadLook, setBoxUvMeters, setGroundUv1, setPlaneUvMeters } from "../../src/render/look";
 
 // docs/game-rules.md「見た目」（NORI-56）
 describe("UV をメートル単位にする（テクスチャが建物の大きさで伸びない）", () => {
@@ -25,6 +25,39 @@ describe("UV をメートル単位にする（テクスチャが建物の大き�
     const vs = Array.from({ length: uv.count }, (_, i) => uv.getY(i));
     expect(Math.max(...us)).toBeCloseTo(10, 9);
     expect(Math.max(...vs)).toBeCloseTo(190, 9);
+  });
+});
+
+describe("地面の陰の uv1（Blender の焼き付けと同じ向き）", () => {
+  it("u = (x + 100) / 200、v = (−z + 100) / 200：画像の上の端が z = −100", () => {
+    const ground = new THREE.Mesh(new THREE.PlaneGeometry(200, 200));
+    ground.rotation.x = -Math.PI / 2;
+    setGroundUv1(ground, 200);
+    const uv1 = ground.geometry.getAttribute("uv1");
+    const pos = ground.geometry.getAttribute("position");
+    for (let i = 0; i < pos.count; i++) {
+      const world = new THREE.Vector3().fromBufferAttribute(pos, i).applyMatrix4(ground.matrixWorld);
+      expect(uv1.getX(i)).toBeCloseTo((world.x + 100) / 200, 6);
+      expect(uv1.getY(i)).toBeCloseTo((-world.z + 100) / 200, 6);
+    }
+    // 角の点：(−100, −100) は u=0・v=1
+    const corner = [...Array(pos.count).keys()].find((i) => {
+      const w = new THREE.Vector3().fromBufferAttribute(pos, i).applyMatrix4(ground.matrixWorld);
+      return Math.abs(w.x + 100) < 1e-6 && Math.abs(w.z + 100) < 1e-6;
+    });
+    expect(corner).not.toBeUndefined();
+    expect(uv1.getY(corner ?? 0)).toBeCloseTo(1, 6);
+  });
+
+  it("位置をずらした道でも、世界の位置から決まる", () => {
+    const road = new THREE.Mesh(new THREE.PlaneGeometry(10, 10));
+    road.rotation.x = -Math.PI / 2;
+    road.position.set(40, 0, -40);
+    setGroundUv1(road, 200);
+    const uv1 = road.geometry.getAttribute("uv1");
+    const us = Array.from({ length: uv1.count }, (_, i) => uv1.getX(i));
+    // uv1 は Float32 で持つので、6 桁で比べる
+    expect(Math.min(...us)).toBeCloseTo((35 + 100) / 200, 6);
   });
 });
 

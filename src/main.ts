@@ -86,7 +86,13 @@ const usePlain = () => {
   hemi.intensity = 1.4;
   lookState = "plain";
 };
-void loadLook({ base: import.meta.env.BASE_URL, renderer, surfaces: LOOK.surfaces }).then((look) => {
+void loadLook({
+  base: import.meta.env.BASE_URL,
+  renderer,
+  surfaces: LOOK.surfaces,
+  aoIntensity: LOOK.aoIntensity,
+  aoDirect: LOOK.aoDirect,
+}).then((look) => {
   if (look === null || quality.quality === "low") {
     usePlain();
     return;
