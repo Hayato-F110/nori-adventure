@@ -29,6 +29,8 @@ export type LookDeps = {
   aoIntensity?: number;
   /** 焼き付けた陰を、太陽の直接の光にも効かせる割合（LOOK.aoDirect。0 なら効かせない） */
   aoDirect?: number;
+  /** テクスチャの異方性フィルタの上限（LOOK.maxAnisotropy） */
+  maxAnisotropy?: number;
   fetchManifest?: (url: string) => Promise<TextureManifest>;
 };
 
@@ -46,7 +48,7 @@ export const loadLook = async (deps: LookDeps): Promise<Look | null> => {
       const t = await textureLoader.loadAsync(`${deps.base}textures/${file}`);
       t.wrapS = t.wrapT = THREE.RepeatWrapping;
       t.colorSpace = color ? THREE.SRGBColorSpace : THREE.NoColorSpace;
-      t.anisotropy = Math.min(4, deps.renderer.capabilities.getMaxAnisotropy());
+      t.anisotropy = Math.min(deps.maxAnisotropy ?? 1, deps.renderer.capabilities.getMaxAnisotropy());
       return t;
     };
     const names = Object.keys(deps.surfaces) as SurfaceName[];

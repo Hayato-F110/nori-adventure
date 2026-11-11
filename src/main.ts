@@ -13,7 +13,7 @@ import { type CarView, createCarView, loadCarView, type ModelManifest } from "./
 import { createCity } from "./render/city";
 import { createCourseView } from "./render/courseView";
 import { createFollowCamera } from "./render/followCamera";
-import { loadLook } from "./render/look";
+import { type Look, loadLook } from "./render/look";
 import { createQualityGovernor, type Quality } from "./render/quality";
 import { createStatusView } from "./render/statusView";
 
@@ -63,7 +63,7 @@ renderer.toneMappingExposure = LOOK.exposure;
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x9fd8ff);
 scene.fog = new THREE.Fog(0x9fd8ff, 80, 190);
-const hemi = new THREE.HemisphereLight(0xdff3ff, 0x5c8a4a, 1.4);
+const hemi = new THREE.HemisphereLight(0xdff3ff, 0x5c8a4a, LOOK.hemiPlain);
 scene.add(hemi);
 const sun = new THREE.DirectionalLight(0xffffff, 2.2);
 sun.castShadow = true;
@@ -77,14 +77,29 @@ scene.add(city.root);
 const courseView = createCourseView(game.stars, STAGE1);
 scene.add(courseView.root);
 
-// ---- 見た目と画質（NORI-56）。最初は単色で始め、素材が読めたら差しかえる（待たせない） ----
+// ---- 見た目と画質（NORI-56）。最初は単色で始め、素材は「読めた」かつ「最初の画質の判定が済んだ」あとに貼る ----
+// 遅い端末で「単色 → 素材 → 単色」と2回変わるのを防ぐ（見た目が変わるのは多くて1回。NORI-56 のレビュー）
 const quality = createQualityGovernor(LOOK);
 let lookState: "loading" | "textured" | "plain" = "loading";
+let loadedLook: Look | null | undefined;
+let qualityJudged = false;
 const usePlain = () => {
   city.applyLook(null);
   scene.environment = null;
-  hemi.intensity = 1.4;
+  hemi.intensity = LOOK.hemiPlain;
   lookState = "plain";
+};
+const tryApplyLook = () => {
+  if (loadedLook === undefined || !qualityJudged || lookState !== "loading") return;
+  if (loadedLook === null || quality.quality === "low") {
+    usePlain();
+    return;
+  }
+  city.applyLook(loadedLook);
+  scene.environment = loadedLook.environment;
+  scene.environmentIntensity = LOOK.environmentIntensity;
+  hemi.intensity = LOOK.hemiTextured; // まわりの光（HDRI）が入るので、空と地面の光は弱める
+  lookState = "textured";
 };
 void loadLook({
   base: import.meta.env.BASE_URL,
@@ -92,20 +107,14 @@ void loadLook({
   surfaces: LOOK.surfaces,
   aoIntensity: LOOK.aoIntensity,
   aoDirect: LOOK.aoDirect,
+  maxAnisotropy: LOOK.maxAnisotropy,
 }).then((look) => {
-  if (look === null || quality.quality === "low") {
-    usePlain();
-    return;
-  }
-  city.applyLook(look);
-  scene.environment = look.environment;
-  scene.environmentIntensity = LOOK.environmentIntensity;
-  hemi.intensity = 0.5; // まわりの光（HDRI）が入るので、空と地面の光は弱める
-  lookState = "textured";
+  loadedLook = look;
+  tryApplyLook();
 });
 const lowerQuality = () => {
   usePlain();
-  renderer.setPixelRatio(1);
+  renderer.setPixelRatio(LOOK.lowPixelRatio);
   renderer.shadowMap.enabled = false;
   sun.castShadow = false;
   scene.traverse((obj) => {
@@ -260,8 +269,14 @@ const frame = (now: number) => {
   if (now - windowStart >= 1000) {
     const fps = (windowFrames * 1000) / (now - windowStart);
     fpsSamples.push(Math.round(fps * 10) / 10);
-    // 遅い端末では低画質へ（一度だけ。上げ直さない）
-    if (quality.quality === "high" && quality.push(fps) === "low") lowerQuality();
+    // 遅い端末では低画質へ（一度だけ。上げ直さない）。読み込み直後の settleSeconds 秒は数えない
+    if (fpsSamples.length > LOOK.settleSeconds) {
+      if (quality.quality === "high" && quality.push(fps) === "low") lowerQuality();
+      if (!qualityJudged && fpsSamples.length >= LOOK.settleSeconds + LOOK.lowFpsSeconds) {
+        qualityJudged = true;
+        tryApplyLook();
+      }
+    }
     windowFrames = 0;
     windowStart = now;
     if (showDebug) {
