@@ -123,11 +123,14 @@ export const inspectGlb = async (glb: Uint8Array): Promise<GlbReport> => {
 };
 
 export type VehicleKind = keyof typeof ASSET.vehicles;
-export type AssetKind = "car" | VehicleKind | "generic";
+export type AssetKind = "car" | VehicleKind | "tree" | "generic";
 
-/** 名前（npm run assets:import <名前>）から、使う決まりを選ぶ。乗り物でなければ generic */
-export const kindOf = (name: string): AssetKind =>
-  name === "car" || Object.hasOwn(ASSET.vehicles, name) ? (name as AssetKind) : "generic";
+/** 名前（npm run assets:import <名前>）から、使う決まりを選ぶ。乗り物・木でなければ generic */
+export const kindOf = (name: string): AssetKind => {
+  if (name === "car" || Object.hasOwn(ASSET.vehicles, name)) return name as AssetKind;
+  if ((ASSET.tree.variants as readonly string[]).includes(name)) return "tree";
+  return "generic";
+};
 
 type ShapeSpec = {
   size: { width: number; height: number; length: number };
@@ -135,16 +138,26 @@ type ShapeSpec = {
   propellerAt?: "front" | "rear";
 };
 
-const specOf = (kind: Exclude<AssetKind, "generic">): ShapeSpec =>
-  kind === "car" ? { size: ASSET.carSize, nodes: ASSET.carNodes } : ASSET.vehicles[kind];
+const specOf = (kind: Exclude<AssetKind, "generic">): ShapeSpec => {
+  if (kind === "car") return { size: ASSET.carSize, nodes: ASSET.carNodes };
+  if (kind === "tree") return ASSET.tree;
+  return ASSET.vehicles[kind];
+};
+
+/** 上限（木は乗り物より厳しい。docs/game-rules.md「木」） */
+const limitsOf = (kind: AssetKind) =>
+  kind === "tree"
+    ? { bytes: ASSET.tree.maxGlbBytes, triangles: ASSET.tree.maxTriangles }
+    : { bytes: ASSET.maxGlbBytes, triangles: ASSET.maxTriangles };
 
 const pct = (v: number) => `${Math.round(v * 100)}%`;
 
 /** 決まりに合わない点を、日本語の文の一覧で返す（空なら合格） */
 export const checkGlb = (report: GlbReport, kind: AssetKind): string[] => {
   const problems: string[] = [];
-  if (report.bytes > ASSET.maxGlbBytes) {
-    problems.push(`大きさが ${report.bytes} バイトで、上限 ${ASSET.maxGlbBytes} バイトを超えている`);
+  const limits = limitsOf(kind);
+  if (report.bytes > limits.bytes) {
+    problems.push(`大きさが ${report.bytes} バイトで、上限 ${limits.bytes} バイトを超えている`);
   }
   for (const uri of report.uris) problems.push(`外部の URI がある：${uri.slice(0, 60)}`);
   const allowed = new Set<string>(ASSET.allowedExtensions);
@@ -155,8 +168,8 @@ export const checkGlb = (report: GlbReport, kind: AssetKind): string[] => {
     if (report.uris.length === 0) problems.push(report.parseError);
     return problems;
   }
-  if (report.triangles > ASSET.maxTriangles) {
-    problems.push(`三角形が ${report.triangles} 個で、上限 ${ASSET.maxTriangles} 個を超えている`);
+  if (report.triangles > limits.triangles) {
+    problems.push(`三角形が ${report.triangles} 個で、上限 ${limits.triangles} 個を超えている`);
   }
   if (report.nonTrianglePrimitives > 0) {
     problems.push(`三角形でない面（線・点など）が ${report.nonTrianglePrimitives} 個ある`);

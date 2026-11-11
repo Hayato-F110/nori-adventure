@@ -109,4 +109,12 @@ describe("public/textures/manifest.json（取り込んだ素材の出所の記�
     const listed = new Set(["manifest.json", ...manifest.textures.map((t) => t.file)]);
     expect(readdirSync(dir).filter((f) => !listed.has(f))).toEqual([]);
   });
+
+  // docs/game-rules.md「木（NORI-26）」：幹の素材（color・normal・roughness）の合計
+  it(`木の素材（幹）の合計は LOOK.maxTreeTextureBytes（${LOOK.maxTreeTextureBytes} B）以下`, () => {
+    const bark = LOOK.surfaces.bark.texture;
+    const files = manifest.textures.filter((t) => t.file.startsWith(`${bark}_`));
+    expect(files).toHaveLength(3);
+    expect(files.reduce((sum, t) => sum + t.bytes, 0)).toBeLessThanOrEqual(LOOK.maxTreeTextureBytes);
+  });
 });

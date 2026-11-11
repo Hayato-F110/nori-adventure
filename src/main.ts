@@ -17,6 +17,7 @@ import { createFollowCamera } from "./render/followCamera";
 import { type Look, loadLook } from "./render/look";
 import { createQualityGovernor, type Quality } from "./render/quality";
 import { createStatusView } from "./render/statusView";
+import { loadTreeModels } from "./render/trees";
 
 declare global {
   interface Window {
@@ -39,6 +40,8 @@ declare global {
       }[];
       /** 見た目（NORI-56）：素材を読む前 "loading"・貼った "textured"・単色 "plain" */
       look: "loading" | "textured" | "plain";
+      /** 木（NORI-26）："simple"（今の簡単な木）か "model"（Blender の木） */
+      trees: "simple" | "model";
       /** 画質（NORI-56）：一度 "low" になったら戻らない */
       quality: Quality;
       /** 3D の点が、画面（CSS の px）のどこに映るか（E2E で明るさを測るため。読むだけ） */
@@ -90,7 +93,10 @@ Object.assign(sun.shadow.camera, { left: -30, right: 30, top: 30, bottom: -30, n
 scene.add(sun, sun.target);
 // 当たり判定（Rapier の WASM）の準備を待ってから始める
 const game = await createGame();
-const city = createCity(game.layout);
+// 木を Blender の木に切り替える前に、シェーダーを用意する（切り替えで一瞬止まらないように。NORI-26）
+const city = createCity(game.layout, {
+  precompile: (staged) => renderer.compileAsync(staged, camera, scene),
+});
 scene.add(city.root);
 const courseView = createCourseView(game.stars, STAGE1);
 scene.add(courseView.root);
@@ -128,6 +134,8 @@ void loadLook({
   maxAnisotropy: LOOK.maxAnisotropy,
 }).then((look) => {
   loadedLook = look;
+  // 切り替えの前に、Blender の木のシェーダーを裏で用意しておく（切り替えで一瞬止まらないように。NORI-26）
+  if (look !== null) city.trees.prepare(look);
   tryApplyLook();
 });
 const lowerQuality = () => {
@@ -147,6 +155,14 @@ const lowerQuality = () => {
 let carView: CarView = createCarView();
 scene.add(carView.root);
 const gltfLoader = new GLTFLoader();
+// 木（NORI-26）：Blender の木の形が読めたら渡す（素材が貼れたときだけ使う。読めなければ今の簡単な木）
+void loadTreeModels({
+  base: import.meta.env.BASE_URL,
+  fetchManifest: async (url) => (await (await fetch(url)).json()) as ModelManifest,
+  loadModel: async (url) => (await gltfLoader.loadAsync(url)).scene,
+}).then((models) => {
+  if (models !== null) city.trees.setModels(models);
+});
 void loadCarView({
   base: import.meta.env.BASE_URL,
   fetchManifest: async (url) => (await (await fetch(url)).json()) as ModelManifest,
@@ -226,6 +242,9 @@ window.__nori = {
   },
   get quality() {
     return quality.quality;
+  },
+  get trees() {
+    return city.trees.mode;
   },
   screenOf: (x, y, z) => {
     projected.set(x, y, z).project(camera);

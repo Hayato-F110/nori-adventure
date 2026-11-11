@@ -3,7 +3,7 @@
 import * as THREE from "three";
 import { HDRLoader } from "three/addons/loaders/HDRLoader.js";
 
-export type SurfaceName = "grass" | "road" | "brick" | "facade";
+export type SurfaceName = "grass" | "road" | "brick" | "facade" | "bark";
 
 export type SurfaceSpec = {
   readonly texture: string;
@@ -173,4 +173,16 @@ export const setPlaneUvMeters = (geo: THREE.BufferGeometry, w: number, h: number
   for (let k = 0; k < uv.count; k++) uv.setXY(k, (uv.getX(k) * w) / tile, (uv.getY(k) * h) / tile);
   uv.needsUpdate = true;
   return geo;
+};
+
+/**
+ * 焼き付けた地面の陰（ステージ1の配置。uv1）を外した材質。ステージ1の地面以外（ステージ2・木の葉）で芝などの素材を使うとき
+ */
+export const withoutAo = (mat: THREE.MeshStandardMaterial): THREE.MeshStandardMaterial => {
+  if (mat.aoMap === null) return mat;
+  const copy = mat.clone();
+  copy.aoMap = null;
+  copy.onBeforeCompile = () => undefined;
+  copy.customProgramCacheKey = () => "no-ao";
+  return copy;
 };
