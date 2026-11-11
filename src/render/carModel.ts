@@ -110,6 +110,8 @@ export type CarLoadDeps = {
   base: string;
   fetchManifest: (url: string) => Promise<ModelManifest>;
   loadModel: (url: string) => Promise<THREE.Object3D>;
+  /** manifest の名前（既定は car。列車は train。部品の名前は同じ：body・wheel_FL/FR/RL/RR） */
+  name?: string;
 };
 
 /**
@@ -119,7 +121,7 @@ export type CarLoadDeps = {
 export const loadCarView = async (deps: CarLoadDeps): Promise<CarView | null> => {
   try {
     const manifest = await deps.fetchManifest(`${deps.base}models/manifest.json`);
-    const entry = manifest.models.find((m) => m.name === "car");
+    const entry = manifest.models.find((m) => m.name === (deps.name ?? "car"));
     if (entry === undefined) return null;
     return carViewFromModel(await deps.loadModel(`${deps.base}models/${entry.file}`));
   } catch {
