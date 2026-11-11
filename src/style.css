@@ -33,6 +33,106 @@ body {
   display: none;
 }
 
+/* ---- ほし・旗・時間（NORI-25。文字に頼らない：絵と数字だけ）---- */
+.status {
+  position: fixed;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 20px;
+  align-items: center;
+  padding: 8px 18px;
+  border-radius: 999px;
+  background: rgb(0 0 0 / 35%);
+  color: #fff;
+  font:
+    700 28px/1 system-ui,
+    sans-serif;
+  pointer-events: none;
+}
+
+.status svg {
+  width: 36px;
+  height: 36px;
+}
+
+.status-stars {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.status-clock {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.status-clock svg {
+  width: 28px;
+  height: 28px;
+  opacity: 0.85;
+}
+
+.status-flags {
+  display: flex;
+  gap: 2px;
+}
+
+.status-flag {
+  fill: rgb(255 255 255 / 30%);
+}
+
+.status-flag.passed {
+  fill: #5fcf6b;
+}
+
+.status-time {
+  min-width: 2.5ch;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.85;
+}
+
+/* ゴール：大きなほしが、ふわっと出る */
+.goal {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+
+.goal[hidden] {
+  display: none;
+}
+
+.goal svg {
+  width: min(40vmin, 320px);
+  height: min(40vmin, 320px);
+  filter: drop-shadow(0 6px 16px rgb(0 0 0 / 35%));
+  animation: goal-pop 0.8s ease-out both;
+}
+
+@keyframes goal-pop {
+  from {
+    transform: scale(0.2) rotate(-30deg);
+    opacity: 0;
+  }
+
+  to {
+    transform: scale(1) rotate(0);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .goal svg {
+    animation: none;
+  }
+}
+
 /* ---- タッチの操作（NORI-14。docs/game-rules.md「入力」）---- */
 /* 大きさは INPUT と同じ値（tests/input/touch-ui.test.ts で一致を確かめる） */
 :root {

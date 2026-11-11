@@ -4,6 +4,7 @@
 #
 # 使い方：blender-work/tools/ に写してから
 #   runpy.run_path(r"<リポジトリ>\blender-work\tools\preview-vehicle.py", init_globals={"NAME": "train"})
+#   AI 動画の元の画像にするときは RES=(1920, 1080)、BG=（空の色。線形の RGB）、SUFFIX="-ai" を足す
 import math
 from pathlib import Path
 
@@ -43,11 +44,11 @@ def preview(name):
     world = bpy.data.worlds.new("preview_world")
     world.use_nodes = True
     bg = next(n for n in world.node_tree.nodes if n.type == "BACKGROUND")
-    bg.inputs[0].default_value = (0.75, 0.82, 0.9, 1.0)
+    bg.inputs[0].default_value = (*globals().get("BG", (0.75, 0.82, 0.9)), 1.0)
     bg.inputs[1].default_value = 0.8
     scene.world = world
     scene.camera = cam
-    scene.render.resolution_x, scene.render.resolution_y = 960, 640
+    scene.render.resolution_x, scene.render.resolution_y = globals().get("RES", (960, 640))
     out_dir = _work_dir() / "renders"
     out_dir.mkdir(exist_ok=True)
     files = []
@@ -56,7 +57,7 @@ def preview(name):
         for label, direction in (("front", Vector((1.0, 1.4, 0.8))), ("rear", Vector((-1.0, -1.4, 0.9)))):
             cam.location = center + direction.normalized() * radius * 3.2
             cam.rotation_euler = (center - cam.location).to_track_quat("-Z", "Y").to_euler()
-            path = str(out_dir / f"{name}-{label}.png")
+            path = str(out_dir / f"{name}-{label}{globals().get('SUFFIX', '')}.png")
             scene.render.filepath = path
             bpy.ops.render.render(write_still=True)
             files.append(path)

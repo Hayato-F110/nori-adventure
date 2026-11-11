@@ -1,7 +1,7 @@
 // 起動とゲームループ。状態（src/core）を固定刻みで進め、描画（src/render）はその状態を読むだけ。
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
-import { CAMERA, SIM } from "./config";
+import { CAMERA, SIM, STAGE1 } from "./config";
 import { createGame } from "./core/game";
 import { createFixedStepper } from "./core/loop";
 import type { CarState, GameState, InputFrame, Pose2D } from "./core/types";
@@ -11,7 +11,9 @@ import { mergeInputs } from "./input/merge";
 import { createTouchInput } from "./input/touch";
 import { type CarView, createCarView, loadCarView, type ModelManifest } from "./render/carModel";
 import { createCity } from "./render/city";
+import { createCourseView } from "./render/courseView";
 import { createFollowCamera } from "./render/followCamera";
+import { createStatusView } from "./render/statusView";
 
 declare global {
   interface Window {
@@ -35,7 +37,7 @@ const showDebug = params.has("debug");
 // ?models：乗り物のモデルを並べて見る確認用の画面（NORI-20〜23）。ゲームは始めない
 if (params.has("models")) {
   hud.hidden = true;
-  document.getElementById("touch")?.setAttribute("hidden", "");
+  for (const id of ["touch", "status"]) document.getElementById(id)?.setAttribute("hidden", "");
   const { startModelGallery } = await import("./render/modelGallery");
   await startModelGallery(canvas, import.meta.env.BASE_URL);
   // ここで止める（下のゲームの起動に進まない）。確認用の画面は描き続ける
@@ -60,6 +62,8 @@ scene.add(sun, sun.target);
 const game = await createGame();
 const city = createCity(game.layout);
 scene.add(city.root);
+const courseView = createCourseView(game.stars, STAGE1);
+scene.add(courseView.root);
 
 // まず箱の車で始め、GLB が読めたら差しかえる（読み込みを待たせない。読めなければ箱のまま）
 let carView: CarView = createCarView();
@@ -106,6 +110,15 @@ const touch = createTouchInput({
   knob: byId("knob"),
 });
 const gamepads = createGamepadInput();
+const statusView = createStatusView(
+  {
+    starCount: byId("star-count"),
+    flags: [...byId("flags").children],
+    time: byId("time"),
+    goal: byId("goal"),
+  },
+  SIM.fixedDt,
+);
 const stepper = createFixedStepper(SIM.fixedDt, SIM.maxStepsPerFrame);
 let previous: GameState = game.initial();
 let current: GameState = previous;
@@ -147,6 +160,10 @@ const frame = (now: number) => {
   carView.root.position.set(pose.x, 0, pose.z);
   carView.root.rotation.y = pose.heading;
   carView.update(moved, current.car.steer);
+  // 復活の直後（無敵の間）は、車を点滅させる（docs/game-rules.md「復活後の無敵時間」）
+  carView.root.visible = current.invincibleTicks === 0 || Math.floor(now / 120) % 2 === 0;
+  courseView.update(current.course, pose, now / 1000);
+  statusView.update(current.tick, current.course);
   followCamera.update(pose, frameSeconds);
   // 影は車のまわりだけ描く（影の範囲を狭くして、くっきり・軽くする）
   sun.position.set(pose.x + 20, 40, pose.z + 10);

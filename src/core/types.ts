@@ -1,4 +1,5 @@
 // ゲーム状態の型。Three.js や DOM に依存しない。JSON にそのまま保存できる形だけを使う。
+import type { CourseState } from "./course";
 
 /** 1刻み（1/60秒）分の入力。キーボード・タッチ・ゲームパッドは、すべてこの形に変換する */
 export type InputFrame = {
@@ -28,4 +29,12 @@ export type GameState = {
   /** 進めた刻みの数 */
   tick: number;
   car: CarState;
+  /** ほし・チェックポイント・ゴールの進み具合（NORI-25） */
+  course: CourseState;
+  /** アクセルを入れているのに動けない刻みが、続いている数（RESPAWN.stuckSeconds で復活） */
+  stuckTicks: number;
+  /** 復活のあとの無敵の残りの刻み（0 なら無敵でない） */
+  invincibleTicks: number;
+  /** 復活した回数（記録・テスト用。罰には使わない） */
+  respawns: number;
 };
