@@ -64,11 +64,11 @@ for (const [name, query] of [
     await expect(button).toHaveAttribute("data-auto", "false");
     await page.waitForFunction(() => window.__nori?.look === "textured", undefined, { timeout: 60_000 });
 
-    // もう一度押すと自動に戻る（見た目は高のまま）。開き直しても自動
+    // もう一度押すと自動に戻る。開き直しても自動。
+    // 自動に戻したあと高のままか低へ下がるかは端末の速さで決まる（GPU のない CI では数秒で低になる）ので、
+    // ここでは自動の印だけを確かめる（見た目をすぐには変えないことは tests/render/qualityControl.test.ts で確かめる）
     await button.click();
     await expect(button).toHaveAttribute("data-auto", "true");
-    expect(await page.evaluate(() => window.__nori?.quality)).toBe("high");
-    expect(await page.evaluate(() => window.__nori?.look)).toBe("textured");
     await page.screenshot({ path: testInfo.outputPath("quality-auto.png") });
     await page.reload();
     await waitFrames(page);
