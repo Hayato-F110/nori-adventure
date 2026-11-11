@@ -1,7 +1,7 @@
 // 起動とゲームループ。状態（src/core）を固定刻みで進め、描画（src/render）はその状態を読むだけ。
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
-import { CAMERA, RESPAWN, SIM, STAGE1 } from "./config";
+import { CAMERA, LOOK, RESPAWN, SIM, STAGE1 } from "./config";
 import { createGame } from "./core/game";
 import { createFixedStepper } from "./core/loop";
 import type { CarState, GameState, InputFrame, Pose2D } from "./core/types";
@@ -13,6 +13,8 @@ import { type CarView, createCarView, loadCarView, type ModelManifest } from "./
 import { createCity } from "./render/city";
 import { createCourseView } from "./render/courseView";
 import { createFollowCamera } from "./render/followCamera";
+import { loadLook } from "./render/look";
+import { createQualityGovernor, type Quality } from "./render/quality";
 import { createStatusView } from "./render/statusView";
 
 declare global {
@@ -24,6 +26,12 @@ declare global {
       carModel: "box" | "glb";
       frames: number;
       state: () => GameState;
+      /** 見た目（NORI-56）：素材を読む前 "loading"・貼った "textured"・単色 "plain" */
+      look: "loading" | "textured" | "plain";
+      /** 画質（NORI-56）：一度 "low" になったら戻らない */
+      quality: Quality;
+      /** 3D の点が、画面（CSS の px）のどこに映るか（E2E で明るさを測るため。読むだけ） */
+      screenOf: (x: number, y: number, z: number) => { x: number; y: number };
     };
   }
 }
@@ -48,11 +56,15 @@ const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPrefere
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+// 色の仕上げ（NORI-56。docs/game-rules.md「見た目」）
+renderer.toneMapping = THREE.AgXToneMapping;
+renderer.toneMappingExposure = LOOK.exposure;
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x9fd8ff);
 scene.fog = new THREE.Fog(0x9fd8ff, 80, 190);
-scene.add(new THREE.HemisphereLight(0xdff3ff, 0x5c8a4a, 1.4));
+const hemi = new THREE.HemisphereLight(0xdff3ff, 0x5c8a4a, 1.4);
+scene.add(hemi);
 const sun = new THREE.DirectionalLight(0xffffff, 2.2);
 sun.castShadow = true;
 sun.shadow.mapSize.set(1024, 1024);
@@ -64,6 +76,39 @@ const city = createCity(game.layout);
 scene.add(city.root);
 const courseView = createCourseView(game.stars, STAGE1);
 scene.add(courseView.root);
+
+// ---- 見た目と画質（NORI-56）。最初は単色で始め、素材が読めたら差しかえる（待たせない） ----
+const quality = createQualityGovernor(LOOK);
+let lookState: "loading" | "textured" | "plain" = "loading";
+const usePlain = () => {
+  city.applyLook(null);
+  scene.environment = null;
+  hemi.intensity = 1.4;
+  lookState = "plain";
+};
+void loadLook({ base: import.meta.env.BASE_URL, renderer, surfaces: LOOK.surfaces }).then((look) => {
+  if (look === null || quality.quality === "low") {
+    usePlain();
+    return;
+  }
+  city.applyLook(look);
+  scene.environment = look.environment;
+  scene.environmentIntensity = LOOK.environmentIntensity;
+  hemi.intensity = 0.5; // まわりの光（HDRI）が入るので、空と地面の光は弱める
+  lookState = "textured";
+});
+const lowerQuality = () => {
+  usePlain();
+  renderer.setPixelRatio(1);
+  renderer.shadowMap.enabled = false;
+  sun.castShadow = false;
+  scene.traverse((obj) => {
+    if (obj instanceof THREE.Mesh) {
+      for (const m of [obj.material].flat()) m.needsUpdate = true;
+    }
+  });
+  resize();
+};
 
 // まず箱の車で始め、GLB が読めたら差しかえる（読み込みを待たせない。読めなければ箱のまま）
 let carView: CarView = createCarView();
@@ -137,7 +182,26 @@ const fpsSamples: number[] = [];
 let frames = 0;
 let windowFrames = 0;
 let windowStart = performance.now();
-window.__nori = { fpsSamples, carModel: "box", frames: 0, state: () => structuredClone(current) };
+const projected = new THREE.Vector3();
+window.__nori = {
+  fpsSamples,
+  carModel: "box",
+  frames: 0,
+  state: () => structuredClone(current),
+  get look() {
+    return lookState;
+  },
+  get quality() {
+    return quality.quality;
+  },
+  screenOf: (x, y, z) => {
+    projected.set(x, y, z).project(camera);
+    return {
+      x: ((projected.x + 1) / 2) * window.innerWidth,
+      y: ((1 - projected.y) / 2) * window.innerHeight,
+    };
+  },
+};
 
 let lastPose: Pose2D = interpolate(current.car, current.car, 1);
 let lastRespawns = current.respawns;
@@ -190,6 +254,8 @@ const frame = (now: number) => {
   if (now - windowStart >= 1000) {
     const fps = (windowFrames * 1000) / (now - windowStart);
     fpsSamples.push(Math.round(fps * 10) / 10);
+    // 遅い端末では低画質へ（一度だけ。上げ直さない）
+    if (quality.quality === "high" && quality.push(fps) === "low") lowerQuality();
     windowFrames = 0;
     windowStart = now;
     if (showDebug) {

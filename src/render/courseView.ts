@@ -76,9 +76,10 @@ export const createCourseView = (stars: readonly Point[], config: CourseViewConf
   const starGeo = starShape();
   const starMat = new THREE.MeshStandardMaterial({
     color: COLORS.star,
-    emissive: 0x6b5200,
+    // 自ら少し光らせて、まわりの光（HDRI・AgX）が弱いところでも道との差を保つ（NORI-56）
+    emissive: 0xe0a800,
     roughness: 0.35,
-    metalness: 0.2,
+    metalness: 0,
   });
   const starMeshes = stars.map((p) => {
     const m = new THREE.Mesh(starGeo, starMat);
