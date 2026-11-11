@@ -101,6 +101,24 @@ export const STAGE2 = {
   stationStopLength: 12,
   stationStopSpeed: 0.5,
   stationWaitSeconds: 2,
+  /** 線路の制御点（x, 高さ y, z。m）。閉じた Catmull-Rom 曲線で通る。長さ約 599 m */
+  trackPoints: [
+    { x: 0, y: 0, z: -79.2 },
+    { x: 69.3, y: 2, z: -69.3 },
+    { x: 108.9, y: 4, z: -9.9 },
+    { x: 89.1, y: 7, z: 49.5 },
+    { x: 19.8, y: 9, z: 79.2 },
+    { x: -59.4, y: 7, z: 69.3 },
+    { x: -103.95, y: 4, z: 14.85 },
+    { x: -79.2, y: 2, z: -54.45 },
+  ],
+  trackTolerance: 0.01,
+  maxSlope: 0.05,
+  minCurveRadius: 30,
+  stations: [150, 300, 480],
+  startDistance: 0,
+  cameraDistance: 12,
+  cameraHeight: 6,
 } as const;
 
 /** ステージ3の飛行機（手を離すと自動で水平に戻る） */
