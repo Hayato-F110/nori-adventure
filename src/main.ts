@@ -29,7 +29,18 @@ declare global {
 const canvas = document.querySelector<HTMLCanvasElement>("#game");
 const hud = document.querySelector<HTMLDivElement>("#hud");
 if (canvas === null || hud === null) throw new Error("index.html に #game と #hud が必要です");
-const showDebug = new URLSearchParams(location.search).has("debug");
+const params = new URLSearchParams(location.search);
+const showDebug = params.has("debug");
+
+// ?models：乗り物のモデルを並べて見る確認用の画面（NORI-20〜23）。ゲームは始めない
+if (params.has("models")) {
+  hud.hidden = true;
+  document.getElementById("touch")?.setAttribute("hidden", "");
+  const { startModelGallery } = await import("./render/modelGallery");
+  await startModelGallery(canvas, import.meta.env.BASE_URL);
+  // ここで止める（下のゲームの起動に進まない）。確認用の画面は描き続ける
+  await new Promise<never>(() => undefined);
+}
 
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance" });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));

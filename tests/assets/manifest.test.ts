@@ -36,6 +36,11 @@ describe("public/models/manifest.json", () => {
     }
   });
 
+  it("全部の合計の大きさが上限以内（ASSET.maxTotalGlbBytes）", () => {
+    const total = manifest.models.reduce((sum, m) => sum + m.bytes, 0);
+    expect(total).toBeLessThanOrEqual(ASSET.maxTotalGlbBytes);
+  });
+
   it("作者・作り方・ライセンス・元のファイルが書いてあり、外部の素材は「なし」", () => {
     for (const m of manifest.models) {
       for (const field of REQUIRED_TEXT_FIELDS) expect(m[field], `${m.file} の ${field}`).not.toBe("");

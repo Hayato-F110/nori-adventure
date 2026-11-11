@@ -124,6 +124,78 @@ export const makeCarDocument = (options: FixtureOptions = {}): Document => {
 export const makeCarGlb = async (options: FixtureOptions = {}): Promise<Uint8Array> =>
   new NodeIO().writeBinary(makeCarDocument(options));
 
+export type VehicleKind = keyof typeof ASSET.vehicles;
+
+export type VehicleFixtureOptions = FixtureOptions & {
+  /** プロペラを決めた側の反対に付ける */
+  propellerWrongSide?: boolean;
+  /** プロペラを左右にずらす（m） */
+  propellerOffsetX?: number;
+  /** プロペラに回転を入れる */
+  rotatePropeller?: boolean;
+};
+
+/** 車のほかの4台の、正しい形の仮の GLB（箱の組み合わせ）。壊したい所だけを options で変える */
+export const makeVehicleDocument = (kind: VehicleKind, options: VehicleFixtureOptions = {}): Document => {
+  const spec = ASSET.vehicles[kind];
+  const s = options.scale ?? 1;
+  const lift = options.liftY ?? 0;
+  const { width, height, length } = spec.size;
+  const nodes: readonly string[] = spec.nodes;
+  const doc = new Document();
+  doc.createBuffer();
+  const scene = doc.createScene(kind);
+  const omit = new Set(options.omitNodes ?? []);
+  const front = options.backwards ? 1 : -1;
+  const hasWheels = nodes.includes("wheel_FL");
+  const wheelR = hasWheels ? 0.4 * s : 0;
+  // 体は外形いっぱいの箱。タイヤがあるときは、タイヤの上に載せる
+  const parts: [string, Vec3, Vec3][] = [
+    ["body", [width * s, height * s - wheelR, length * s], [0, (height * s + wheelR) / 2, 0]],
+  ];
+  if (hasWheels) {
+    const wx = (width / 2 - 0.2) * s;
+    const wz = (length / 2 - 0.6) * s;
+    parts.push(
+      ["wheel_FL", [0.3 * s, wheelR * 2, wheelR * 2], [-wx, wheelR, front * wz]],
+      ["wheel_FR", [0.3 * s, wheelR * 2, wheelR * 2], [wx, wheelR, front * wz]],
+      ["wheel_RL", [0.3 * s, wheelR * 2, wheelR * 2], [-wx, wheelR, -front * wz]],
+      ["wheel_RR", [0.3 * s, wheelR * 2, wheelR * 2], [wx, wheelR, -front * wz]],
+    );
+  }
+  if (nodes.includes("propeller")) {
+    const at = "propellerAt" in spec ? spec.propellerAt : "front";
+    const sign = (at === "front" ? -1 : 1) * (options.propellerWrongSide ? -1 : 1);
+    // 体の端の内側（外形を変えない）
+    parts.push([
+      "propeller",
+      [0.6 * s, 0.6 * s, 0.1 * s],
+      [options.propellerOffsetX ?? 0, (height * s) / 2, sign * (length / 2 - 0.1) * s],
+    ]);
+  }
+  if (nodes.includes("light")) {
+    parts.push(["light", [0.2 * s, 0.2 * s, 0.1 * s], [0, (height * s) / 2, front * (length / 2 - 0.1) * s]]);
+  }
+  for (const [name, size, [x, y, z]] of parts) {
+    if (omit.has(name)) continue;
+    const segments = name === "body" ? (options.bodySegments ?? 1) : 1;
+    const node = doc
+      .createNode(name)
+      .setMesh(addBox(doc, name, size, segments))
+      .setTranslation([x, y + lift, z]);
+    if (options.rotateWheel && name === "wheel_FL") node.setRotation([0, 0.3826834, 0, 0.9238795]);
+    if (options.rotatePropeller && name === "propeller") node.setRotation([0, 0, 0.3826834, 0.9238795]);
+    scene.addChild(node);
+  }
+  doc.getRoot().setDefaultScene(scene);
+  return doc;
+};
+
+export const makeVehicleGlb = async (
+  kind: VehicleKind,
+  options: VehicleFixtureOptions = {},
+): Promise<Uint8Array> => new NodeIO().writeBinary(makeVehicleDocument(kind, options));
+
 /** GLB の JSON の部分を書き換えて、詰め直す（外部の URI などを入れた壊れたファイルを作るため） */
 export const rewriteGlbJson = (
   glb: Uint8Array,

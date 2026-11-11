@@ -17,6 +17,78 @@
       "license": "CC-BY-4.0",
       "externalAssets": "なし",
       "importedAt": "2026-11-07"
+    },
+    {
+      "name": "plane",
+      "file": "plane.glb",
+      "sha256": "48f970021fe57c3c74f44b4349ecd01546631db81fa58ae6dd8a476189df2e9f",
+      "bytes": 53204,
+      "triangles": 2512,
+      "size": {
+        "width": 4.4,
+        "height": 1.4,
+        "length": 3.568
+      },
+      "createdWith": "Blender 5.3.0（noriblender の隔離環境。Blender MCP で Claude が作成を補助）",
+      "source": "blender-work/plane.blend",
+      "author": "Hayato-F110",
+      "license": "CC-BY-4.0",
+      "externalAssets": "なし",
+      "importedAt": "2026-11-11"
+    },
+    {
+      "name": "rover",
+      "file": "rover.glb",
+      "sha256": "9724ab32fcbfafb3a91b4001dcecd6b889de6e93c41bd43f62c3b519527619ec",
+      "bytes": 64004,
+      "triangles": 2384,
+      "size": {
+        "width": 2.04,
+        "height": 1.6,
+        "length": 2.82
+      },
+      "createdWith": "Blender 5.3.0（noriblender の隔離環境。Blender MCP で Claude が作成を補助）",
+      "source": "blender-work/rover.blend",
+      "author": "Hayato-F110",
+      "license": "CC-BY-4.0",
+      "externalAssets": "なし",
+      "importedAt": "2026-11-11"
+    },
+    {
+      "name": "sub",
+      "file": "sub.glb",
+      "sha256": "ab91672a2fec90be476b48716cb2b887d44a670ced92fec0625dae4644d25f31",
+      "bytes": 58396,
+      "triangles": 2324,
+      "size": {
+        "width": 1.8,
+        "height": 1.8,
+        "length": 3.072
+      },
+      "createdWith": "Blender 5.3.0（noriblender の隔離環境。Blender MCP で Claude が作成を補助）",
+      "source": "blender-work/sub.blend",
+      "author": "Hayato-F110",
+      "license": "CC-BY-4.0",
+      "externalAssets": "なし",
+      "importedAt": "2026-11-11"
+    },
+    {
+      "name": "train",
+      "file": "train.glb",
+      "sha256": "902bae22ccbc0d12e8250f231a72e7739be6eb38a97acecdcc6c448441c65613",
+      "bytes": 86748,
+      "triangles": 3400,
+      "size": {
+        "width": 2.24,
+        "height": 2.6,
+        "length": 6.03
+      },
+      "createdWith": "Blender 5.3.0（noriblender の隔離環境。Blender MCP で Claude が作成を補助）",
+      "source": "blender-work/train.blend",
+      "author": "Hayato-F110",
+      "license": "CC-BY-4.0",
+      "externalAssets": "なし",
+      "importedAt": "2026-11-11"
     }
   ]
 }
