@@ -13,8 +13,8 @@ import { createKeyboardInput } from "./input/keyboard";
 import { mergeInputs } from "./input/merge";
 import { createTouchInput } from "./input/touch";
 import { type CarView, loadCarView, type ModelManifest } from "./render/carModel";
-import { LIGHTMAPS, type Look, loadLook } from "./render/look";
-import { createQualityGovernor } from "./render/quality";
+import { LIGHTMAPS, loadLook } from "./render/look";
+import { startQuality } from "./render/qualityControl";
 import { createStage2View } from "./render/stage2View";
 import { createStatusView } from "./render/statusView";
 import { loadTreeModels } from "./render/trees";
@@ -34,7 +34,7 @@ export const startStage2 = async (canvas: HTMLCanvasElement, hud: HTMLElement, s
   }
 
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance" });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, LOOK.highPixelRatioMax));
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.toneMapping = THREE.AgXToneMapping;
@@ -59,28 +59,15 @@ export const startStage2 = async (canvas: HTMLCanvasElement, hud: HTMLElement, s
   scene.add(view.root);
 
   // ---- 見た目と画質（ステージ1と同じ決まり。素材は最初の画質の判定が済んでから貼る） ----
-  const quality = createQualityGovernor(LOOK);
-  let lookState: "loading" | "textured" | "plain" = "loading";
-  let loadedLook: Look | null | undefined;
-  let qualityJudged = false;
-  const usePlain = () => {
-    view.applyLook(null);
-    scene.environment = null;
-    hemi.intensity = LOOK.hemiPlain;
-    lookState = "plain";
-  };
-  const tryApplyLook = () => {
-    if (loadedLook === undefined || !qualityJudged || lookState !== "loading") return;
-    if (loadedLook === null || quality.quality === "low") {
-      usePlain();
-      return;
-    }
-    view.applyLook(loadedLook);
-    scene.environment = loadedLook.environment;
-    scene.environmentIntensity = LOOK.environmentIntensity;
-    hemi.intensity = LOOK.hemiTextured;
-    lookState = "textured";
-  };
+  // 画質はボタンで選べる（NORI-58）
+  const quality = startQuality({
+    renderer,
+    scene,
+    sun,
+    hemi,
+    applyLook: (look) => view.applyLook(look),
+    resize: () => resize(),
+  });
   void loadLook({
     base: import.meta.env.BASE_URL,
     renderer,
@@ -90,10 +77,9 @@ export const startStage2 = async (canvas: HTMLCanvasElement, hud: HTMLElement, s
     aoDirect: LOOK.aoDirect,
     maxAnisotropy: LOOK.maxAnisotropy,
   }).then((look) => {
-    loadedLook = look;
     // 切り替えの前に、Blender の木のシェーダーを裏で用意しておく（切り替えで一瞬止まらないように。NORI-26）
     if (look !== null) view.trees.prepare(look);
-    tryApplyLook();
+    quality.lookLoaded(look);
   });
 
   // ---- 列車：箱で始め、GLB（train）が読めたら差しかえる ----
@@ -131,16 +117,6 @@ export const startStage2 = async (canvas: HTMLCanvasElement, hud: HTMLElement, s
   };
   window.addEventListener("resize", resize);
   resize();
-  const lowerQuality = () => {
-    usePlain();
-    renderer.setPixelRatio(LOOK.lowPixelRatio);
-    renderer.shadowMap.enabled = false;
-    sun.castShadow = false;
-    scene.traverse((obj) => {
-      if (obj instanceof THREE.Mesh) for (const mat of [obj.material].flat()) mat.needsUpdate = true;
-    });
-    resize();
-  };
 
   // ---- 入力と上の表示（旗＝駅） ----
   const keyboard = createKeyboardInput(window);
@@ -208,7 +184,7 @@ export const startStage2 = async (canvas: HTMLCanvasElement, hud: HTMLElement, s
         bed: { x: bed.x, y: bed.y, z: bed.z },
       })),
     get look() {
-      return lookState;
+      return quality.lookState;
     },
     get quality() {
       return quality.quality;
@@ -267,13 +243,7 @@ export const startStage2 = async (canvas: HTMLCanvasElement, hud: HTMLElement, s
     if (now - windowStart >= 1000) {
       const fps = (windowFrames * 1000) / (now - windowStart);
       fpsSamples.push(Math.round(fps * 10) / 10);
-      if (fpsSamples.length > LOOK.settleSeconds) {
-        if (quality.quality === "high" && quality.push(fps) === "low") lowerQuality();
-        if (!qualityJudged && fpsSamples.length >= LOOK.settleSeconds + LOOK.lowFpsSeconds) {
-          qualityJudged = true;
-          tryApplyLook();
-        }
-      }
+      quality.sample(fps, fpsSamples.length);
       windowFrames = 0;
       windowStart = now;
       if (showDebug)
