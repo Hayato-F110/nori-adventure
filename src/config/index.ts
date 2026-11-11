@@ -36,7 +36,7 @@ export const STAGE1 = {
   starCount: 20,
   starPickupRadius: 1.5,
   checkpointCount: 3,
-  checkpointRadius: 6,
+  checkpointRadius: 8,
   /** コースの道すじ（道の中心線の角の点）。先頭がスタート、2〜4番目がチェックポイント、最後がゴール */
   route: [
     { x: 0, z: 0 },
@@ -65,6 +65,7 @@ export const STAGE1 = {
 export const RESPAWN = {
   stuckSeconds: 2,
   invincibleSeconds: 2.0,
+  blinkMs: 250,
   stuckSpeed: 0.3,
   stuckThrottle: 0.5,
 } as const;

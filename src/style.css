@@ -80,12 +80,17 @@ body {
   gap: 2px;
 }
 
+/* まだの旗は輪郭だけ、通った旗は塗りつぶし（色だけに頼らない） */
 .status-flag {
-  fill: rgb(255 255 255 / 30%);
+  fill: none;
+  stroke: #fff;
+  stroke-width: 4;
+  stroke-linejoin: round;
 }
 
 .status-flag.passed {
   fill: #5fcf6b;
+  stroke: #fff;
 }
 
 .status-time {

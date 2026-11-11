@@ -1,7 +1,7 @@
 // 起動とゲームループ。状態（src/core）を固定刻みで進め、描画（src/render）はその状態を読むだけ。
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
-import { CAMERA, SIM, STAGE1 } from "./config";
+import { CAMERA, RESPAWN, SIM, STAGE1 } from "./config";
 import { createGame } from "./core/game";
 import { createFixedStepper } from "./core/loop";
 import type { CarState, GameState, InputFrame, Pose2D } from "./core/types";
@@ -140,6 +140,8 @@ let windowStart = performance.now();
 window.__nori = { fpsSamples, carModel: "box", frames: 0, state: () => structuredClone(current) };
 
 let lastPose: Pose2D = interpolate(current.car, current.car, 1);
+let lastRespawns = current.respawns;
+const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 followCamera.snap(lastPose);
 let lastTime = performance.now();
 
@@ -152,19 +154,31 @@ const frame = (now: number) => {
   const { alpha } = stepper.advance(frameSeconds, () => {
     previous = current;
     current = game.step(current, input);
+    // 復活の刻みは、前の位置との間を補間しない（途中の位置を一瞬描かない）
+    if (current.respawns !== previous.respawns) previous = current;
   });
 
   const pose = interpolate(previous.car, current.car, alpha);
+  const respawned = current.respawns !== lastRespawns;
+  if (respawned) lastPose = pose; // ワープの距離でタイヤを回さない
   const moved = Math.hypot(pose.x - lastPose.x, pose.z - lastPose.z) * Math.sign(current.car.speed);
   lastPose = pose;
   carView.root.position.set(pose.x, 0, pose.z);
   carView.root.rotation.y = pose.heading;
   carView.update(moved, current.car.steer);
   // 復活の直後（無敵の間）は、車を点滅させる（docs/game-rules.md「復活後の無敵時間」）
-  carView.root.visible = current.invincibleTicks === 0 || Math.floor(now / 120) % 2 === 0;
+  // 動きを減らす設定の端末では点滅せず、見えたままにする（1 秒に 2 回まで。光に敏感な子のため）
+  carView.root.visible =
+    current.invincibleTicks === 0 || reducedMotion.matches || Math.floor(now / RESPAWN.blinkMs) % 2 === 0;
   courseView.update(current.course, pose, now / 1000);
   statusView.update(current.tick, current.course);
-  followCamera.update(pose, frameSeconds);
+  // 復活したら、カメラもすぐ新しい位置へ（街の上を流れて、車を見失わないように）
+  if (respawned) {
+    lastRespawns = current.respawns;
+    followCamera.snap(pose);
+  } else {
+    followCamera.update(pose, frameSeconds);
+  }
   // 影は車のまわりだけ描く（影の範囲を狭くして、くっきり・軽くする）
   sun.position.set(pose.x + 20, 40, pose.z + 10);
   sun.target.position.set(pose.x, 0, pose.z);

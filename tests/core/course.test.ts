@@ -110,6 +110,13 @@ describe("ほし・チェックポイント・ゴール（stepCourse）", () => 
     expect(course.nextCheckpoint).toBe(1);
   });
 
+  it("交差点の内側の角ぎりぎり（道の端の角）を回っても、チェックポイントを数える", () => {
+    const half = STAGE1.roadWidth / 2;
+    // 1番目の角 (0, −80) の内側の角は (5, −75)。車の中心がそこを通る
+    const course = stepCourse(createCourseState(STAGE1.starCount), at(half, -80 + half), 1, STAGE1);
+    expect(course.nextCheckpoint).toBe(1);
+  });
+
   it("ゴールは3か所を通ったあとだけ。通った刻みを記録する", () => {
     let course = createCourseState(STAGE1.starCount);
     course = stepCourse(course, at(0, 40), 5, STAGE1);

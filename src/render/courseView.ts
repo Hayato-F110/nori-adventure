@@ -17,7 +17,7 @@ const COLORS = {
   later: 0xc9ccd6, // まだ先の門：うすい灰色
   passed: 0x5fcf6b, // 通った門：緑
   goal: 0xff5c93,
-  arrow: 0xffd23f,
+  arrow: 0xffffff, // ほし（黄色）と取り違えないよう、白
 };
 
 const starShape = () => {
@@ -125,7 +125,7 @@ export const createCourseView = (stars: readonly Point[], config: CourseViewConf
   const arrow = new THREE.Group();
   const arrowMat = new THREE.MeshStandardMaterial({
     color: COLORS.arrow,
-    emissive: 0x6b5200,
+    emissive: 0x404040,
     side: THREE.DoubleSide,
   });
   const shape = new THREE.Shape();
@@ -160,12 +160,13 @@ export const createCourseView = (stars: readonly Point[], config: CourseViewConf
         m.visible = course.stars[i] !== true;
         m.rotation.y = seconds * 2 + i * 0.4;
       });
-      checkpointGates.forEach((gate, k) =>
-        paint(
-          gate,
-          k < course.nextCheckpoint ? mats.passed : k === course.nextCheckpoint ? mats.next : mats.later,
-        ),
-      );
+      // 色だけに頼らない：通った門は低くし、次の門はゆっくり明るさを変える（1 回 2 秒。点滅ではない）
+      mats.next.emissiveIntensity = 0.6 + 0.4 * Math.sin(seconds * Math.PI);
+      checkpointGates.forEach((gate, k) => {
+        const passed = k < course.nextCheckpoint;
+        paint(gate, passed ? mats.passed : k === course.nextCheckpoint ? mats.next : mats.later);
+        gate.scale.y = passed ? 0.5 : 1;
+      });
       const goalNext = course.nextCheckpoint >= config.checkpointCount;
       paint(goalGate, goalNext ? mats.goal : mats.goalLater);
 
