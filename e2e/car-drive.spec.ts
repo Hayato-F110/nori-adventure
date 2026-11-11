@@ -20,8 +20,9 @@ const WAYPOINTS = [
   { x: -40, z: 0 },
   { x: 0, z: 0 },
 ];
-// 交差点の手前この距離で、次の交差点へ向きを変え始める（最高速度での回る半径 約6.7 m より少し長く）
-const TURN_AHEAD = 8;
+// 交差点の手前この距離で、次の交差点へ向きを変え始める（最高速度での回る半径 約6.7 m より長く。
+// CI の遅い描画（約13fps）では、位置を読んでハンドルを切るまでに遅れが出て、8 m では角で建物の端に触れた）
+const TURN_AHEAD = 10;
 const POLL_MS = 50;
 
 const wrapAngle = (a: number) => Math.atan2(Math.sin(a), Math.cos(a));
