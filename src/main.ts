@@ -15,8 +15,9 @@ import { type CarView, createCarView, loadCarView, type ModelManifest } from "./
 import { createCity } from "./render/city";
 import { createCourseView } from "./render/courseView";
 import { createFollowCamera } from "./render/followCamera";
-import { type Look, loadLook } from "./render/look";
-import { createQualityGovernor, type Quality } from "./render/quality";
+import { loadLook } from "./render/look";
+import type { Quality } from "./render/quality";
+import { startQuality } from "./render/qualityControl";
 import { createStatusView } from "./render/statusView";
 import { loadTreeModels } from "./render/trees";
 
@@ -91,7 +92,7 @@ if (params.get("stage") === "3") {
 }
 
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance" });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, LOOK.highPixelRatioMax));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 // 色の仕上げ（NORI-56。docs/game-rules.md「見た目」）
@@ -120,28 +121,15 @@ scene.add(courseView.root);
 
 // ---- 見た目と画質（NORI-56）。最初は単色で始め、素材は「読めた」かつ「最初の画質の判定が済んだ」あとに貼る ----
 // 遅い端末で「単色 → 素材 → 単色」と2回変わるのを防ぐ（見た目が変わるのは多くて1回。NORI-56 のレビュー）
-const quality = createQualityGovernor(LOOK);
-let lookState: "loading" | "textured" | "plain" = "loading";
-let loadedLook: Look | null | undefined;
-let qualityJudged = false;
-const usePlain = () => {
-  city.applyLook(null);
-  scene.environment = null;
-  hemi.intensity = LOOK.hemiPlain;
-  lookState = "plain";
-};
-const tryApplyLook = () => {
-  if (loadedLook === undefined || !qualityJudged || lookState !== "loading") return;
-  if (loadedLook === null || quality.quality === "low") {
-    usePlain();
-    return;
-  }
-  city.applyLook(loadedLook);
-  scene.environment = loadedLook.environment;
-  scene.environmentIntensity = LOOK.environmentIntensity;
-  hemi.intensity = LOOK.hemiTextured; // まわりの光（HDRI）が入るので、空と地面の光は弱める
-  lookState = "textured";
-};
+// 画質はボタンで選べる（NORI-58）。選んだ画質はこの端末の中に覚える
+const quality = startQuality({
+  renderer,
+  scene,
+  sun,
+  hemi,
+  applyLook: (look) => city.applyLook(look),
+  resize: () => resize(),
+});
 void loadLook({
   base: import.meta.env.BASE_URL,
   renderer,
@@ -150,23 +138,10 @@ void loadLook({
   aoDirect: LOOK.aoDirect,
   maxAnisotropy: LOOK.maxAnisotropy,
 }).then((look) => {
-  loadedLook = look;
   // 切り替えの前に、Blender の木のシェーダーを裏で用意しておく（切り替えで一瞬止まらないように。NORI-26）
   if (look !== null) city.trees.prepare(look);
-  tryApplyLook();
+  quality.lookLoaded(look);
 });
-const lowerQuality = () => {
-  usePlain();
-  renderer.setPixelRatio(LOOK.lowPixelRatio);
-  renderer.shadowMap.enabled = false;
-  sun.castShadow = false;
-  scene.traverse((obj) => {
-    if (obj instanceof THREE.Mesh) {
-      for (const m of [obj.material].flat()) m.needsUpdate = true;
-    }
-  });
-  resize();
-};
 
 // まず箱の車で始め、GLB が読めたら差しかえる（読み込みを待たせない。読めなければ箱のまま）
 let carView: CarView = createCarView();
@@ -255,7 +230,7 @@ window.__nori = {
   frames: 0,
   state: () => structuredClone(current),
   get look() {
-    return lookState;
+    return quality.lookState;
   },
   get quality() {
     return quality.quality;
@@ -323,14 +298,8 @@ const frame = (now: number) => {
   if (now - windowStart >= 1000) {
     const fps = (windowFrames * 1000) / (now - windowStart);
     fpsSamples.push(Math.round(fps * 10) / 10);
-    // 遅い端末では低画質へ（一度だけ。上げ直さない）。読み込み直後の settleSeconds 秒は数えない
-    if (fpsSamples.length > LOOK.settleSeconds) {
-      if (quality.quality === "high" && quality.push(fps) === "low") lowerQuality();
-      if (!qualityJudged && fpsSamples.length >= LOOK.settleSeconds + LOOK.lowFpsSeconds) {
-        qualityJudged = true;
-        tryApplyLook();
-      }
-    }
+    // 遅い端末では低画質へ（「自動」のときだけ。自動では上げ直さない）
+    quality.sample(fps, fpsSamples.length);
     windowFrames = 0;
     windowStart = now;
     if (showDebug) {

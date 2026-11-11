@@ -330,6 +330,8 @@ export const LOOK = {
   hemiTextured: 0.5,
   /** 低画質のときの画素の倍率 */
   lowPixelRatio: 1,
+  /** 高画質の画素の倍率の上限（端末の倍率がこれより大きくても、ここまで） */
+  highPixelRatioMax: 2,
   /** テクスチャの異方性フィルタの上限（斜めから見た道がぼやけないように） */
   maxAnisotropy: 4,
   /** 色（16進の文字列）。ほし・道の明るさの比（minStarContrast）はこれらで決まる */
@@ -341,6 +343,8 @@ export const LOOK = {
   roadLineInset: 0.6,
   /** 素材を貼るのは、最初の画質の判定（lowFpsSeconds）が済んでから。読み込み直後の何秒を FPS に数えないか */
   settleSeconds: 1,
+  /** 画質のボタン（右上）の大きさ px（NORI-58） */
+  qualityButtonSize: 72,
 } as const;
 
 export const CONFIG = {

@@ -48,6 +48,55 @@
         <span id="time" class="status-time">0</span>
       </div>
     </div>
+    <button
+      id="quality"
+      class="quality"
+      type="button"
+      aria-label="がしつ じどう（たかい）"
+      data-quality="high"
+      data-auto="true"
+    >
+      <svg class="quality-high" viewBox="0 0 100 100" aria-hidden="true">
+        <circle cx="72" cy="28" r="13" fill="#ffd23f" />
+        <path
+          d="M6 84 L38 36 L58 64 L70 50 L94 84 Z"
+          fill="#3fa34d"
+          stroke="#fff"
+          stroke-width="5"
+          stroke-linejoin="round"
+        />
+        <path d="M30 48 L38 36 L46 48 Z" fill="#fff" />
+      </svg>
+      <svg class="quality-low" viewBox="0 0 100 100" aria-hidden="true">
+        <path
+          d="M6 84 L38 36 L58 64 L70 50 L94 84 Z"
+          fill="#8a8f98"
+          stroke="#fff"
+          stroke-width="5"
+          stroke-linejoin="round"
+        />
+      </svg>
+      <!-- 自動のときの印：回る矢印（右下） -->
+      <svg class="quality-auto" viewBox="0 0 100 100" aria-hidden="true">
+        <circle cx="50" cy="50" r="46" fill="#1f6fd1" stroke="#fff" stroke-width="6" />
+        <path
+          d="M28 54 A22 22 0 0 1 68 38"
+          fill="none"
+          stroke="#fff"
+          stroke-width="9"
+          stroke-linecap="round"
+        />
+        <path
+          d="M72 46 A22 22 0 0 1 32 62"
+          fill="none"
+          stroke="#fff"
+          stroke-width="9"
+          stroke-linecap="round"
+        />
+        <path d="M60 26 L72 38 L56 44 Z" fill="#fff" />
+        <path d="M40 74 L28 62 L44 56 Z" fill="#fff" />
+      </svg>
+    </button>
     <div id="goal" class="goal" hidden role="img" aria-label="ごーる">
       <svg viewBox="0 0 100 100" aria-hidden="true">
         <path

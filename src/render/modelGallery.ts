@@ -3,6 +3,7 @@
 // 紹介動画のターンテーブルのカット（NORI-43）にも使える。
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { LOOK } from "../config";
 import type { ModelManifest } from "./carModel";
 
 /** 並べる順（ステージの順。最後に木 NORI-26）。manifest にないものは飛ばす */
@@ -33,7 +34,7 @@ export const startModelGallery = async (canvas: HTMLCanvasElement, base: string)
   window.__noriGallery = info;
 
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, LOOK.highPixelRatioMax));
   renderer.shadowMap.enabled = true;
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x9fd8ff);

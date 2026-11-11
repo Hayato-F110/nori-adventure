@@ -12,8 +12,8 @@ import { createKeyboardInput } from "./input/keyboard";
 import { mergeInputs } from "./input/merge";
 import { createTouchInput } from "./input/touch";
 import type { ModelManifest } from "./render/carModel";
-import { type Look, loadLook } from "./render/look";
-import { createQualityGovernor } from "./render/quality";
+import { loadLook } from "./render/look";
+import { startQuality } from "./render/qualityControl";
 import { createStage3View } from "./render/stage3View";
 import { createStatusView } from "./render/statusView";
 
@@ -38,7 +38,7 @@ export const startStage3 = async (canvas: HTMLCanvasElement, hud: HTMLElement, s
   flags.style.display = "none";
 
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance" });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, LOOK.highPixelRatioMax));
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.toneMapping = THREE.AgXToneMapping;
@@ -60,28 +60,15 @@ export const startStage3 = async (canvas: HTMLCanvasElement, hud: HTMLElement, s
   scene.add(view.root);
 
   // ---- 見た目と画質（ステージ1・2と同じ決まり） ----
-  const quality = createQualityGovernor(LOOK);
-  let lookState: "loading" | "textured" | "plain" = "loading";
-  let loadedLook: Look | null | undefined;
-  let qualityJudged = false;
-  const usePlain = () => {
-    view.applyLook(null);
-    scene.environment = null;
-    hemi.intensity = LOOK.hemiPlain;
-    lookState = "plain";
-  };
-  const tryApplyLook = () => {
-    if (loadedLook === undefined || !qualityJudged || lookState !== "loading") return;
-    if (loadedLook === null || quality.quality === "low") {
-      usePlain();
-      return;
-    }
-    view.applyLook(loadedLook);
-    scene.environment = loadedLook.environment;
-    scene.environmentIntensity = LOOK.environmentIntensity;
-    hemi.intensity = LOOK.hemiTextured;
-    lookState = "textured";
-  };
+  // 画質はボタンで選べる（NORI-58）
+  const quality = startQuality({
+    renderer,
+    scene,
+    sun,
+    hemi,
+    applyLook: (look) => view.applyLook(look),
+    resize: () => resize(),
+  });
   void loadLook({
     base: import.meta.env.BASE_URL,
     renderer,
@@ -89,10 +76,7 @@ export const startStage3 = async (canvas: HTMLCanvasElement, hud: HTMLElement, s
     aoIntensity: LOOK.aoIntensity,
     aoDirect: LOOK.aoDirect,
     maxAnisotropy: LOOK.maxAnisotropy,
-  }).then((look) => {
-    loadedLook = look;
-    tryApplyLook();
-  });
+  }).then((look) => quality.lookLoaded(look));
 
   // ---- 飛行機：箱で始め、GLB（plane）が読めたら差しかえる。プロペラを回す ----
   let planeRoot: THREE.Object3D = createBoxPlane();
@@ -132,16 +116,6 @@ export const startStage3 = async (canvas: HTMLCanvasElement, hud: HTMLElement, s
   };
   window.addEventListener("resize", resize);
   resize();
-  const lowerQuality = () => {
-    usePlain();
-    renderer.setPixelRatio(LOOK.lowPixelRatio);
-    renderer.shadowMap.enabled = false;
-    sun.castShadow = false;
-    scene.traverse((obj) => {
-      if (obj instanceof THREE.Mesh) for (const mat of [obj.material].flat()) mat.needsUpdate = true;
-    });
-    resize();
-  };
 
   // ---- 入力と上の表示（輪の数・時間） ----
   const keyboard = createKeyboardInput(window);
@@ -209,7 +183,7 @@ export const startStage3 = async (canvas: HTMLCanvasElement, hud: HTMLElement, s
       return { ring: v3(m.ring), sky: v3(m.sky) };
     },
     get look() {
-      return lookState;
+      return quality.lookState;
     },
     get quality() {
       return quality.quality;
@@ -271,13 +245,7 @@ export const startStage3 = async (canvas: HTMLCanvasElement, hud: HTMLElement, s
     if (now - windowStart >= 1000) {
       const fps = (windowFrames * 1000) / (now - windowStart);
       fpsSamples.push(Math.round(fps * 10) / 10);
-      if (fpsSamples.length > LOOK.settleSeconds) {
-        if (quality.quality === "high" && quality.push(fps) === "low") lowerQuality();
-        if (!qualityJudged && fpsSamples.length >= LOOK.settleSeconds + LOOK.lowFpsSeconds) {
-          qualityJudged = true;
-          tryApplyLook();
-        }
-      }
+      quality.sample(fps, fpsSamples.length);
       windowFrames = 0;
       windowStart = now;
       if (showDebug) hud.textContent = `${fps.toFixed(0)} fps · ${p.y.toFixed(0)} m`;
