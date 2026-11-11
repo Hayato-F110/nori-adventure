@@ -1,13 +1,15 @@
 // 入力記録の保存と再生。同じ記録 → 同じ結果（オンライン対戦・不具合の再現・自動録画に使う）。
-import type { Game } from "./game";
-import type { GameState, InputFrame } from "./types";
+import type { InputFrame } from "./types";
 
 export type Replay = {
   version: 1;
   inputs: InputFrame[];
 };
 
-export const runReplay = (game: Game, initial: GameState, inputs: readonly InputFrame[]): GameState =>
+/** 1刻み進める関数を持つもの（ステージ1の Game、ステージ2の Stage2Game など） */
+export type Steppable<S> = { step(state: S, input: InputFrame): S };
+
+export const runReplay = <S>(game: Steppable<S>, initial: S, inputs: readonly InputFrame[]): S =>
   inputs.reduce((state, input) => game.step(state, input), initial);
 
 export const serializeReplay = (replay: Replay): string => JSON.stringify(replay);
