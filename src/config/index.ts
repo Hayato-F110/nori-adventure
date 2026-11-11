@@ -168,30 +168,63 @@ export const STAGE3 = {
   cameraHeight: 3,
 } as const;
 
-/** ステージ4の潜水艇 */
+/** ステージ4の潜水艇（NORI-28。ステージ3と同じ操作：←→ で曲がる、↑↓ で上下、速さは一定） */
 export const SUB = {
-  maxForwardSpeed: 5,
-  maxReverseSpeed: 2,
-  acceleration: 2,
-  coastDeceleration: 1.5,
-  turnRate: 1.2,
+  cruiseSpeed: 4,
+  minSpeed: 2,
+  speedChange: 1,
+  turnRate: 0.8,
   verticalSpeed: 2,
+  /** 見た目の機首の上下（rad。見た目だけ） */
+  maxTilt: 0.3,
+  tiltRate: 0.6,
+  /** いちばん浅い深さ（海面の下 m） */
+  minDepth: 1.5,
   collisionRadius: 1.2,
-  bumpSpeedFactor: 0.3,
+  bumpSpeedFactor: 0.5,
 } as const;
 
-/** ステージ4の海（光と霧） */
+/** ステージ4の海（光と霧）。深さは海面（y = 0）からの下向きの距離。y = −depth */
 export const STAGE4 = {
   boundsHalfSize: 120,
   maxDepth: 40,
+  /** スタート（−Z の向き） */
+  start: { x: 0, z: 100, depth: 6 },
+  /** たからばこ（ゴール）の中心 */
+  treasure: { x: 0, z: -90, depth: 39.4 },
+  treasureRadius: 3,
+  hintCount: 8,
+  hintWave: 15,
+  /** いちばん遠い手がかりのあわの数。たからばこに近いほど 1 個ずつ多い */
+  hintBubbles: 3,
+  creatureCount: 6,
+  /** 生きもの：円（中心 x・z・深さ、半径 m）の上を、1周 seconds 秒で回る。phase は始めの角度（rad） */
+  creatures: [
+    { kind: "turtle", x: 18, z: 70, depth: 10, radius: 6, seconds: 30, phase: 0 },
+    { kind: "ray", x: -2, z: 40, depth: 16, radius: 8, seconds: 36, phase: 1.5 },
+    { kind: "jellyfish", x: 22, z: 5, depth: 20, radius: 3, seconds: 40, phase: 3 },
+    { kind: "octopus", x: -18, z: -25, depth: 36, radius: 2, seconds: 30, phase: 0.5 },
+    { kind: "tropical", x: 5, z: -50, depth: 30, radius: 5, seconds: 20, phase: 2 },
+    { kind: "dolphin", x: -15, z: -70, depth: 26, radius: 10, seconds: 24, phase: 4 },
+  ],
+  discoverRadius: 8,
+  /** 岩（海底の球。中心 x・z、半径 m。中心は海底） */
+  rocks: [
+    { x: -32, z: 70, radius: 6 },
+    { x: 35, z: 30, radius: 7 },
+    { x: -35, z: -10, radius: 6 },
+    { x: 35, z: -30, radius: 5 },
+    { x: -30, z: -60, radius: 7 },
+  ],
+  schoolCount: 5,
+  schoolSize: 12,
   fogNear: 6,
   fogFar: 40,
   lightRange: 25,
   lightAngle: 0.6,
   minAmbient: 0.35,
-  creatureCount: 6,
-  discoverRadius: 8,
-  treasureRadius: 3,
+  cameraDistance: 8,
+  cameraHeight: 2.5,
 } as const;
 
 /** ステージ5のローバー（月の重力でジャンプ） */
