@@ -1,6 +1,7 @@
 import { expect, type Page, test } from "@playwright/test";
+import { QUALITY_STORAGE_KEY } from "../src/render/quality";
 
-// NORI-58：画質を選ぶ（docs/game-rules.md「画質を選ぶ」）。右上のボタンで 自動 → 低 → 高 → 自動、開き直しても覚えている。
+// NORI-58：画質を選ぶ（docs/game-rules.md「画質を選ぶ」）。右上のボタンで 低 → 高 → 自動、開き直しても覚えている。
 // ステージ1・2・3で同じ。スクリーンショット・コンソールエラーも確かめる
 const watchErrors = (page: Page) => {
   const errors: string[] = [];
@@ -37,26 +38,17 @@ for (const [name, query] of [
     expect(box?.y ?? 999).toBeLessThan(40);
     expect((await button.innerText()).trim()).toBe("");
 
-    // 最初は高。素材が貼れるまで待つ
-    expect(await page.evaluate(() => window.__nori?.quality)).toBe("high");
-    await page.waitForFunction(() => window.__nori?.look === "textured", undefined, { timeout: 60_000 });
-    await expect(button).toHaveAttribute("data-quality", "high");
-    await expect(button).toHaveAttribute("data-auto", "true"); // 最初は自動（回る矢印の印）
-
-    // 押すと低（単色）
-    await button.click();
-    await expect(button).toHaveAttribute("data-quality", "low");
-    await expect(button).toHaveAttribute("data-auto", "false");
-    expect(await page.evaluate(() => window.__nori?.quality)).toBe("low");
-    expect(await page.evaluate(() => window.__nori?.look)).toBe("plain");
-    await page.screenshot({ path: testInfo.outputPath("quality-low.png") });
-
-    // 開き直しても低のまま（この端末の中に覚えている）
+    // 最初は「自動」（回る矢印の印）。高のままか低へ下がるかは端末の速さで決まる（GPU のない CI では低になる）ので、
+    // ここでは画質を決めつけない。押す順は、端末の速さに左右されないように「前に低を選んだ」状態から確かめる
+    await expect(button).toHaveAttribute("data-auto", "true");
+    await page.evaluate((key) => localStorage.setItem(key, "low"), QUALITY_STORAGE_KEY);
     await page.reload();
     await waitFrames(page);
     await expect(button).toHaveAttribute("data-quality", "low");
+    await expect(button).toHaveAttribute("data-auto", "false");
     expect(await page.evaluate(() => window.__nori?.quality)).toBe("low");
     await page.waitForFunction(() => window.__nori?.look === "plain", undefined, { timeout: 60_000 });
+    await page.screenshot({ path: testInfo.outputPath("quality-low.png") });
 
     // もう一度押すと高へ戻り、素材が貼られる
     await button.click();
@@ -64,6 +56,13 @@ for (const [name, query] of [
     await page.waitForFunction(() => window.__nori?.look === "textured", undefined, { timeout: 60_000 });
     expect(await page.evaluate(() => window.__nori?.quality)).toBe("high");
     await page.screenshot({ path: testInfo.outputPath("quality-high.png") });
+
+    // 開き直しても高のまま（この端末の中に覚えている。高を選んだら遅くても自動では下げない）
+    await page.reload();
+    await waitFrames(page);
+    await expect(button).toHaveAttribute("data-quality", "high");
+    await expect(button).toHaveAttribute("data-auto", "false");
+    await page.waitForFunction(() => window.__nori?.look === "textured", undefined, { timeout: 60_000 });
 
     // もう一度押すと自動に戻る（見た目は高のまま）。開き直しても自動
     await button.click();
