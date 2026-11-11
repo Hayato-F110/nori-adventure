@@ -263,3 +263,26 @@ export const makeTreeDocument = (options: TreeFixtureOptions = {}): Document => 
 
 export const makeTreeGlb = async (options: TreeFixtureOptions = {}): Promise<Uint8Array> =>
   new NodeIO().writeBinary(makeTreeDocument(options));
+
+/** 海の生きもの（ASSET.sea）の、正しい形の仮の GLB：外形いっぱいの箱1つ（body）。原点は底の中心 */
+export const makeSeaGlb = async (
+  name: (typeof ASSET.sea.variants)[number],
+  options: FixtureOptions = {},
+): Promise<Uint8Array> => {
+  const s = options.scale ?? 1;
+  const lift = options.liftY ?? 0;
+  const { width, height, length } = ASSET.sea.sizes[name];
+  const doc = new Document();
+  doc.createBuffer();
+  const scene = doc.createScene(name);
+  if (!(options.omitNodes ?? []).includes("body")) {
+    scene.addChild(
+      doc
+        .createNode("body")
+        .setMesh(addBox(doc, "body", [width * s, height * s, length * s], 1))
+        .setTranslation([0, (height * s) / 2 + lift, 0]),
+    );
+  }
+  doc.getRoot().setDefaultScene(scene);
+  return new NodeIO().writeBinary(doc);
+};

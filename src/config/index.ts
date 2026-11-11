@@ -308,6 +308,30 @@ export const ASSET = {
     maxTriangles: 800,
     maxGlbBytes: 262144,
   },
+  /** 海の生きもの（NORI-28）。前は −Z、原点は底の中心。名前は STAGE4.creatures の kind に sea- を付けたもの */
+  sea: {
+    variants: [
+      "sea-turtle",
+      "sea-ray",
+      "sea-jellyfish",
+      "sea-octopus",
+      "sea-tropical",
+      "sea-dolphin",
+      "sea-fish",
+    ],
+    sizes: {
+      "sea-turtle": { width: 2, height: 0.8, length: 2.4 },
+      "sea-ray": { width: 3.6, height: 0.5, length: 4 },
+      "sea-jellyfish": { width: 1.6, height: 2.4, length: 1.6 },
+      "sea-octopus": { width: 2.2, height: 1.8, length: 2.2 },
+      "sea-tropical": { width: 0.5, height: 1, length: 1.4 },
+      "sea-dolphin": { width: 1.4, height: 1.4, length: 4 },
+      "sea-fish": { width: 0.3, height: 0.45, length: 0.8 },
+    },
+    nodes: ["body"],
+    maxTriangles: 1500,
+    maxGlbBytes: 131072,
+  },
   allowedExtensions: [
     "KHR_materials_emissive_strength",
     "KHR_materials_ior",
