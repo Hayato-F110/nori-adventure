@@ -1,6 +1,6 @@
 // 画質（NORI-56・NORI-58。docs/game-rules.md「見た目」「画質を選ぶ」）。描画だけの判断で、ゲームの状態には影響しない。
 // 「自動」のときだけ、1 秒ごとの平均 FPS が lowFps 未満で lowFpsSeconds 回続いたら "low" にする。自動では上げ直さない。
-// ボタンで選んだら（select）その画質にして、それからは自動で変えない。
+// ボタンで高・低を選んだら（select）その画質にして、それからは自動で変えない。「自動」にも戻せる。
 
 export type Quality = "high" | "low";
 /** "auto"＝選んでいない（最初は高。遅いときだけ自動で低へ） */
@@ -29,10 +29,10 @@ export const createQualityGovernor = (config: QualityConfig, initial: QualityCho
       if (slowSeconds >= config.lowFpsSeconds) quality = "low";
       return quality;
     },
-    /** ボタンで選んだ画質にする。それからは自動で変えない */
-    select(next: Quality): Quality {
+    /** ボタンで選んだ。高・低ならその画質にして自動では変えない。"auto" なら今の画質のまま数え直す */
+    select(next: QualityChoice): Quality {
       choice = next;
-      quality = next;
+      if (next !== "auto") quality = next;
       slowSeconds = 0;
       return quality;
     },
@@ -40,6 +40,15 @@ export const createQualityGovernor = (config: QualityConfig, initial: QualityCho
 };
 
 export type QualityGovernor = ReturnType<typeof createQualityGovernor>;
+
+/**
+ * ボタンを押したときの次の選び方（今の状態だけで決まる）：自動 → 今と反対の画質、低 → 高、高 → 自動。
+ * 押すたびに見た目（画質か、自動の印）が変わり、どこからでも 3 回以内で自動に戻る
+ */
+export const nextQualityChoice = (choice: QualityChoice, quality: Quality): QualityChoice => {
+  if (choice === "auto") return quality === "high" ? "low" : "high";
+  return choice === "low" ? "high" : "auto";
+};
 
 /** 選んだ画質を覚える場所（ブラウザの localStorage の名前。この端末の中だけ） */
 export const QUALITY_STORAGE_KEY = "nori-adventure.quality";
@@ -57,9 +66,9 @@ export const loadQualityChoice = (storage: StorageLike | null): QualityChoice =>
 };
 
 /** 選んだ画質を覚える。覚えられなくても止まらない */
-export const saveQualityChoice = (storage: StorageLike | null, quality: Quality): void => {
+export const saveQualityChoice = (storage: StorageLike | null, choice: QualityChoice): void => {
   try {
-    storage?.setItem(QUALITY_STORAGE_KEY, quality);
+    storage?.setItem(QUALITY_STORAGE_KEY, choice);
   } catch {
     // 覚えられないときは、次に開いたとき「自動」になるだけ
   }

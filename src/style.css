@@ -297,6 +297,23 @@ body {
   height: 100%;
 }
 
+/* 自動のときの印（回る矢印）。ボタンの右下に小さく重ねる */
+.quality {
+  overflow: visible;
+}
+
+.quality .quality-auto {
+  position: absolute;
+  right: -4px;
+  bottom: -4px;
+  width: 30px;
+  height: 30px;
+}
+
+.quality[data-auto="false"] .quality-auto {
+  display: none;
+}
+
 .quality[data-quality="high"] .quality-low,
 .quality[data-quality="low"] .quality-high {
   display: none;

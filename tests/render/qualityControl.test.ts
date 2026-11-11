@@ -105,3 +105,16 @@ describe("画質の切り替え", () => {
     expect(control.quality).toBe("high");
   });
 });
+
+describe("自動に戻す", () => {
+  it("高から自動へ：見た目はそのまま、遅ければ低へ下げる", () => {
+    const { control, renderer } = setup("high");
+    control.lookLoaded(look);
+    control.select("auto");
+    expect(control.choice).toBe("auto");
+    expect(control.lookState).toBe("textured");
+    goSlow(control);
+    expect(control.quality).toBe("low");
+    expect(renderer.shadowMap.enabled).toBe(false);
+  });
+});

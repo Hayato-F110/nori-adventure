@@ -7,6 +7,7 @@ import type { Look } from "./look";
 import {
   createQualityGovernor,
   loadQualityChoice,
+  nextQualityChoice,
   type Quality,
   type QualityChoice,
   saveQualityChoice,
@@ -37,8 +38,8 @@ export type QualityControl = {
   lookLoaded(look: Look | null): void;
   /** 1 秒ごとの平均 FPS と、それまでに数えた秒数（読み込み直後の settleSeconds 秒を含む） */
   sample(fps: number, seconds: number): void;
-  /** ボタンで選んだ */
-  select(quality: Quality): void;
+  /** ボタンで選んだ（"auto" は自動に戻す） */
+  select(choice: QualityChoice): void;
 };
 
 export const createQualityControl = (deps: QualityControlDeps): QualityControl => {
@@ -109,10 +110,12 @@ export const createQualityControl = (deps: QualityControlDeps): QualityControl =
         tryApplyLook();
       }
     },
-    select(quality) {
+    select(choice) {
       const before = governor.quality;
-      governor.select(quality);
+      const quality = governor.select(choice);
       judged = true;
+      // 自動に戻すときは、今の画質のまま（見た目は変えない）
+      if (choice === "auto") return;
       if (quality === "low") {
         usePlain();
       } else if (before === "low" || lookState === "loading") {
@@ -125,18 +128,26 @@ export const createQualityControl = (deps: QualityControlDeps): QualityControl =
   };
 };
 
-/** 画質のボタン（右上）。押すたびに 高 ⇄ 低。絵は今の画質（data-quality）で CSS が切り替える */
+/**
+ * 画質のボタン（右上）。押す順は nextQualityChoice（自動 → 今と反対、低 → 高、高 → 自動）。
+ * 絵は今の画質（data-quality）と、自動かどうか（data-auto。回る矢印の印）で CSS が切り替える
+ */
 export const bindQualityButton = (
   button: HTMLElement,
   control: QualityControl,
-  onSelect: (quality: Quality) => void,
+  onSelect: (choice: QualityChoice) => void,
 ): { update(): void } => {
   const update = () => {
     button.dataset["quality"] = control.quality;
-    button.setAttribute("aria-label", control.quality === "high" ? "がしつ たかい" : "がしつ ひくい");
+    button.dataset["auto"] = String(control.choice === "auto");
+    const name = control.quality === "high" ? "たかい" : "ひくい";
+    button.setAttribute(
+      "aria-label",
+      control.choice === "auto" ? `がしつ じどう（${name}）` : `がしつ ${name}`,
+    );
   };
   button.addEventListener("click", () => {
-    const next: Quality = control.quality === "high" ? "low" : "high";
+    const next = nextQualityChoice(control.choice, control.quality);
     control.select(next);
     onSelect(next);
     update();

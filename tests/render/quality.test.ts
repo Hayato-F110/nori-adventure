@@ -3,6 +3,7 @@ import { LOOK } from "../../src/config";
 import {
   createQualityGovernor,
   loadQualityChoice,
+  nextQualityChoice,
   QUALITY_STORAGE_KEY,
   saveQualityChoice,
 } from "../../src/render/quality";
@@ -110,5 +111,38 @@ describe("選んだ画質を覚える（端末の中だけ）", () => {
     expect(() => saveQualityChoice(broken, "low")).not.toThrow();
     expect(loadQualityChoice(null)).toBe("auto");
     expect(() => saveQualityChoice(null, "low")).not.toThrow();
+  });
+});
+
+// 押す順（NORI-58 の追加。11/11 にオーナーが「自動に戻せるようにする」と決定）
+describe("画質のボタンの押す順", () => {
+  it("自動で高 → 低 → 高 → 自動", () => {
+    expect(nextQualityChoice("auto", "high")).toBe("low");
+    expect(nextQualityChoice("low", "low")).toBe("high");
+    expect(nextQualityChoice("high", "high")).toBe("auto");
+  });
+
+  it("自動で低に下がっていたら → 高 → 自動（押すたびに見た目が変わる）", () => {
+    expect(nextQualityChoice("auto", "low")).toBe("high");
+    expect(nextQualityChoice("high", "high")).toBe("auto");
+  });
+
+  it("自動に戻すと、今の画質のまま、遅ければまた自動で低へ下げる", () => {
+    const g = createQualityGovernor(LOOK, "high");
+    expect(g.select("auto")).toBe("high");
+    expect(g.choice).toBe("auto");
+    for (let i = 0; i < LOOK.lowFpsSeconds; i++) g.push(LOOK.lowFps - 1);
+    expect(g.quality).toBe("low");
+  });
+
+  it("「自動」も覚える", () => {
+    const data = new Map<string, string>([[QUALITY_STORAGE_KEY, "low"]]);
+    const s = {
+      getItem: (k: string) => data.get(k) ?? null,
+      setItem: (k: string, v: string) => void data.set(k, v),
+    };
+    saveQualityChoice(s, "auto");
+    expect(loadQualityChoice(s)).toBe("auto");
+    expect(data.get(QUALITY_STORAGE_KEY)).toBe("auto");
   });
 });

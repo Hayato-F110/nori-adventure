@@ -1,6 +1,6 @@
 import { expect, type Page, test } from "@playwright/test";
 
-// NORI-58：画質を選ぶ（docs/game-rules.md「画質を選ぶ」）。右上のボタンで 高 ⇄ 低、開き直しても覚えている。
+// NORI-58：画質を選ぶ（docs/game-rules.md「画質を選ぶ」）。右上のボタンで 自動 → 低 → 高 → 自動、開き直しても覚えている。
 // ステージ1・2・3で同じ。スクリーンショット・コンソールエラーも確かめる
 const watchErrors = (page: Page) => {
   const errors: string[] = [];
@@ -19,7 +19,9 @@ for (const [name, query] of [
   ["ステージ2", "./?stage=2"],
   ["ステージ3", "./?stage=3"],
 ] as const) {
-  test(`${name}：右上のボタンで画質を選べて、開き直しても覚えている`, async ({ page }, testInfo) => {
+  test(`${name}：右上のボタンで画質を選べて（自動にも戻せる）、開き直しても覚えている`, async ({
+    page,
+  }, testInfo) => {
     test.setTimeout(150_000);
     const errors = watchErrors(page);
     await page.goto(query);
@@ -39,10 +41,12 @@ for (const [name, query] of [
     expect(await page.evaluate(() => window.__nori?.quality)).toBe("high");
     await page.waitForFunction(() => window.__nori?.look === "textured", undefined, { timeout: 60_000 });
     await expect(button).toHaveAttribute("data-quality", "high");
+    await expect(button).toHaveAttribute("data-auto", "true"); // 最初は自動（回る矢印の印）
 
     // 押すと低（単色）
     await button.click();
     await expect(button).toHaveAttribute("data-quality", "low");
+    await expect(button).toHaveAttribute("data-auto", "false");
     expect(await page.evaluate(() => window.__nori?.quality)).toBe("low");
     expect(await page.evaluate(() => window.__nori?.look)).toBe("plain");
     await page.screenshot({ path: testInfo.outputPath("quality-low.png") });
@@ -60,6 +64,16 @@ for (const [name, query] of [
     await page.waitForFunction(() => window.__nori?.look === "textured", undefined, { timeout: 60_000 });
     expect(await page.evaluate(() => window.__nori?.quality)).toBe("high");
     await page.screenshot({ path: testInfo.outputPath("quality-high.png") });
+
+    // もう一度押すと自動に戻る（見た目は高のまま）。開き直しても自動
+    await button.click();
+    await expect(button).toHaveAttribute("data-auto", "true");
+    expect(await page.evaluate(() => window.__nori?.quality)).toBe("high");
+    expect(await page.evaluate(() => window.__nori?.look)).toBe("textured");
+    await page.screenshot({ path: testInfo.outputPath("quality-auto.png") });
+    await page.reload();
+    await waitFrames(page);
+    await expect(button).toHaveAttribute("data-auto", "true");
     expect(errors).toEqual([]);
   });
 }
