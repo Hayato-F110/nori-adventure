@@ -1,23 +1,24 @@
 # 引き継ぎ（次のセッション用）
 
-> 最終更新：2026-11-10 20:53（スプリント1の最終日の終わり。`/end-day` で確認）
+> 最終更新：2026-11-11 21:00（スプリント2・1日目の終わり）
 > 新しいセッションでは `/start-day` を使う（このファイル、`CLAUDE.md`、最新の devlog、Jira を読む）。
 > 4週間の予定・成果物・学ぶことは `docs/schedule.md`（11/10 の計画の変更は「決まったこと」と「変更後のスプリント」）。
 
-## 0. 11/11 19:30 の状態
+## 0. 11/11 21:00 の状態
 
-- **完了**：NORI-20〜23（乗り物4台）、NORI-25（ステージ1）、NORI-56（見た目・光のベイク）、**NORI-26（ステージ2）**。PR #24〜#35 はマージ済み
-- **NORI-26 でできたこと**：`?stage=2` で山道を列車で走る（線路・3駅・ゴール）。木を Blender で作り直し（`tree-a`・`tree-b`、ステージ1・2で共通、まとめて描く）。ステージ2の光のベイク（`tools/blender/bake-stage2-ao.py`）
+- **完了**：NORI-20〜23、NORI-25、NORI-56、NORI-26、**NORI-58（画質を選ぶ）**。PR #24〜#38 はマージ済み
+- **NORI-27（ステージ3）**：PR #37 でマージ済み。**残りは光のベイク**（Blender。済めば Jira を完了に）
+- **NORI-28（ステージ4）は途中**：ブランチ `feature/NORI-28-stage4-sea`（プッシュ済み、PR はまだ）
+  - できたこと：決まり（`game-rules.md`「ステージ4」。案A＝ステージ3と同じ操作、速さ一定 4 m/s）、`src/core/stage4.ts`（単体テスト 21件）、`src/render/stage4View.ts`、`src/stage4Main.ts`、`?stage=4`、`e2e/stage4.spec.ts`
+  - **残り**：①たからばこと水の明るさの比が 1.6（目標 3）。E2E の「見た目」2件が落ちる。たからばこの上 9 m から近づく形にしたが、まだ足りない。案：たからばこを自ら光る色に（MeshBasic）、まわりに光の輪、測る水の点を横に。②E2E 全体 → PR → CI。③Blender：生きもの6種類・群れの魚のモデル、海底の砂の素材
+- **Blender の作業（オーナーが `/blender-start` で開く）**：①NORI-28 の生きもの・魚・砂、②NORI-27 の光のベイク、③NORI-59 の山・駅・列車
+- **Jira（オーナーの作業）**：NORI-58・59 はスプリントに入っていない（バックログ）。ボードでスプリント2へ移す
 - **覚えておくこと**
-  - 景色の配置は `src/core/stage2Layout.ts`（描画と Blender で同じ）。`npm run layout:export` でステージ1・2の JSON を書き出す
-  - 木は、素材が読めた時点でシェーダーを先に用意する（`trees.prepare`）。切り替えの瞬間に約0.7秒止まっていたのを減らした
-  - E2E の FPS のテスト（`@fps` の5件）は、ほかのテストのあとに1本ずつ（`playwright.config.ts` の `fps` の組）。同時に走ると値が下がる
-  - 設定のキーに数字を入れない（`rules-sync` の正規表現が数字を読まない。例：`LOOK.mountainBakeSize`）
-  - 芝の素材は、ステージ2の手前の地面でざらついて白っぽく見える（空の照り返し）。陰を重ねて目立たなくなった。気になれば設定で弱める
-- **次**：NORI-27（ステージ3：空・飛行機）→ NORI-28（ステージ4：海）→ NORI-54（プライバシーポリシー）。スプリント2は 11/13 まで
-- **Firefly（明日）**：元の画像 `blender-work/renders/sub-front-ai.png`・`rover-front-ai.png`。指示の文は `blender-work/ai-video/plane-prompt.txt` を乗り物に合わせて直す。乗り物5台の 360° 回転動画（`blender-work/renders/turntable/*.mp4`、作り方は `tools/blender/render-turntable.py`）は紹介動画（NORI-43）の素材
-- **見た目をステージ2〜5にも広げる（11/11 にオーナーが決定）**：NORI-27〜29 の完了条件にも入れた。ステージ1・2と同じやり方（PBR 素材・HDRI・AgX・画質の自動切り替え・光のベイク）、ゴールの明るさの比 3 以上、CPU を4倍遅くして 30fps 以上
-- **PowerShell** は 7.7.0（Microsoft Store 版になり、前の Program Files の場所はなくなった）。**ffmpeg** 9.0.2。Blender は 5.3.0
+  - 画質の処理は `src/render/qualityControl.ts`（`startQuality`）に1つ。新しいステージもこれを使う
+  - GPU のない CI では「自動」のまま低画質に下がる。E2E で画質を決めつけない（`e2e/quality.spec.ts` は前に選んだ画質から始める）
+  - `THREE.Fog` は色をコピーして持つ。背景と霧の両方を変える
+- **次**：NORI-28 の残り → NORI-54（プライバシーポリシー。localStorage に画質を覚えることも書く）→ NORI-59。スプリント2は 11/13 まで
+- **Firefly**：元の画像 `blender-work/renders/sub-front-ai.png`・`rover-front-ai.png`（前のまま）
 
 ## 1. いまの状態
 
