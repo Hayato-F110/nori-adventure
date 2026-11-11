@@ -89,6 +89,42 @@
       "license": "CC-BY-4.0",
       "externalAssets": "なし",
       "importedAt": "2026-11-11"
+    },
+    {
+      "name": "tree-a",
+      "file": "tree-a.glb",
+      "sha256": "924b766cd66b33ebfaeae88ffca91cbf1ad94100550806570d02f3200d612994",
+      "bytes": 16360,
+      "triangles": 167,
+      "size": {
+        "width": 2.867,
+        "height": 4,
+        "length": 3
+      },
+      "createdWith": "Blender 5.3.0（noriblender の隔離環境。Blender MCP で Claude が作成を補助）",
+      "source": "blender-work/tree-a.blend",
+      "author": "Hayato-F110",
+      "license": "CC-BY-4.0",
+      "externalAssets": "なし",
+      "importedAt": "2026-11-11"
+    },
+    {
+      "name": "tree-b",
+      "file": "tree-b.glb",
+      "sha256": "fa81b2aef5e7c8d161588a5cc949b62cce3d4ae5fd5c4e14718a1a67921bfed9",
+      "bytes": 18404,
+      "triangles": 187,
+      "size": {
+        "width": 3,
+        "height": 4,
+        "length": 2.997
+      },
+      "createdWith": "Blender 5.3.0（noriblender の隔離環境。Blender MCP で Claude が作成を補助）",
+      "source": "blender-work/tree-b.blend",
+      "author": "Hayato-F110",
+      "license": "CC-BY-4.0",
+      "externalAssets": "なし",
+      "importedAt": "2026-11-11"
     }
   ]
 }

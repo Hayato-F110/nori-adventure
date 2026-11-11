@@ -247,7 +247,7 @@ export const ASSET = {
   },
   /** 木（NORI-26）。ステージ1・2で共通。2種類の形を向きを変えて並べる。部品は幹と葉 */
   tree: {
-    variants: ["tree_a", "tree_b"],
+    variants: ["tree-a", "tree-b"],
     size: { width: 3, height: 4, length: 3 },
     nodes: ["trunk", "leaves"],
     maxTriangles: 800,

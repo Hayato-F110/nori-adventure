@@ -145,6 +145,42 @@
       "importedAt": "2026-11-11"
     },
     {
+      "file": "Bark001_color.webp",
+      "sha256": "2bc85a8d0c0eabc4fa69a41630988f32eab5f1422c5e6c2d8ad21f8e02a52743",
+      "bytes": 90724,
+      "sourceId": "Bark001",
+      "sourceName": "Bark 001",
+      "sourceUrl": "https://ambientcg.com/a/Bark001",
+      "provider": "ambientCG",
+      "license": "CC0-1.0",
+      "createdWith": "Blender 5.3.0（noriblender の隔離環境）で縮小（tools/blender/export-textures.py）",
+      "importedAt": "2026-11-11"
+    },
+    {
+      "file": "Bark001_normal.webp",
+      "sha256": "07059b5a05ba78873bec8fe7e1c5c3c287585b47a859cd84cdb176af4d6fe269",
+      "bytes": 105544,
+      "sourceId": "Bark001",
+      "sourceName": "Bark 001",
+      "sourceUrl": "https://ambientcg.com/a/Bark001",
+      "provider": "ambientCG",
+      "license": "CC0-1.0",
+      "createdWith": "Blender 5.3.0（noriblender の隔離環境）で縮小（tools/blender/export-textures.py）",
+      "importedAt": "2026-11-11"
+    },
+    {
+      "file": "Bark001_roughness.webp",
+      "sha256": "2536a6cfdd60d156b6122ff96747de51da89542c6593d20e9717796e44e50ab5",
+      "bytes": 72192,
+      "sourceId": "Bark001",
+      "sourceName": "Bark 001",
+      "sourceUrl": "https://ambientcg.com/a/Bark001",
+      "provider": "ambientCG",
+      "license": "CC0-1.0",
+      "createdWith": "Blender 5.3.0（noriblender の隔離環境）で縮小（tools/blender/export-textures.py）",
+      "importedAt": "2026-11-11"
+    },
+    {
       "file": "sky.hdr",
       "sha256": "03c6671290ec38bf93396f0171deb7ad8076e099c1f8856ea54342f8ffee2a11",
       "bytes": 377101,

@@ -10,6 +10,7 @@
 #
 # 使い方（Blender MCP の execute_blender_code など）：<リポジトリ>/blender-work/tools/ に写してから
 #   import runpy; runpy.run_path(r"<リポジトリ>\blender-work\tools\export-glb.py", init_globals={"NAME": "car"})
+#   素材を貼るもの（木）は init_globals に "TEXCOORDS": True を足す（UV を書き出す）
 import os
 import re
 from pathlib import Path
@@ -47,7 +48,7 @@ def export_glb(name: str) -> dict:
         collection=name,
         export_yup=True,
         export_apply=True,
-        export_texcoords=False,
+        export_texcoords=bool(globals().get("TEXCOORDS", False)),  # 素材を貼るもの（木）だけ UV を書き出す
         export_normals=True,
         export_materials="EXPORT",
         export_image_format="NONE",
