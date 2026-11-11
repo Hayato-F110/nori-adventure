@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { ASSET } from "../../src/config/index.ts";
-import { type AssetKind, checkGlb, inspectGlb, validateGlb } from "../../tools/assets/inspect.ts";
-import { makeCarGlb, makeVehicleGlb, rewriteGlbJson, type VehicleKind } from "./fixture.ts";
+import { type AssetKind, checkGlb, inspectGlb, kindOf, validateGlb } from "../../tools/assets/inspect.ts";
+import { makeCarGlb, makeTreeGlb, makeVehicleGlb, rewriteGlbJson, type VehicleKind } from "./fixture.ts";
 
 // docs/game-rules.md「3D モデル（アセット）」の決まりを、tools/assets/ の検査が守らせることを確かめる。
 // 数値は ASSET から読む（直書きしない）。
@@ -190,5 +190,43 @@ describe("外のものを読まない（脅威分析 S-06、CSP）", () => {
   it("GLB でないファイルは問題にする（読み込みで落ちない）", async () => {
     const problems = await problemsOf(new TextEncoder().encode("not a glb"));
     expect(problems.length).toBeGreaterThan(0);
+  });
+});
+
+// docs/game-rules.md「木（NORI-26）」
+describe("木（ASSET.tree）", () => {
+  it.each(ASSET.tree.variants)("名前 %s は木の決まりで検査する", (name) => {
+    expect(kindOf(name)).toBe("tree");
+  });
+
+  it("正しい形の木は、Validator のエラー0・決まりの問題0", async () => {
+    const glb = await makeTreeGlb();
+    expect((await validateGlb(glb)).errors).toBe(0);
+    expect(await problemsOf(glb, "tree")).toEqual([]);
+  });
+
+  it(`三角形が ASSET.tree.maxTriangles（${ASSET.tree.maxTriangles}）を超えると止まる（乗り物の上限より厳しい）`, async () => {
+    // 葉の箱を 9 分割：12 × 81 = 972 個 ＋ 幹 12 個
+    const problems = await problemsOf(await makeTreeGlb({ leafSegments: 9 }), "tree");
+    expect(problems.join("\n")).toMatch(/三角形/);
+  });
+
+  it(`大きさが ASSET.tree.maxGlbBytes（${ASSET.tree.maxGlbBytes} B）を超えると止まる`, async () => {
+    const report = await inspectGlb(await makeTreeGlb());
+    const problems = checkGlb({ ...report, bytes: ASSET.tree.maxGlbBytes + 1 }, "tree");
+    expect(problems.join("\n")).toMatch(/大きさが/);
+  });
+
+  it("大きさが ±10% の外だと止まる", async () => {
+    expect((await problemsOf(await makeTreeGlb({ scale: 1.3 }), "tree")).join("\n")).toMatch(/高さ/);
+  });
+
+  it.each(ASSET.tree.nodes)("部品 %s がないと止まる", async (name) => {
+    const problems = await problemsOf(await makeTreeGlb({ omitNodes: [name] }), "tree");
+    expect(problems).toContain(`ノード ${name} がない`);
+  });
+
+  it("原点が幹の底にないと止まる", async () => {
+    expect((await problemsOf(await makeTreeGlb({ liftY: 1 }), "tree")).join("\n")).toMatch(/原点/);
   });
 });

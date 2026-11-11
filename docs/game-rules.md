@@ -196,6 +196,26 @@ Blender で作った GLB を `npm run assets:import <名前>` で検査してか
 
 検査（`npm run assets:import <名前>`）は、名前（`car`・`train`・`plane`・`sub`・`rover`）でどの決まりを使うかを選ぶ。タイヤ（`wheel_*`）は前が −Z・左が −X、プロペラは左右の中心（x ≈ 0）で決めた側。回る部品のノードには回転を入れない（回すのはゲーム）。
 
+### 木（NORI-26。2026-11-11 にオーナーが承認）
+
+ステージ1・2で共通の木。Blender で自作し、`npm run assets:import tree_a`・`tree_b` で検査する。向き・原点・大きさの許容は乗り物と同じ（原点は幹の底の中心）。当たり判定（`STAGE1.treeTrunkRadius`）は変えない。
+
+| 項目                 | 値                                                             | 設定のキー                 | 理由                                                            |
+| -------------------- | -------------------------------------------------------------- | -------------------------- | --------------------------------------------------------------- |
+| 種類                 | 2種類（`tree_a`・`tree_b`）。向きと大きさを少し変えて並べる    | `ASSET.tree.variants`      | 同じ木の繰り返しに見えにくい                                    |
+| 幅                   | 3 m                                                            | `ASSET.tree.size.width`    | 今の簡単な木（幅 2.8 m）とほぼ同じ                              |
+| 高さ                 | 4 m                                                            | `ASSET.tree.size.height`   | 今の簡単な木（高さ 3.8 m）とほぼ同じ                            |
+| 奥行き               | 3 m                                                            | `ASSET.tree.size.length`   | 上から見て丸い                                                  |
+| 部品の名前           | `trunk`（幹）・`leaves`（葉）                                  | `ASSET.tree.nodes`         | 幹と葉で別の素材を貼る                                          |
+| 三角形の数の上限     | 800 個（1本）                                                  | `ASSET.tree.maxTriangles`  | 安い端末で、ステージ2の約150本を 30fps で描く                   |
+| GLB 1個の大きさ      | 262144 B（256 KiB）以下                                        | `ASSET.tree.maxGlbBytes`   | 前に試した木の素材（97 MB）をやめた理由（読み込みの重さ）を守る |
+| 幹の素材             | ambientCG の Bark001（CC0）。1 m ごとに繰り返す                | `LOOK.surfaces`            | 出所は `public/textures/manifest.json` に記録                   |
+| 葉の素材             | 芝の素材（Grass004）を濃い緑に染める                           | `LOOK.leafTint`            | 木の葉の CC0 素材が見つからなかった。新しく読む素材を増やさない |
+| 木の素材の大きさ     | 1048576 B（1 MiB）以下（幹の color・normal・roughness の合計） | `LOOK.maxTreeTextureBytes` | 読み込みを軽く保つ                                              |
+| 描き方               | 同じ木をまとめて1回で描く（インスタンス描画）                  | —                          | GPU に頼む回数を減らす                                          |
+| 低画質・読めないとき | 今の簡単な木（幹の円柱と葉の多面体）                           | —                          | 30fps を守る。止まらない                                        |
+| 揺れ                 | なし                                                           | —                          | 動きを減らす（光や動きに敏感な子のため）                        |
+
 ## 見た目（リアル寄り。NORI-56。2026-11-11 にオーナーが承認）
 
 CC0 の素材（ambientCG のテクスチャ、Poly Haven の HDRI）を、隔離した Blender で縮小してから `public/textures/` に置く（`npm run textures:import`）。出所・ライセンス・ハッシュ値は `public/textures/manifest.json`。子どもに大事なもの（道・ほし・門）が見分けやすいことと、安い端末で 30fps を優先する。

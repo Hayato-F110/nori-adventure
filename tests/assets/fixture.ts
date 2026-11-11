@@ -223,3 +223,43 @@ export const rewriteGlbJson = (
   out.set(rest, 20 + jsonBytes.length);
   return out;
 };
+
+export type TreeFixtureOptions = FixtureOptions & {
+  /** 葉の箱の分割数（三角形を増やす）。1 で 12 三角形 */
+  leafSegments?: number;
+};
+
+/** 木（ASSET.tree）の、正しい形の仮の GLB：幹（細い箱）と葉（外形いっぱいの箱）。原点は幹の底の中心 */
+export const makeTreeDocument = (options: TreeFixtureOptions = {}): Document => {
+  const s = options.scale ?? 1;
+  const lift = options.liftY ?? 0;
+  const { width, height, length } = ASSET.tree.size;
+  const doc = new Document();
+  doc.createBuffer();
+  const scene = doc.createScene("tree");
+  const omit = new Set(options.omitNodes ?? []);
+  const trunkH = 1.6 * s;
+  const parts: [string, Vec3, Vec3, number][] = [
+    ["trunk", [0.5 * s, trunkH, 0.5 * s], [0, trunkH / 2, 0], 1],
+    [
+      "leaves",
+      [width * s, height * s - trunkH + 0.4 * s, length * s],
+      [0, (height * s + trunkH - 0.4 * s) / 2, 0],
+      options.leafSegments ?? 1,
+    ],
+  ];
+  for (const [name, size, [x, y, z], segments] of parts) {
+    if (omit.has(name)) continue;
+    scene.addChild(
+      doc
+        .createNode(name)
+        .setMesh(addBox(doc, name, size, segments))
+        .setTranslation([x, y + lift, z]),
+    );
+  }
+  doc.getRoot().setDefaultScene(scene);
+  return doc;
+};
+
+export const makeTreeGlb = async (options: TreeFixtureOptions = {}): Promise<Uint8Array> =>
+  new NodeIO().writeBinary(makeTreeDocument(options));

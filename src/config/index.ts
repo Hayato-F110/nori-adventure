@@ -245,6 +245,14 @@ export const ASSET = {
       nodes: ["body", "wheel_FL", "wheel_FR", "wheel_RL", "wheel_RR"],
     },
   },
+  /** 木（NORI-26）。ステージ1・2で共通。2種類の形を向きを変えて並べる。部品は幹と葉 */
+  tree: {
+    variants: ["tree_a", "tree_b"],
+    size: { width: 3, height: 4, length: 3 },
+    nodes: ["trunk", "leaves"],
+    maxTriangles: 800,
+    maxGlbBytes: 262144,
+  },
   allowedExtensions: [
     "KHR_materials_emissive_strength",
     "KHR_materials_ior",
@@ -274,7 +282,12 @@ export const LOOK = {
     road: { texture: "Asphalt031", tileMeters: 4, tint: [0.2, 0.21, 0.24] },
     brick: { texture: "Facade018A", tileMeters: 13, tint: [1, 1, 1] },
     facade: { texture: "Facade006", tileMeters: 12, tint: [1, 1, 1] },
+    bark: { texture: "Bark001", tileMeters: 1, tint: [0.8, 0.7, 0.6] },
   },
+  /** 木の葉：芝の素材を濃い緑に染めて使う（新しく読む素材を増やさない）。線形の RGB */
+  leafTint: [0.25, 0.5, 0.18],
+  /** 木の素材（幹）の大きさの上限（color・normal・roughness の合計） */
+  maxTreeTextureBytes: 1048576,
   lowFps: 40,
   lowFpsSeconds: 3,
   minStarContrast: 3,
