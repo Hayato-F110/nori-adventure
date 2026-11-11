@@ -3,9 +3,11 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { LOOK } from "../../src/config/index.ts";
+import { LIGHTMAPS } from "../../src/render/look.ts";
 import {
   checkTextureFiles,
   LIGHTMAP_FILE,
+  LIGHTMAP_FILES,
   OWN_LICENSE,
   requiredTextureFiles,
   TEXTURE_LICENSE,
@@ -96,10 +98,9 @@ describe("public/textures/manifest.json（取り込んだ素材の出所の記�
     expect(checkTextureFiles(files)).toEqual([]);
     for (const t of manifest.textures) {
       // 外部の素材は配布元、自作の地面の陰はこのリポジトリの作り方のスクリプト
-      const pattern =
-        t.file === LIGHTMAP_FILE
-          ? /^https:\/\/github\.com\/Hayato-F110\/nori-adventure\//
-          : /^https:\/\/(ambientcg\.com|polyhaven\.com)\//;
+      const pattern = LIGHTMAP_FILES.includes(t.file)
+        ? /^https:\/\/github\.com\/Hayato-F110\/nori-adventure\//
+        : /^https:\/\/(ambientcg\.com|polyhaven\.com)\//;
       expect(t.sourceUrl, t.file).toMatch(pattern);
     }
   });
@@ -116,5 +117,10 @@ describe("public/textures/manifest.json（取り込んだ素材の出所の記�
     const files = manifest.textures.filter((t) => t.file.startsWith(`${bark}_`));
     expect(files).toHaveLength(3);
     expect(files.reduce((sum, t) => sum + t.bytes, 0)).toBeLessThanOrEqual(LOOK.maxTreeTextureBytes);
+  });
+
+  it("ゲームが読む地面の陰（LIGHTMAPS）は、取り込みの決まり（LIGHTMAP_FILES）と同じで、manifest にある", () => {
+    expect(Object.values(LIGHTMAPS)).toEqual([...LIGHTMAP_FILES]);
+    for (const f of LIGHTMAP_FILES) expect(manifest.textures.map((t) => t.file)).toContain(f);
   });
 });

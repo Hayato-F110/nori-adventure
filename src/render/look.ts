@@ -31,8 +31,13 @@ export type LookDeps = {
   aoDirect?: number;
   /** テクスチャの異方性フィルタの上限（LOOK.maxAnisotropy） */
   maxAnisotropy?: number;
+  /** 地面に重ねる焼き付けた陰（ステージごと。既定はステージ1の LIGHTMAPS.stage1） */
+  lightmap?: string;
   fetchManifest?: (url: string) => Promise<TextureManifest>;
 };
+
+/** 焼き付けた地面の陰の画像（ステージごと。tools/assets/textures.ts の LIGHTMAP_FILES と同じ） */
+export const LIGHTMAPS = { stage1: "ground_ao.webp", stage2: "ground_ao_stage2.webp" } as const;
 
 const MAPS = ["color", "normal", "roughness"] as const;
 
@@ -65,7 +70,7 @@ export const loadLook = async (deps: LookDeps): Promise<Look | null> => {
       }),
     );
     // 焼き付けた地面の陰（AO）。uv1（setGroundUv1）で地面と道に重ねる
-    const groundAo = await load("ground_ao.webp", false);
+    const groundAo = await load(deps.lightmap ?? LIGHTMAPS.stage1, false);
     groundAo.wrapS = groundAo.wrapT = THREE.ClampToEdgeWrapping;
     groundAo.channel = 1;
     if (!listed.has("sky.hdr")) throw new Error("manifest に sky.hdr がない");

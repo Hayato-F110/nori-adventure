@@ -37,10 +37,14 @@ export const isRadianceHdr = (bytes: Uint8Array) =>
 
 /** 自作の素材（Blender で焼き付けた地面の陰）。ライセンスは自作の素材と同じ CC BY 4.0（LICENSE-ASSETS.md） */
 export const LIGHTMAP_FILE = "ground_ao.webp";
+/** ステージ2の地面の陰（NORI-26。tools/blender/bake-stage2-ao.py） */
+export const STAGE2_LIGHTMAP_FILE = "ground_ao_stage2.webp";
+export const LIGHTMAP_FILES: readonly string[] = [LIGHTMAP_FILE, STAGE2_LIGHTMAP_FILE];
 export const OWN_LICENSE = "CC-BY-4.0";
 
-/** ファイル名の決まり：<素材>_<color|normal|roughness>.webp、sky.hdr、ground_ao.webp だけ（フォルダをまたぐ文字は許さない） */
-export const FILE_PATTERN = /^(?:[A-Za-z0-9]+_(?:color|normal|roughness)\.webp|sky\.hdr|ground_ao\.webp)$/;
+/** ファイル名の決まり：<素材>_<color|normal|roughness>.webp、sky.hdr、ground_ao.webp・ground_ao_stage2.webp だけ（フォルダをまたぐ文字は許さない） */
+export const FILE_PATTERN =
+  /^(?:[A-Za-z0-9]+_(?:color|normal|roughness)\.webp|sky\.hdr|ground_ao\.webp|ground_ao_stage2\.webp)$/;
 
 /** 決まりに合わない点を、日本語の文の一覧で返す（空なら合格） */
 export const checkTextureFiles = (
@@ -51,7 +55,7 @@ export const checkTextureFiles = (
   for (const f of files) {
     total += f.bytes.byteLength;
     if (!FILE_PATTERN.test(f.name)) problems.push(`ファイル名が決まりに合わない：${f.name}`);
-    const own = f.name === LIGHTMAP_FILE;
+    const own = LIGHTMAP_FILES.includes(f.name);
     const wantLicense = own ? OWN_LICENSE : TEXTURE_LICENSE;
     if (f.license !== wantLicense) {
       problems.push(
@@ -83,5 +87,5 @@ export const requiredTextureFiles = (): string[] => [
     ["color", "normal", "roughness"].map((m) => `${s.texture}_${m}.webp`),
   ),
   "sky.hdr",
-  LIGHTMAP_FILE,
+  ...LIGHTMAP_FILES,
 ];
