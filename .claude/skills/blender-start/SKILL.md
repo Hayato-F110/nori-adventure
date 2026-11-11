@@ -13,17 +13,14 @@ MCP の `get_objects_summary` を呼ぶ。つながれば 3 へ。「Cannot conn
 
 ## 2. オーナーに開いてもらう（Claude は開かない）
 
-Blender は**オーナーが** noriblender として開く。Claude がオーナーのアカウントで Blender を動かすことはしない（隔離の外で AI のコードが動くため）。次をそのまま渡す。
+Blender は**オーナーが** noriblender として開く。Claude がオーナーのアカウントで Blender を動かすことはしない（隔離の外で AI のコードが動くため。パスワードも扱わない）。次の1行をそのまま渡す（PowerShell 7.4 以降、リポジトリの一番上で）。
 
 ```powershell
-# noriblender のパスワードを聞かれる
-$cred = Get-Credential noriblender
-$nb = "C:\Users\noriblender"
-$nbEnv = @{ USERNAME = "noriblender"; USERPROFILE = $nb; HOMEPATH = "\Users\noriblender"; APPDATA = "$nb\AppData\Roaming"; LOCALAPPDATA = "$nb\AppData\Local"; TEMP = "$nb\AppData\Local\Temp"; TMP = "$nb\AppData\Local\Temp" }
-Start-Process "C:\Program Files\Blender Foundation\Blender 5.2\blender.exe" -Credential $cred -LoadUserProfile -UseNewEnvironment -Environment $nbEnv -WorkingDirectory "<このリポジトリの絶対パス>\blender-work"
+.\tools\blender\start-blender.ps1
 ```
 
-- `-LoadUserProfile -UseNewEnvironment -Environment $nbEnv` は**必須**（ないとオーナーの環境変数を引き継ぐ。11/6 に起きた）
+- 中身は手順書④と同じ `Start-Process -Credential -LoadUserProfile -UseNewEnvironment -Environment`（ないとオーナーの環境変数を引き継ぐ。11/6 に起きた）。パスワードは `Get-Credential` の画面でオーナーが入れる
+- Claude はこのスクリプトを実行しない（オーナーのパスワードが要り、秘密情報に当たるため）
 - アドオン「MCP」のサーバーは自動で始まる。「開いた」と言われたら 1 に戻る
 - つながらないとき：初回の `uvx` の準備が 30 秒を超えることがある → オーナーのターミナルで `.mcp.json` と同じ `uvx … blender-mcp --help` を1回実行してから `/mcp` で Reconnect（handoff の「Blender MCP」）
 

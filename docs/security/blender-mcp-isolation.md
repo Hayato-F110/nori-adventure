@@ -159,7 +159,7 @@ Blender（noriblender）を開いた状態で、Claude が次の2つを確かめ
 
 ## 4. ふだんの使い方
 
-1. スキル `/blender-start` で始める。④のコマンド（`-LoadUserProfile -UseNewEnvironment -Environment $nbEnv` つき、`-WorkingDirectory` は `<リポジトリ>\blender-work`）で noriblender の Blender を開き、毎回、隔離の確認をする
+1. スキル `/blender-start` で始める。オーナーが `.\tools\blender\start-blender.ps1`（④のコマンドをまとめたもの。`-LoadUserProfile -UseNewEnvironment -Environment` つき、作業フォルダは `<リポジトリ>\blender-work`。2026-11-11 に追加）で noriblender の Blender を開き、毎回、隔離の確認をする
 2. Claude Code から MCP の道具を使う。モデルの作業ファイル（`.blend`）は `blender-work/` に置く
 3. できたモデルは GLB に書き出し（`blender-work/export/`）、オーナーのユーザーで `npm run assets:import <名前>`（検査に通ったものだけ `public/models/` へ）してコミットする
 4. AI 動画サービスに送るのは、自作モデルの画像だけ（CLAUDE.md「安全」）
