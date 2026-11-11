@@ -33,7 +33,8 @@ export const createCity = (layout: Stage1Layout): CityView => {
   swaps.push({ mesh: ground, plain: groundPlain, pick: (look) => look.material("grass") });
 
   // 碁盤の目の道（中心線つき）
-  const roadMat = new THREE.MeshStandardMaterial({ color: 0x5b6070, roughness: 0.95 });
+  // 単色の道（低画質・素材が読めないとき）。AgX を通すと明るく見えるので暗めにして、ほし（黄色）との差を 3:1 以上に保つ
+  const roadMat = new THREE.MeshStandardMaterial({ color: 0x3a3e48, roughness: 0.95 });
   const lineMat = new THREE.MeshStandardMaterial({ color: 0xfff1a8, roughness: 0.8 });
   const roadLength = boundsHalfSize * 2 + roadWidth;
   const roadGeo = setPlaneUvMeters(new THREE.PlaneGeometry(roadWidth, roadLength), roadWidth, roadLength);

@@ -1,4 +1,4 @@
-import { expect, type Page, test } from "@playwright/test";
+import { expect, type Page, test, type TestInfo } from "@playwright/test";
 
 // NORI-56：リアル寄りの見た目（docs/game-rules.md「見た目」）。
 // 素材は同じオリジンだけから読み、子どもに大事なもの（ほし・道）が見分けやすく、FPS を保つ。コンソールエラーなし。
@@ -50,7 +50,19 @@ const luminanceAt = async (page: Page, points: { x: number; y: number }[]) => {
 };
 const ratio = (a: number, b: number) => (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
 
-test("見た目：素材を同じオリジンから読み、ほし・道が見分けやすい", async ({ page }, testInfo) => {
+// 高画質（素材を貼る）と低画質（単色）の両方で、ほし・道が見分けやすいこと。
+// 低画質は、CPU を 20 倍遅くして再現する（GPU のない CI と同じく、40fps 未満が 3 秒続いて下がる）。
+// CI はもともと遅いので、どちらの場合も低画質になる。期待する見た目は、そのときの画質で決める
+for (const mode of ["高画質", "低画質"] as const) {
+  test(`見た目（${mode}）：素材を同じオリジンから読み、ほし・道が見分けやすい`, async ({
+    page,
+  }, testInfo) => {
+    test.setTimeout(120_000);
+    await checkLook(page, testInfo, mode);
+  });
+}
+
+const checkLook = async (page: Page, testInfo: TestInfo, mode: "高画質" | "低画質") => {
   const consoleErrors: string[] = [];
   page.on("console", (m) => {
     if (m.type() === "error") consoleErrors.push(m.text());
@@ -59,11 +71,21 @@ test("見た目：素材を同じオリジンから読み、ほし・道が見�
   const origins = new Set<string>();
   page.on("request", (r) => origins.add(new URL(r.url()).origin));
 
-  await ready(page);
-  expect(await page.evaluate(() => window.__nori?.look)).toBe("textured");
+  if (mode === "低画質") {
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send("Emulation.setCPUThrottlingRate", { rate: 20 });
+    await ready(page);
+    await page.waitForFunction(() => window.__nori?.quality === "low", undefined, { timeout: 90_000 });
+    await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 });
+  } else {
+    await ready(page);
+  }
+  // 見た目は、そのときの画質で決まる（高画質なら素材、低画質なら単色）
+  const quality = await page.evaluate(() => window.__nori?.quality);
+  expect(await page.evaluate(() => window.__nori?.look)).toBe(quality === "low" ? "plain" : "textured");
   // 車の後ろのカメラが落ち着くまで待つ
   await page.waitForTimeout(1500);
-  await page.screenshot({ path: testInfo.outputPath("look-start.png") });
+  await page.screenshot({ path: testInfo.outputPath(`look-${quality}.png`) });
 
   // ほし（2個目。(0, 1, −21)）と、そのすぐ横の道 (2.5, 0, −21)。道 (−2.5, 0, −12) と、道の外の芝 (−6.2, 0, −12)
   const points = await page.evaluate(() => {
@@ -74,7 +96,7 @@ test("見た目：素材を同じオリジンから読み、ほし・道が見�
   const starContrast = ratio(star, roadByStar);
   const roadGrass = ratio(road, grass);
   await testInfo.attach("contrast", {
-    body: JSON.stringify({ starContrast, roadGrass, star, roadByStar, road, grass, points }),
+    body: JSON.stringify({ quality, starContrast, roadGrass, star, roadByStar, road, grass, points }),
     contentType: "application/json",
   });
   expect(starContrast).toBeGreaterThanOrEqual(LOOK.minStarContrast);
@@ -83,7 +105,7 @@ test("見た目：素材を同じオリジンから読み、ほし・道が見�
   const base = new URL(page.url()).origin;
   expect([...origins].filter((o) => o !== base && !o.startsWith("data:"))).toEqual([]);
   expect(consoleErrors).toEqual([]);
-});
+};
 
 test("見た目：手元の PC で FPS を保つ", async ({ page }, testInfo) => {
   test.skip(skipFps, "GPU のない CI では FPS を測らない");
