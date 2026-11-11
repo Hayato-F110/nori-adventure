@@ -46,13 +46,13 @@ export const createGame = async (): Promise<Game> => {
       const car = physics.step(before, input, SIM.fixedDt, CAR, STAGE1);
       const course = stepCourse(state.course, car, tick, STAGE1, stars);
 
-      // ひっかかり：アクセルを入れているのに遅い刻みが続いたら、最後に通ったチェックポイントへ戻す
+      // ひっかかり：アクセルを入れているのに遅い刻みが続いたら、近くの道の中心線へ戻す
       const pushing = Math.abs(input.throttle) >= RESPAWN.stuckThrottle;
       const stuckTicks = pushing && Math.abs(car.speed) < RESPAWN.stuckSpeed ? state.stuckTicks + 1 : 0;
       if (stuckTicks >= stuckLimit) {
         return {
           tick,
-          car: createCarState(respawnPose(course, STAGE1)),
+          car: createCarState(respawnPose(course, STAGE1, car)),
           course,
           stuckTicks: 0,
           invincibleTicks: invincibleLength,

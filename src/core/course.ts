@@ -67,10 +67,20 @@ export const headingToward = (from: Point, to: Point): number =>
 export const nextTarget = (course: CourseState, config: CourseConfig): Point =>
   config.route[Math.min(config.route.length - 1, course.nextCheckpoint + 1)] ?? { x: 0, z: 0 };
 
-/** 復活の位置：最後に通ったチェックポイント（なければスタート）。向きは次の行き先 */
-export const respawnPose = (course: CourseState, config: CourseConfig) => {
-  const at = config.route[Math.min(course.nextCheckpoint, config.route.length - 1)] ?? { x: 0, z: 0 };
-  return { x: at.x, z: at.z, heading: headingToward(at, nextTarget(course, config)) };
+/**
+ * 復活の位置：今向かっている区間（最後に通った門、なければスタート 〜 次の行き先）の道の中心線で、
+ * car に一番近い点。向きは次の行き先（11/11 にオーナーが変更）
+ */
+export const respawnPose = (course: CourseState, config: CourseConfig, car: Point) => {
+  const from = config.route[Math.min(course.nextCheckpoint, config.route.length - 1)] ?? { x: 0, z: 0 };
+  const to = nextTarget(course, config);
+  const dx = to.x - from.x;
+  const dz = to.z - from.z;
+  const lengthSq = dx * dx + dz * dz;
+  const t =
+    lengthSq > 0 ? Math.max(0, Math.min(1, ((car.x - from.x) * dx + (car.z - from.z) * dz) / lengthSq)) : 0;
+  const at = { x: from.x + dx * t, z: from.z + dz * t };
+  return { x: at.x, z: at.z, heading: headingToward(from, to) };
 };
 
 const near = (a: Point, b: Point, radius: number) => Math.hypot(a.x - b.x, a.z - b.z) <= radius;

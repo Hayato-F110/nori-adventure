@@ -4,6 +4,7 @@ import {
   createCourseState,
   headingToward,
   pointAlong,
+  respawnPose,
   routeLength,
   starPositions,
   stepCourse,
@@ -191,18 +192,20 @@ describe("ゲームの中（game.step）", () => {
     expect(idle.car.z).toBe(0);
   });
 
-  it("戻る場所は、最後に通ったチェックポイントの上で、次の行き先を向く。無敵の時間が始まる", () => {
+  it("戻る場所は、今向かっている区間の道の中心線で、はまった場所に一番近い点。次の行き先を向く。無敵の時間が始まる", () => {
     const start = game.initial();
+    // 1番目の門 (0, −80) を通り、2番目 (80, −80) へ向かう途中、(60, −76) ではまった
     const passedOne: GameState = {
       ...start,
       course: { ...start.course, nextCheckpoint: 1 },
       stuckTicks: Math.round(RESPAWN.stuckSeconds / SIM.fixedDt) - 1,
-      car: { ...start.car, x: 3, z: -50, heading: -Math.PI / 2 },
+      car: { ...start.car, x: 60, z: -76, heading: 0 },
     };
     // アクセルを入れても動けない最後の1刻み（速さ 0 のまま）
     const next = game.step({ ...passedOne, car: { ...passedOne.car, speed: 0 } }, { throttle: 1, steer: 0 });
     expect(next.respawns).toBe(1);
-    expect(next.car.x).toBe(0);
+    // 遠い門 (0, −80) へは戻らない
+    expect(next.car.x).toBeCloseTo(60, 6);
     expect(next.car.z).toBe(-80);
     expect(next.car.heading).toBeCloseTo(headingToward(at(0, -80), at(80, -80)), 9);
     expect(next.car.speed).toBe(0);
@@ -228,6 +231,29 @@ describe("ゲームの中（game.step）", () => {
     expect(normal.car.touching).toBe(true);
     expect(invincible.car.touching).toBe(true);
     expect(invincible.car.speed).toBeGreaterThan(normal.car.speed);
+  });
+});
+
+describe("respawnPose（近くの道の上）", () => {
+  const cfg = STAGE1;
+  const course = (next: number) => ({ ...createCourseState(cfg.starCount), nextCheckpoint: next });
+
+  it("区間の両端より外では、端の点（門の上）に戻す", () => {
+    expect(respawnPose(course(1), cfg, at(-10, -78))).toMatchObject({ x: 0, z: -80 });
+    expect(respawnPose(course(1), cfg, at(95, -79))).toMatchObject({ x: 80, z: -80 });
+  });
+
+  it("まだ門を通っていなければ、スタートから1番目の門の区間で探す", () => {
+    const pose = respawnPose(course(0), cfg, at(4, -30));
+    expect(pose.x).toBe(0);
+    expect(pose.z).toBeCloseTo(-30, 9);
+    expect(pose.heading).toBeCloseTo(0, 9);
+  });
+
+  it("全部の門を通ったあとは、最後の門からゴールの区間で探す", () => {
+    const pose = respawnPose(course(cfg.checkpointCount), cfg, at(40, 44));
+    expect(pose.x).toBeCloseTo(40, 9);
+    expect(pose.z).toBe(40);
   });
 });
 
