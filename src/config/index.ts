@@ -296,6 +296,8 @@ export const LOOK = {
   throttledFps: 30,
   cpuThrottle: 4,
   lightmapSize: 1024,
+  /** ステージ2の地面の陰を焼き付ける範囲（中心から四方へ、1辺 m）。線路と木のあるところ */
+  mountainBakeSize: 320,
   maxLightmapBytes: 524288,
   aoDistance: 6,
   bakeSamples: 64,

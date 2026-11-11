@@ -2,11 +2,12 @@
 // 線路（土手・枕木・2本のレール）・駅のホーム（屋根つき）・山・木・動物の乗客。状態を読むだけ。
 // 並びは決まった式で作る（Math.random を使わない。毎回同じ景色）。
 import * as THREE from "three";
+import { LOOK } from "../config";
 import type { Stage2State } from "../core/stage2";
 import { createStage2Scenery, STAGE2_SCENERY } from "../core/stage2Layout";
 import type { Track } from "../core/track";
 import type { Pose2D } from "../core/types";
-import { type Look, setPlaneUvMeters, withoutAo } from "./look";
+import { type Look, setGroundUv1, setPlaneUvMeters, withoutAo } from "./look";
 import { createTreeField, type TreeField, type TreeFieldOptions } from "./trees";
 
 // ---- 線路の断面（m）。見た目だけの寸法 ----
@@ -102,7 +103,9 @@ export const createStage2View = (
   const ground = new THREE.Mesh(groundGeo, groundPlain);
   ground.receiveShadow = true;
   root.add(ground);
-  swaps.push({ mesh: ground, plain: groundPlain, pick: (look) => withoutAo(look.material("grass")) });
+  // 焼き付けた地面の陰（ステージ2。木・山・ホームの足元）を uv1 で重ねる。範囲は LOOK.mountainBakeSize（外は陰なし）
+  setGroundUv1(ground, LOOK.mountainBakeSize);
+  swaps.push({ mesh: ground, plain: groundPlain, pick: (look) => look.material("grass") });
 
   // 土手：上面は砂利（線路の下だけ）、斜面は芝。線路が高い所では斜面が横に長くなるので、
   // 斜面まで砂利にすると道路のような太い帯に見える（本物の鉄道の土手と同じ分け方）
