@@ -124,7 +124,8 @@ export const inspectGlb = async (glb: Uint8Array): Promise<GlbReport> => {
 
 export type VehicleKind = keyof typeof ASSET.vehicles;
 export type SeaName = (typeof ASSET.sea.variants)[number];
-export type AssetKind = "car" | VehicleKind | "tree" | SeaName | "generic";
+export type LandmarkName = (typeof ASSET.landmark.variants)[number];
+export type AssetKind = "car" | VehicleKind | "tree" | SeaName | LandmarkName | "generic";
 
 /** 名前（npm run assets:import <名前>）から、使う決まりを選ぶ。乗り物・木でなければ generic */
 export const kindOf = (name: string): AssetKind => {
@@ -132,8 +133,13 @@ export const kindOf = (name: string): AssetKind => {
   if ((ASSET.tree.variants as readonly string[]).includes(name)) return "tree";
   // 海の生きもの（NORI-28）は、種類ごとに大きさが違うので、名前をそのまま決まりの名前にする
   if ((ASSET.sea.variants as readonly string[]).includes(name)) return name as SeaName;
+  // ステージ2の景色のモデル（NORI-59）も、名前ごとに大きさが違う
+  if (isLandmark(name)) return name;
   return "generic";
 };
+
+const isLandmark = (kind: string): kind is LandmarkName =>
+  (ASSET.landmark.variants as readonly string[]).includes(kind);
 
 type ShapeSpec = {
   size: { width: number; height: number; length: number };
@@ -145,6 +151,7 @@ const specOf = (kind: Exclude<AssetKind, "generic">): ShapeSpec => {
   if (kind === "car") return { size: ASSET.carSize, nodes: ASSET.carNodes };
   if (kind === "tree") return ASSET.tree;
   if (isSea(kind)) return { size: ASSET.sea.sizes[kind], nodes: ASSET.sea.nodes };
+  if (isLandmark(kind)) return { size: ASSET.landmark.sizes[kind], nodes: ASSET.landmark.nodes };
   return ASSET.vehicles[kind];
 };
 
@@ -156,7 +163,9 @@ const limitsOf = (kind: AssetKind) =>
     ? { bytes: ASSET.tree.maxGlbBytes, triangles: ASSET.tree.maxTriangles }
     : isSea(kind)
       ? { bytes: ASSET.sea.maxGlbBytes, triangles: ASSET.sea.maxTriangles }
-      : { bytes: ASSET.maxGlbBytes, triangles: ASSET.maxTriangles };
+      : isLandmark(kind)
+        ? { bytes: ASSET.landmark.maxGlbBytes, triangles: ASSET.landmark.maxTriangles }
+        : { bytes: ASSET.maxGlbBytes, triangles: ASSET.maxTriangles };
 
 const pct = (v: number) => `${Math.round(v * 100)}%`;
 

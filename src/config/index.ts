@@ -407,6 +407,22 @@ export const ASSET = {
     maxTriangles: 1500,
     maxGlbBytes: 131072,
   },
+  /**
+   * ステージ2の景色のモデル（NORI-59）。山は底の半径 1・高さ 1 の単位の形（ゲームで大きさを合わせる）。
+   * 駅はホームの上の部分（原点はホームの上の面の中心。線路は −X の側）
+   */
+  landmark: {
+    variants: ["mountain-a", "mountain-b", "mountain-c", "station"],
+    sizes: {
+      "mountain-a": { width: 2, height: 1, length: 2 },
+      "mountain-b": { width: 2, height: 1, length: 2 },
+      "mountain-c": { width: 2, height: 1, length: 2 },
+      station: { width: 3.6, height: 3.0, length: 12.6 },
+    },
+    nodes: ["body"],
+    maxTriangles: 3000,
+    maxGlbBytes: 262144,
+  },
   allowedExtensions: [
     "KHR_materials_emissive_strength",
     "KHR_materials_ior",

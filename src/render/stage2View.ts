@@ -88,6 +88,16 @@ export type Stage2View = {
   usePassingModel(model: THREE.Object3D): void;
   /** すれ違う電車（E2E・テスト用） */
   readonly passing: THREE.Group;
+  /**
+   * Blender の山（mountain-a・b・c）と駅（station）を渡す（NORI-59）。読めたものだけ差しかえる。
+   * 山は単位の形（底の半径 1・高さ 1）を今の円すいの大きさに引き伸ばす。高い山（60 m より上）は雪のある c
+   */
+  useLandmarks(models: {
+    mountains: readonly (THREE.Object3D | null)[];
+    station: THREE.Object3D | null;
+  }): void;
+  /** 差しかえた数（E2E・テスト用） */
+  readonly landmarks: { mountains: number; stations: number };
   /** 駅ごとの、旗の真ん中と、そのそばの土手の上（E2E で明るさの比を測る） */
   readonly markers: readonly { flag: THREE.Vector3; bed: THREE.Vector3 }[];
 };
@@ -200,6 +210,8 @@ export const createStage2View = (
   const borderMat = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide });
   const markers: { flag: THREE.Vector3; bed: THREE.Vector3 }[] = [];
   const animals: { group: THREE.Group; station: number; phase: number }[] = [];
+  /** 駅ごとの、柱と屋根（Blender の駅が読めたら差しかえる）と駅のグループ */
+  const stationTops: { group: THREE.Group; parts: THREE.Object3D[] }[] = [];
   stations.forEach((at, i) => {
     const station = new THREE.Group();
     const p = track.pointAt(at);
@@ -213,6 +225,8 @@ export const createStage2View = (
     platform.castShadow = platform.receiveShadow = true;
     station.add(platform);
     swaps.push({ mesh: platform, plain: platformPlain, pick: (look) => look.material("brick") });
+    const top = { group: station, parts: [] as THREE.Object3D[] };
+    stationTops.push(top);
     for (const [x, z] of [
       [-1.1, -5],
       [1.1, -5],
@@ -222,6 +236,7 @@ export const createStage2View = (
       const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 2.6, 8), poleMat);
       pole.position.set(x, PLATFORM.height + 1.3, z);
       station.add(pole);
+      top.parts.push(pole);
     }
     const roof = new THREE.Mesh(
       new THREE.BoxGeometry(PLATFORM.width + 0.6, 0.2, PLATFORM.length + 0.6),
@@ -230,6 +245,7 @@ export const createStage2View = (
     roof.position.y = PLATFORM.height + 2.7;
     roof.castShadow = true;
     station.add(roof);
+    top.parts.push(roof);
     // 大きな旗（ホームの手前の端）。止まる場所の目印
     const flagPole = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 5, 8), poleMat);
     flagPole.position.set(PLATFORM.width / 2 + 0.4, PLATFORM.height + 2.5, PLATFORM.length / 2);
@@ -276,20 +292,26 @@ export const createStage2View = (
   const scenery = createStage2Scenery(track, stations);
   const mountainMat = new THREE.MeshStandardMaterial({ color: 0x7c8f6a, roughness: 1, flatShading: true });
   const snowMat = new THREE.MeshStandardMaterial({ color: 0xf2f4f7, roughness: 0.8, flatShading: true });
+  /** 山ごとの、今の円すい（と雪）。Blender の山が読めたら差しかえる */
+  const cones: THREE.Object3D[][] = [];
   for (const { x, z, radius, height, rotation } of scenery.mountains) {
     const cone = new THREE.Mesh(new THREE.ConeGeometry(radius, height, 7, 1), mountainMat);
     cone.position.set(x, height / 2, z);
     cone.rotation.y = rotation;
     cone.receiveShadow = true;
     root.add(cone);
+    const parts: THREE.Object3D[] = [cone];
     if (height > 60) {
       const capH = height * 0.25;
       const cap = new THREE.Mesh(new THREE.ConeGeometry(radius * 0.25 + 0.2, capH, 7, 1), snowMat);
       cap.position.set(x, height - capH / 2 + 0.05, z);
       cap.rotation.y = rotation;
       root.add(cap);
+      parts.push(cap);
     }
+    cones.push(parts);
   }
+  const landmarks = { mountains: 0, stations: 0 };
 
   // 木（線路の両側。まとめて描く。ステージ1と同じ木）
   const trees = createTreeField(scenery.trees, treeOptions);
@@ -333,6 +355,38 @@ export const createStage2View = (
     markers,
     trees,
     passing,
+    landmarks,
+    useLandmarks({ mountains, station }) {
+      // 1回だけ差しかえる（2回呼ばれても、同じ山を重ねない）
+      const firstTime = landmarks.mountains === 0;
+      scenery.mountains.forEach((mt, i) => {
+        const model = mountains[mt.height > 60 ? 2 : i % 2];
+        const old = cones[i];
+        if (!firstTime || model === null || model === undefined || old === undefined) return;
+        const copy = model.clone(true);
+        copy.position.set(mt.x, 0, mt.z);
+        copy.rotation.y = mt.rotation;
+        copy.scale.set(mt.radius, mt.height, mt.radius);
+        copy.traverse((o) => {
+          if (o instanceof THREE.Mesh) o.receiveShadow = true;
+        });
+        for (const o of old) root.remove(o);
+        root.add(copy);
+        landmarks.mountains++;
+      });
+      if (station !== null && landmarks.stations === 0) {
+        for (const top of stationTops) {
+          const copy = station.clone(true);
+          copy.position.y = PLATFORM.height;
+          copy.traverse((o) => {
+            if (o instanceof THREE.Mesh) o.castShadow = true;
+          });
+          for (const o of top.parts) top.group.remove(o);
+          top.group.add(copy);
+          landmarks.stations++;
+        }
+      }
+    },
     usePassingModel(model) {
       const copy = model.clone(true);
       const recolor = (mat: THREE.Material) => {

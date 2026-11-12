@@ -69,6 +69,11 @@ test("ステージ2の景色：すれ違う電車が動き、海辺と遠くの�
   await page.waitForTimeout(1000);
   const b = await page.evaluate(() => window.__nori?.passingTrain?.());
   expect(Math.hypot((b?.x ?? 0) - (a?.x ?? 0), (b?.z ?? 0) - (a?.z ?? 0))).toBeGreaterThan(2);
+  // Blender の山・駅に差しかわる
+  await page.waitForFunction(() => (window.__nori?.landmarks?.().stations ?? 0) === 3, undefined, {
+    timeout: 30_000,
+  });
+  expect((await page.evaluate(() => window.__nori?.landmarks?.()))?.mountains).toBeGreaterThan(10);
   await page.keyboard.down("ArrowUp");
   await page.waitForTimeout(6000);
   await page.keyboard.up("ArrowUp");

@@ -41,6 +41,37 @@ describe("ステージ2の景色（NORI-59）", () => {
     expect(stripe.color.getHex()).toBe(0xff6f59);
   });
 
+  it("Blender の山・駅を渡すと差しかえる。山は大きさを合わせ、高い山は雪の c。2回呼んでも重ねない", () => {
+    const view = newView();
+    const mountain = (tag: string) => {
+      const g = new THREE.Group();
+      g.name = tag;
+      g.add(new THREE.Mesh(new THREE.ConeGeometry(1, 1, 8).translate(0, 0.5, 0)));
+      return g;
+    };
+    const station = new THREE.Group();
+    station.name = "station-model";
+    const before = view.root.children.length;
+    const models = { mountains: [mountain("a"), mountain("b"), mountain("c")], station };
+    view.useLandmarks(models);
+    view.useLandmarks(models);
+    expect(view.landmarks.mountains).toBeGreaterThan(10);
+    expect(view.landmarks.stations).toBe(STAGE2.stations.length);
+    const placed = view.root.children.filter((o) => ["a", "b", "c"].includes(o.name));
+    expect(placed).toHaveLength(view.landmarks.mountains);
+    for (const m of placed) {
+      expect(m.name === "c").toBe(m.scale.y > 60);
+      expect(m.position.y).toBe(0);
+    }
+    // 円すい（と雪）を外して、山を足した
+    expect(view.root.children.length).toBeLessThanOrEqual(before);
+    let stationModels = 0;
+    view.root.traverse((o) => {
+      if (o.name === "station-model") stationModels++;
+    });
+    expect(stationModels).toBe(STAGE2.stations.length);
+  });
+
   it("富士山風の山は霧を効かせず、北へ遠く。海辺・砂浜・雲がある", () => {
     const view = newView();
     const big = view.root.getObjectByName("big-mountain") as THREE.Mesh;

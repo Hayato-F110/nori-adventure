@@ -11,6 +11,7 @@
 # 使い方（Blender MCP の execute_blender_code など）：<リポジトリ>/blender-work/tools/ に写してから
 #   import runpy; runpy.run_path(r"<リポジトリ>\blender-work\tools\export-glb.py", init_globals={"NAME": "car"})
 #   素材を貼るもの（木）は init_globals に "TEXCOORDS": True を足す（UV を書き出す）
+#   頂点の色で塗るもの（ステージ2の山）は "VERTEX_COLOR": "ACTIVE" を足す（使う色だけを COLOR_0 に）
 import os
 import re
 from pathlib import Path
@@ -50,6 +51,10 @@ def export_glb(name: str) -> dict:
         export_apply=True,
         export_texcoords=bool(globals().get("TEXCOORDS", False)),  # 素材を貼るもの（木）だけ UV を書き出す
         export_normals=True,
+        # 頂点の色：既定は「材質で使う色」と「すべての色」。VERTEX_COLOR = "ACTIVE" なら、使う色（active）だけを COLOR_0 に
+        # （NORI-59 の山。既定のままだと COLOR_0 が白、自分の色が COLOR_1 になり、three.js は COLOR_0 しか使わない）
+        export_vertex_color=globals().get("VERTEX_COLOR", "MATERIAL"),
+        export_all_vertex_colors=globals().get("VERTEX_COLOR", "MATERIAL") != "ACTIVE",
         export_materials="EXPORT",
         export_image_format="NONE",
         export_cameras=False,

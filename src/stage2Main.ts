@@ -105,6 +105,28 @@ export const startStage2 = async (canvas: HTMLCanvasElement, hud: HTMLElement, s
       trainModel = "glb";
     });
   });
+  // Blender の山3種と駅（NORI-59）：読めたものだけ差しかえる（読めなければ今の形のまま）
+  void (async () => {
+    try {
+      const base = import.meta.env.BASE_URL;
+      const manifest = (await (await fetch(`${base}models/manifest.json`)).json()) as ModelManifest;
+      const load = async (name: string) => {
+        const entry = manifest.models.find((m) => m.name === name);
+        if (entry === undefined) return null;
+        try {
+          return (await gltfLoader.loadAsync(`${base}models/${entry.file}`)).scene;
+        } catch {
+          return null;
+        }
+      };
+      const [a, b, c, station] = await Promise.all(
+        ["mountain-a", "mountain-b", "mountain-c", "station"].map(load),
+      );
+      view.useLandmarks({ mountains: [a ?? null, b ?? null, c ?? null], station: station ?? null });
+    } catch {
+      // 一覧が読めなければ今の形のまま
+    }
+  })();
   // すれ違う電車は、ふつうの電車の形を色違いで使う
   void loadTrain("train-commuter").then((loaded) => {
     if (loaded !== null) view.usePassingModel(loaded.root);
@@ -202,6 +224,7 @@ export const startStage2 = async (canvas: HTMLCanvasElement, hud: HTMLElement, s
       return view.trees.mode;
     },
     trainChoice: () => chooser.chosen,
+    landmarks: () => ({ ...view.landmarks }),
     passingTrain: () => {
       const p = view.passing.position;
       return { x: p.x, y: p.y, z: p.z };
