@@ -9,8 +9,9 @@
 - **完了**：NORI-20〜23・25〜28・54・56・58・60・62。PR #24〜#46 はマージ済み
 - **Jira の開始日**（`customfield_10015`）：未完了のストーリー全部に、`docs/schedule.md` の日割りどおりの開始予定日を入れた。作業を始めたら「進行中」にして、実際の開始日に書き換える
 - **NORI-59（ステージ2の景色と列車。進行中、ブランチ `feature/NORI-59-stage2-scenery`）**：決まりの案とテストの一覧はオーナーが OK（1つの PR にまとめる・列車を選ぶのはステージ2の始めの絵のボタン3つ・速さと操作は3つとも同じ・すれ違う電車は左 4.2 m を逆向き 8 m/s・富士山風の山は 400 m 先に霧に左右されない遠景・海辺は南側 z > 105 m・雲 10 個・Blender で山3種と駅）
-  - できた：`tools/blender/build-vehicles.py` に `train-commuter`（2.2×2.8×7.0 m、4416 三角形）と `train-bullet`（2.2×2.4×8.0 m、2412 三角形）。`blender-work/export/` に GLB を書き出し済み（見本の絵は `blender-work/renders/`）
-  - 次：① `ASSET.vehicles` に2台を足して `npm run assets:import train-commuter` と `train-bullet` ② game-rules.md に決まりの表 ③ すれ違う電車・海辺・富士山風の山・雲（コード） ④ Blender で山3種・駅 ⑤ 列車を選ぶボタン ⑥ E2E
+  - 全部できた（11/12 夜。PR を出した）：選べる列車2種（`train-commuter`・`train-bullet`）、列車を選ぶ絵のボタン3つ、すれ違う電車（2本目の線路）、海辺、富士山風の山（霧を効かせない遠景）、雲、Blender の山3種（`tools/blender/build-stage2-models.py`。頂点の色）と駅。CI が緑ならマージ → Jira を完了
+  - 光のベイク（ステージ2の地面の陰）は焼き直していない（山の場所・大きさは同じ）。見た目がずれていたら `bake-stage2-ao.py` で焼き直す
+  - 頂点の色で塗るモデルは `export-glb.py` に `"VERTEX_COLOR": "ACTIVE"`（既定だと COLOR_0 が白になる）。bmesh で色を入れると sRGB とみなされて暗くなるので、属性の `.color`（線形）に入れる
   - Blender の MCP：ファイルを開く（`open_mainfile`・`read_homefile`）のと、スクリプトを動かすのは、別の実行に分ける（同じ実行だと `bpy.context.object` がなくて止まる）
 - **11/13（スプリント2の最終日）にスプリントのふりかえり**（`CLAUDE.md`「進め方」。11/12 にオーナーが決めた）：devlog のあと `docs/retro/sprint-2.md`。材料は Jira のポイント、CI の失敗（たまに落ちる車の E2E）、オーナーの指摘（試行錯誤・Jira の状態と開始日・シェルの引用符のミス）
 - **ステージ1の車の E2E はたまに落ちる**：PR #46 で、建物に触れた回数 7（ステージ1は変えていない）。流し直すと 0 で通った。本物の時間でキーを押すので、入力が入る刻みが回ごとに変わるのが原因と考える。NORI-37 か NORI-34 で、入力の記録の再生で走らせる形に直す案
