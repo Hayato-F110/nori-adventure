@@ -18,7 +18,7 @@
   - **数値は試行錯誤で決めない**（`CLAUDE.md` ゲーム仕様のルール6）。three.js は 色 → 光 → AgX → 霧（カメラからの距離）→ 上限 1。背景は AgX を通らない
   - 遅い CI で動く物を測るときは `window.__nori.freeze(true)` で時間を止めてから読む（ステージ4）
   - 素材を足したら `src/render/look.ts` の `STAGE_SURFACES` にも足す（使うステージだけが読む）
-  - Git Bash の小文字の `c:` から Vitest を動かすと全部落ちる（vitest#11011）。PowerShell で
+  - Git Bash の小文字の `c:` から Vitest を動かすと全部落ちる（vitest#11011）→ 11/12 に `tools/dev/vitest.ts`（ドライブ名を大文字に直して起動）で直した。`npm test`・`npm run check` はどこからでもよい。`npx vitest` を直接打たない
   - 画質の処理は `src/render/qualityControl.ts`。GPU のない CI では自動で低画質に下がる。E2E で画質を決めつけない
   - 手元の FPS の E2E は、PC で重い処理（別のプロジェクトの学習など）が動いていると落ちる。落ちたら画質と最低の FPS の出力を見る
 
@@ -117,7 +117,7 @@
 
 - 書き込み：`executeWrite`。削除系（`executeDestructive`）は deny。**スプリントの作成・開始・編集・終了は削除系の扱い**なので、オーナーに画面で頼む
 - ステータス変更：`transitionJiraIssue` に `transitionId`（11＝未着手、21＝進行中、31＝完了）
-  | Vitest と Git Bash | Git Bash の小文字の `c:` から `npm run check` すると、Vitest が二重に読み込まれて全件失敗する（vitest#11011）。**PowerShell で実行する** |
+  | Vitest と Git Bash | Git Bash の小文字の `c:` から Vitest を起動すると、二重に読み込まれて全件失敗する（vitest#11011）。11/12 に `npm test` を `tools/dev/vitest.ts` 経由にして直した。`npx vitest` を直接打たない |
   | Playwright を上げたら | `npx playwright install chromium` を手元で実行する（ブラウザの版が変わる） |
   | 隔離の確認（MCP から） | `isolation-check.py` は守る場所を引数で受け取る。MCP から動かすときは `sys.argv` に守る場所を入れる（入れないと `isolated: false`） |
   | GLB を Blender に読む | 部品（タイヤなど）は別の物体で、位置は GLB のまま。原点に戻さない |
