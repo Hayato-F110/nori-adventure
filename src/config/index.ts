@@ -119,6 +119,33 @@ export const STAGE2 = {
   startDistance: 0,
   cameraDistance: 12,
   cameraHeight: 6,
+  // ---- 景色と列車を増やす（NORI-59） ----
+  /** 子どもが選べる列車（GLB の名前）。速さ・操作は3つとも同じ（見た目だけ） */
+  trainChoices: ["train", "train-commuter", "train-bullet"],
+  /** 列車を選ぶボタンの大きさ（px） */
+  choiceButtonSize: 96,
+  /** すれ違う電車の線路（線路の左、m） */
+  passingOffset: 4.2,
+  /** すれ違う電車の速さ（m/s。逆向き） */
+  passingSpeed: 8,
+  /** すれ違う電車の、時刻 0 の線路の上の距離（m） */
+  passingStart: 300,
+  /** 海辺：z がこれより大きい所が砂浜、その先が海（m） */
+  seaFromZ: 105,
+  beachWidth: 20,
+  /** 富士山風の山（遠景。霧を効かせず、空の色をまぜる） */
+  bigMountain: {
+    x: -60,
+    z: -400,
+    radius: 150,
+    height: 120,
+    snowFraction: 0.3,
+    hazeTop: 0.35,
+    hazeBottom: 0.7,
+  },
+  cloudCount: 10,
+  cloudMinHeight: 50,
+  cloudMaxHeight: 70,
 } as const;
 
 /** ステージ3の飛行機（手を離すと自動で水平に戻る） */
@@ -377,6 +404,15 @@ export const ASSET = {
       size: { width: 2.2, height: 2.6, length: 6.0 },
       nodes: ["body", "wheel_FL", "wheel_FR", "wheel_RL", "wheel_RR"],
     },
+    /** NORI-59：子どもが選べる列車（ふつうの電車・新幹線風）。速さ・操作は今の列車と同じ */
+    "train-commuter": {
+      size: { width: 2.2, height: 2.8, length: 7.0 },
+      nodes: ["body", "wheel_FL", "wheel_FR", "wheel_RL", "wheel_RR"],
+    },
+    "train-bullet": {
+      size: { width: 2.2, height: 2.4, length: 8.0 },
+      nodes: ["body", "wheel_FL", "wheel_FR", "wheel_RL", "wheel_RR"],
+    },
     plane: {
       size: { width: 4.4, height: 1.4, length: 3.6 },
       nodes: ["body", "propeller"],
@@ -423,6 +459,22 @@ export const ASSET = {
     nodes: ["body"],
     maxTriangles: 1500,
     maxGlbBytes: 131072,
+  },
+  /**
+   * ステージ2の景色のモデル（NORI-59）。山は底の半径 1・高さ 1 の単位の形（ゲームで大きさを合わせる）。
+   * 駅はホームの上の部分（原点はホームの上の面の中心。線路は −X の側）
+   */
+  landmark: {
+    variants: ["mountain-a", "mountain-b", "mountain-c", "station"],
+    sizes: {
+      "mountain-a": { width: 2, height: 1, length: 2 },
+      "mountain-b": { width: 2, height: 1, length: 2 },
+      "mountain-c": { width: 2, height: 1, length: 2 },
+      station: { width: 3.6, height: 3.0, length: 12.6 },
+    },
+    nodes: ["body"],
+    maxTriangles: 3000,
+    maxGlbBytes: 262144,
   },
   allowedExtensions: [
     "KHR_materials_emissive_strength",

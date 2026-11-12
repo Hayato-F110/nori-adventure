@@ -1,10 +1,11 @@
 // ステージ2の山道の見た目（docs/game-rules.md「線路・駅・見え方」。NORI-26）。
 // 線路（土手・枕木・2本のレール）・駅のホーム（屋根つき）・山・木・動物の乗客。状態を読むだけ。
 // 並びは決まった式で作る（Math.random を使わない。毎回同じ景色）。
+// NORI-59：すれ違う電車（並んだ線路）・海辺・富士山風の山（遠景）・雲。
 import * as THREE from "three";
-import { LOOK } from "../config";
+import { LOOK, STAGE2 } from "../config";
 import type { Stage2State } from "../core/stage2";
-import { createStage2Scenery, STAGE2_SCENERY } from "../core/stage2Layout";
+import { createStage2Scenery, passingTrainDistance, sceneryHash, STAGE2_SCENERY } from "../core/stage2Layout";
 import type { Track } from "../core/track";
 import type { Pose2D } from "../core/types";
 import { type Look, setGroundUv1, setPlaneUvMeters, withoutAo } from "./look";
@@ -81,7 +82,22 @@ export type Stage2View = {
   trees: TreeField;
   /** 列車の位置と向き（描画の補間のあと） */
   trainPose(distance: number): Pose2D & { y: number; pitch: number };
-  update(state: Stage2State, seconds: number, reducedMotion: boolean): void;
+  /** tick はすれ違う電車を置く時刻（刻みの間を補間した小数でもよい。省くと state.tick） */
+  update(state: Stage2State, seconds: number, reducedMotion: boolean, tick?: number): void;
+  /** すれ違う電車の形（自作のふつうの電車）を渡す。帯と車体の色だけ変える */
+  usePassingModel(model: THREE.Object3D): void;
+  /** すれ違う電車（E2E・テスト用） */
+  readonly passing: THREE.Group;
+  /**
+   * Blender の山（mountain-a・b・c）と駅（station）を渡す（NORI-59）。読めたものだけ差しかえる。
+   * 山は単位の形（底の半径 1・高さ 1）を今の円すいの大きさに引き伸ばす。高い山（60 m より上）は雪のある c
+   */
+  useLandmarks(models: {
+    mountains: readonly (THREE.Object3D | null)[];
+    station: THREE.Object3D | null;
+  }): void;
+  /** 差しかえた数（E2E・テスト用） */
+  readonly landmarks: { mountains: number; stations: number };
   /** 駅ごとの、旗の真ん中と、そのそばの土手の上（E2E で明るさの比を測る） */
   readonly markers: readonly { flag: THREE.Vector3; bed: THREE.Vector3 }[];
 };
@@ -110,8 +126,10 @@ export const createStage2View = (
   // 土手：上面は砂利（線路の下だけ）、斜面は芝。線路が高い所では斜面が横に長くなるので、
   // 斜面まで砂利にすると道路のような太い帯に見える（本物の鉄道の土手と同じ分け方）
   const foot = (y: number) => BED_HALF + 0.3 + (y + BED_TOP) * 0.8;
+  // 左はすれ違う電車の線路（NORI-59）のぶんだけ広げて、1つの土手にする
+  const LEFT_EDGE = STAGE2.passingOffset + BED_HALF;
   const bedGeo = sweep(track, () => [
-    [-BED_HALF, BED_TOP],
+    [-LEFT_EDGE, BED_TOP],
     [BED_HALF, BED_TOP],
   ]);
   // 暗い灰色の砂利（黄色の旗・明るいホームとの差を大きくする）
@@ -125,8 +143,8 @@ export const createStage2View = (
     const slopeGeo = sweep(track, (_s, y) =>
       side < 0
         ? [
-            [-foot(y), -y - 0.05],
-            [-BED_HALF, BED_TOP],
+            [-(foot(y) + STAGE2.passingOffset), -y - 0.05],
+            [-LEFT_EDGE, BED_TOP],
           ]
         : [
             [BED_HALF, BED_TOP],
@@ -141,28 +159,30 @@ export const createStage2View = (
 
   // 枕木（同じ形をまとめて描く）
   const sleeperCount = Math.floor(track.length / SLEEPER.spacing);
+  const LANES = [0, -STAGE2.passingOffset]; // 自分の線路と、すれ違う電車の線路（左）
   const sleepers = new THREE.InstancedMesh(
     new THREE.BoxGeometry(SLEEPER.width, SLEEPER.height, SLEEPER.depth),
     new THREE.MeshStandardMaterial({ color: 0x6b4a32, roughness: 0.9 }),
-    sleeperCount,
+    sleeperCount * LANES.length,
   );
   const m = new THREE.Matrix4();
   const q = new THREE.Quaternion();
   const up = new THREE.Vector3(0, 1, 0);
   const one = new THREE.Vector3(1, 1, 1);
-  for (let i = 0; i < sleeperCount; i++) {
-    const s = i * SLEEPER.spacing;
-    q.setFromAxisAngle(up, track.headingAt(s));
-    m.compose(offsetPoint(track, s, 0, BED_TOP + SLEEPER.height / 2), q, one);
-    sleepers.setMatrixAt(i, m);
-  }
+  LANES.forEach((lane, k) => {
+    for (let i = 0; i < sleeperCount; i++) {
+      const s = i * SLEEPER.spacing;
+      q.setFromAxisAngle(up, track.headingAt(s));
+      m.compose(offsetPoint(track, s, lane, BED_TOP + SLEEPER.height / 2), q, one);
+      sleepers.setMatrixAt(k * sleeperCount + i, m);
+    }
+  });
   sleepers.receiveShadow = true;
   root.add(sleepers);
 
   // 2本のレール
   const railMat = new THREE.MeshStandardMaterial({ color: 0xb8bcc4, metalness: 0.6, roughness: 0.35 });
-  for (const side of [-1, 1]) {
-    const c = side * RAIL.gauge;
+  for (const c of LANES.flatMap((lane) => [lane - RAIL.gauge, lane + RAIL.gauge])) {
     const w = RAIL.width / 2;
     const bottom = BED_TOP + SLEEPER.height;
     const rail = new THREE.Mesh(
@@ -190,6 +210,8 @@ export const createStage2View = (
   const borderMat = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide });
   const markers: { flag: THREE.Vector3; bed: THREE.Vector3 }[] = [];
   const animals: { group: THREE.Group; station: number; phase: number }[] = [];
+  /** 駅ごとの、柱と屋根（Blender の駅が読めたら差しかえる）と駅のグループ */
+  const stationTops: { group: THREE.Group; parts: THREE.Object3D[] }[] = [];
   stations.forEach((at, i) => {
     const station = new THREE.Group();
     const p = track.pointAt(at);
@@ -203,6 +225,8 @@ export const createStage2View = (
     platform.castShadow = platform.receiveShadow = true;
     station.add(platform);
     swaps.push({ mesh: platform, plain: platformPlain, pick: (look) => look.material("brick") });
+    const top = { group: station, parts: [] as THREE.Object3D[] };
+    stationTops.push(top);
     for (const [x, z] of [
       [-1.1, -5],
       [1.1, -5],
@@ -212,6 +236,7 @@ export const createStage2View = (
       const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 2.6, 8), poleMat);
       pole.position.set(x, PLATFORM.height + 1.3, z);
       station.add(pole);
+      top.parts.push(pole);
     }
     const roof = new THREE.Mesh(
       new THREE.BoxGeometry(PLATFORM.width + 0.6, 0.2, PLATFORM.length + 0.6),
@@ -220,6 +245,7 @@ export const createStage2View = (
     roof.position.y = PLATFORM.height + 2.7;
     roof.castShadow = true;
     station.add(roof);
+    top.parts.push(roof);
     // 大きな旗（ホームの手前の端）。止まる場所の目印
     const flagPole = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 5, 8), poleMat);
     flagPole.position.set(PLATFORM.width / 2 + 0.4, PLATFORM.height + 2.5, PLATFORM.length / 2);
@@ -266,29 +292,122 @@ export const createStage2View = (
   const scenery = createStage2Scenery(track, stations);
   const mountainMat = new THREE.MeshStandardMaterial({ color: 0x7c8f6a, roughness: 1, flatShading: true });
   const snowMat = new THREE.MeshStandardMaterial({ color: 0xf2f4f7, roughness: 0.8, flatShading: true });
+  /** 山ごとの、今の円すい（と雪）。Blender の山が読めたら差しかえる */
+  const cones: THREE.Object3D[][] = [];
   for (const { x, z, radius, height, rotation } of scenery.mountains) {
     const cone = new THREE.Mesh(new THREE.ConeGeometry(radius, height, 7, 1), mountainMat);
     cone.position.set(x, height / 2, z);
     cone.rotation.y = rotation;
     cone.receiveShadow = true;
     root.add(cone);
+    const parts: THREE.Object3D[] = [cone];
     if (height > 60) {
       const capH = height * 0.25;
       const cap = new THREE.Mesh(new THREE.ConeGeometry(radius * 0.25 + 0.2, capH, 7, 1), snowMat);
       cap.position.set(x, height - capH / 2 + 0.05, z);
       cap.rotation.y = rotation;
       root.add(cap);
+      parts.push(cap);
     }
+    cones.push(parts);
   }
+  const landmarks = { mountains: 0, stations: 0 };
 
   // 木（線路の両側。まとめて描く。ステージ1と同じ木）
   const trees = createTreeField(scenery.trees, treeOptions);
   root.add(trees.root);
 
+  // ---- NORI-59：海辺・富士山風の山・雲・すれ違う電車 ----
+  const half = groundSize / 2;
+  const beach = new THREE.Mesh(
+    new THREE.PlaneGeometry(groundSize, STAGE2.beachWidth).rotateX(-Math.PI / 2),
+    new THREE.MeshStandardMaterial({ color: 0xe6d3a3, roughness: 1 }),
+  );
+  beach.name = "beach";
+  beach.position.set(0, 0.02, STAGE2.seaFromZ + STAGE2.beachWidth / 2);
+  beach.receiveShadow = true;
+  const seaDepth = half - STAGE2.seaFromZ - STAGE2.beachWidth;
+  const sea = new THREE.Mesh(
+    new THREE.PlaneGeometry(groundSize, seaDepth).rotateX(-Math.PI / 2),
+    new THREE.MeshStandardMaterial({ color: 0x2f7fc1, roughness: 0.15, metalness: 0 }),
+  );
+  sea.name = "sea";
+  sea.position.set(0, 0.04, half - seaDepth / 2);
+  root.add(beach, sea);
+  root.add(createBigMountain());
+  root.add(createClouds());
+
+  // すれ違う電車（最初は箱。ふつうの電車の GLB が読めたら usePassingModel で差しかえる）
+  const passing = new THREE.Group();
+  passing.name = "passing-train";
+  passing.add(createPassingBox());
+  root.add(passing);
+  const placePassing = (tick: number) => {
+    const s = passingTrainDistance(track.length, tick);
+    passing.position.copy(offsetPoint(track, s, -STAGE2.passingOffset, RAIL_TOP));
+    // 逆向きに走るので、線路の向きの反対を向く。坂の向きも反対
+    passing.rotation.set(-Math.atan(track.slopeAt(s)), track.headingAt(s) + Math.PI, 0, "YXZ");
+  };
+  placePassing(0);
+
   return {
     root,
     markers,
     trees,
+    passing,
+    landmarks,
+    useLandmarks({ mountains, station }) {
+      // 1回だけ差しかえる（2回呼ばれても、同じ山を重ねない）
+      const firstTime = landmarks.mountains === 0;
+      scenery.mountains.forEach((mt, i) => {
+        const model = mountains[mt.height > 60 ? 2 : i % 2];
+        const old = cones[i];
+        if (!firstTime || model === null || model === undefined || old === undefined) return;
+        const copy = model.clone(true);
+        copy.position.set(mt.x, 0, mt.z);
+        copy.rotation.y = mt.rotation;
+        copy.scale.set(mt.radius, mt.height, mt.radius);
+        copy.traverse((o) => {
+          if (o instanceof THREE.Mesh) o.receiveShadow = true;
+        });
+        for (const o of old) root.remove(o);
+        root.add(copy);
+        landmarks.mountains++;
+      });
+      if (station !== null && landmarks.stations === 0) {
+        for (const top of stationTops) {
+          const copy = station.clone(true);
+          copy.position.y = PLATFORM.height;
+          copy.traverse((o) => {
+            if (o instanceof THREE.Mesh) o.castShadow = true;
+          });
+          for (const o of top.parts) top.group.remove(o);
+          top.group.add(copy);
+          landmarks.stations++;
+        }
+      }
+    },
+    usePassingModel(model) {
+      const copy = model.clone(true);
+      const recolor = (mat: THREE.Material) => {
+        if (!(mat instanceof THREE.MeshStandardMaterial)) return mat;
+        const color = PASSING_COLORS[mat.name];
+        if (color === undefined) return mat;
+        const c = mat.clone();
+        c.color.set(color);
+        return c;
+      };
+      copy.traverse((o) => {
+        if (o instanceof THREE.Mesh) {
+          o.material = Array.isArray(o.material)
+            ? o.material.map(recolor)
+            : recolor(o.material as THREE.Material);
+          o.castShadow = true;
+        }
+      });
+      passing.clear();
+      passing.add(copy);
+    },
     applyLook(look) {
       for (const swap of swaps) swap.mesh.material = look === null ? swap.plain : swap.pick(look);
       trees.applyLook(look);
@@ -303,7 +422,8 @@ export const createStage2View = (
         pitch: Math.atan(track.slopeAt(distance)),
       };
     },
-    update(state, seconds, reducedMotion) {
+    update(state, seconds, reducedMotion, tick = state.tick) {
+      placePassing(tick);
       const stopped = state.stoppedTicks > 0;
       for (const a of animals) {
         // 乗った駅（着いた駅）の動物は、列車に乗ったので見えなくする
@@ -337,4 +457,77 @@ const createAnimal = (i: number): THREE.Group => {
   }
   for (const o of group.children) o.castShadow = true;
   return group;
+};
+
+/** 空の色（stage2Main の背景・霧と同じ） */
+export const SKY_COLOR = 0x9fd8ff;
+
+/** すれ違う電車の色（自分が選べるふつうの電車と見分ける。帯を緑、車体を少し明るい灰色に） */
+const PASSING_COLORS: Record<string, string> = { commuter_stripe: "#3fae5a", commuter_body: "#eef0f2" };
+
+/** GLB を読む前・読めなかったときのすれ違う電車（箱。前は −Z、原点は底の中心） */
+const createPassingBox = (): THREE.Group => {
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(
+    new THREE.BoxGeometry(2.1, 2.2, 7).translate(0, 1.4, 0),
+    new THREE.MeshStandardMaterial({ color: 0xeef0f2, roughness: 0.6 }),
+  );
+  const stripe = new THREE.Mesh(
+    new THREE.BoxGeometry(2.14, 0.24, 6.8).translate(0, 1.3, 0),
+    new THREE.MeshStandardMaterial({ color: 0x3fae5a }),
+  );
+  g.add(body, stripe);
+  return g;
+};
+
+/**
+ * 富士山風の大きな山（遠景。形はオリジナル：くぼんだ斜面と平らな頂）。霧（330 m で空の色）の外にあるので、
+ * 霧を効かせず、空の色を 下 hazeBottom 〜 上 hazeTop の割合でまぜる（遠くのかすみ）
+ */
+const createBigMountain = (): THREE.Mesh => {
+  const { x, z, radius, height, snowFraction, hazeTop, hazeBottom } = STAGE2.bigMountain;
+  const rows = 24;
+  // 半径は高さとともに (1 − h)^1.6 で細くなる（下が広がる、くぼんだ斜面）。頂は半径の 8% で平ら
+  const profile = Array.from({ length: rows + 1 }, (_, i) => {
+    const h = i / rows;
+    return new THREE.Vector2(Math.max(radius * 0.08, radius * (1 - h) ** 1.6), h * height);
+  });
+  profile.push(new THREE.Vector2(0, height));
+  const geo = new THREE.LatheGeometry(profile, 40);
+  const sky = new THREE.Color(SKY_COLOR);
+  const rock = new THREE.Color(0x5d6f8a);
+  const snow = new THREE.Color(0xffffff);
+  const pos = geo.getAttribute("position");
+  const colors = new Float32Array(pos.count * 3);
+  const c = new THREE.Color();
+  for (let i = 0; i < pos.count; i++) {
+    const h = pos.getY(i) / height;
+    // 雪の境目は、向きで少しゆらす（決まった値）
+    const a = Math.atan2(pos.getZ(i), pos.getX(i));
+    const line = 1 - snowFraction + Math.sin(a * 7) * 0.03;
+    c.copy(h >= line ? snow : rock).lerp(sky, hazeBottom + (hazeTop - hazeBottom) * h);
+    colors.set([c.r, c.g, c.b], i * 3);
+  }
+  geo.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+  const mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ vertexColors: true, fog: false }));
+  mesh.name = "big-mountain";
+  mesh.position.set(x, 0, z);
+  return mesh;
+};
+
+/** 雲（白い平たいかたまり。決まった並び。ステージ3と同じ作り方） */
+const createClouds = (): THREE.Group => {
+  const g = new THREE.Group();
+  g.name = "clouds";
+  const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1, flatShading: true });
+  for (let i = 0; i < STAGE2.cloudCount; i++) {
+    const cloud = new THREE.Mesh(new THREE.IcosahedronGeometry(6 + sceneryHash(i + 700) * 6, 1), mat);
+    const a = sceneryHash(i + 710) * Math.PI * 2;
+    const d = 60 + sceneryHash(i + 720) * 190;
+    const y = STAGE2.cloudMinHeight + sceneryHash(i + 730) * (STAGE2.cloudMaxHeight - STAGE2.cloudMinHeight);
+    cloud.position.set(Math.cos(a) * d, y, Math.sin(a) * d);
+    cloud.scale.set(1.8, 0.6, 1.2);
+    g.add(cloud);
+  }
+  return g;
 };

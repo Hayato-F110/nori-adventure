@@ -19,6 +19,60 @@
       "importedAt": "2026-11-07"
     },
     {
+      "name": "mountain-a",
+      "file": "mountain-a.glb",
+      "sha256": "a270fe4cd4a254ff4217a9cdaa64b9db551418e121577fd41b8b45b6cd3eae9d",
+      "bytes": 20668,
+      "triangles": 864,
+      "size": {
+        "width": 2,
+        "height": 1,
+        "length": 2
+      },
+      "createdWith": "Blender 5.3.0（noriblender の隔離環境。Blender MCP で Claude が作成を補助）",
+      "source": "blender-work/mountain-a.blend",
+      "author": "Hayato-F110",
+      "license": "CC-BY-4.0",
+      "externalAssets": "なし",
+      "importedAt": "2026-11-12"
+    },
+    {
+      "name": "mountain-b",
+      "file": "mountain-b.glb",
+      "sha256": "9517605ad97fe2962dbb0b125b86993a82e739b501652770a70c6fbb5b9d9c7c",
+      "bytes": 20668,
+      "triangles": 864,
+      "size": {
+        "width": 2,
+        "height": 1,
+        "length": 2
+      },
+      "createdWith": "Blender 5.3.0（noriblender の隔離環境。Blender MCP で Claude が作成を補助）",
+      "source": "blender-work/mountain-b.blend",
+      "author": "Hayato-F110",
+      "license": "CC-BY-4.0",
+      "externalAssets": "なし",
+      "importedAt": "2026-11-12"
+    },
+    {
+      "name": "mountain-c",
+      "file": "mountain-c.glb",
+      "sha256": "7d26a6288a53486d5d8f8d9c2c16ea2fd45eff1639849dd743d09bf86d8c1d8b",
+      "bytes": 20668,
+      "triangles": 864,
+      "size": {
+        "width": 2,
+        "height": 1,
+        "length": 2
+      },
+      "createdWith": "Blender 5.3.0（noriblender の隔離環境。Blender MCP で Claude が作成を補助）",
+      "source": "blender-work/mountain-c.blend",
+      "author": "Hayato-F110",
+      "license": "CC-BY-4.0",
+      "externalAssets": "なし",
+      "importedAt": "2026-11-12"
+    },
+    {
       "name": "plane",
       "file": "plane.glb",
       "sha256": "48f970021fe57c3c74f44b4349ecd01546631db81fa58ae6dd8a476189df2e9f",
@@ -181,6 +235,24 @@
       "importedAt": "2026-11-12"
     },
     {
+      "name": "station",
+      "file": "station.glb",
+      "sha256": "98520ea291b43bc97acd8edf4c9055e73db4f91b65e8300040e30298793c999a",
+      "bytes": 60020,
+      "triangles": 1036,
+      "size": {
+        "width": 3.646,
+        "height": 3,
+        "length": 12.6
+      },
+      "createdWith": "Blender 5.3.0（noriblender の隔離環境。Blender MCP で Claude が作成を補助）",
+      "source": "blender-work/station.blend",
+      "author": "Hayato-F110",
+      "license": "CC-BY-4.0",
+      "externalAssets": "なし",
+      "importedAt": "2026-11-12"
+    },
+    {
       "name": "sub",
       "file": "sub.glb",
       "sha256": "ab91672a2fec90be476b48716cb2b887d44a670ced92fec0625dae4644d25f31",
@@ -215,6 +287,42 @@
       "license": "CC-BY-4.0",
       "externalAssets": "なし",
       "importedAt": "2026-11-11"
+    },
+    {
+      "name": "train-bullet",
+      "file": "train-bullet.glb",
+      "sha256": "6020992b1b6497638773b63f98bc1696a62cd1209bbe65809f1ba60f56ed59d3",
+      "bytes": 66132,
+      "triangles": 2412,
+      "size": {
+        "width": 2.24,
+        "height": 2.34,
+        "length": 8.01
+      },
+      "createdWith": "Blender 5.3.0（noriblender の隔離環境。Blender MCP で Claude が作成を補助）",
+      "source": "blender-work/train-bullet.blend",
+      "author": "Hayato-F110",
+      "license": "CC-BY-4.0",
+      "externalAssets": "なし",
+      "importedAt": "2026-11-12"
+    },
+    {
+      "name": "train-commuter",
+      "file": "train-commuter.glb",
+      "sha256": "5277d936d585a4bab06b3ceb32d217747c0c545cc89a27c75319f05588fc3db8",
+      "bytes": 101712,
+      "triangles": 4416,
+      "size": {
+        "width": 2.24,
+        "height": 2.8,
+        "length": 7.03
+      },
+      "createdWith": "Blender 5.3.0（noriblender の隔離環境。Blender MCP で Claude が作成を補助）",
+      "source": "blender-work/train-commuter.blend",
+      "author": "Hayato-F110",
+      "license": "CC-BY-4.0",
+      "externalAssets": "なし",
+      "importedAt": "2026-11-12"
     },
     {
       "name": "tree-a",

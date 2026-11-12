@@ -18,6 +18,7 @@ import { startQuality } from "./render/qualityControl";
 import { createStage2View } from "./render/stage2View";
 import { createStatusView } from "./render/statusView";
 import { loadTreeModels } from "./render/trees";
+import { createTrainChoice } from "./input/trainChoice";
 
 export const startStage2 = async (canvas: HTMLCanvasElement, hud: HTMLElement, showDebug: boolean) => {
   const byId = (id: string) => {
@@ -82,10 +83,54 @@ export const startStage2 = async (canvas: HTMLCanvasElement, hud: HTMLElement, s
     quality.lookLoaded(look);
   });
 
-  // ---- 列車：箱で始め、GLB（train）が読めたら差しかえる ----
+  // ---- 列車：箱で始め、選んだ列車の GLB が読めたら差しかえる（NORI-59。選ぶまで時間は進まない） ----
   let trainView: CarView = createBoxTrain();
   scene.add(trainView.root);
   const gltfLoader = new GLTFLoader();
+  const loadTrain = (name: string) =>
+    loadCarView({
+      base: import.meta.env.BASE_URL,
+      name,
+      fetchManifest: async (url) => (await (await fetch(url)).json()) as ModelManifest,
+      loadModel: async (url) => (await gltfLoader.loadAsync(url)).scene,
+    });
+  let trainModel: "box" | "glb" = "box";
+  const chooser = createTrainChoice(byId("train-choice"), (name) => {
+    void loadTrain(name).then((loaded) => {
+      if (loaded === null) return;
+      scene.remove(trainView.root);
+      trainView = loaded;
+      trainView.root.rotation.order = "YXZ";
+      scene.add(trainView.root);
+      trainModel = "glb";
+    });
+  });
+  // Blender の山3種と駅（NORI-59）：読めたものだけ差しかえる（読めなければ今の形のまま）
+  void (async () => {
+    try {
+      const base = import.meta.env.BASE_URL;
+      const manifest = (await (await fetch(`${base}models/manifest.json`)).json()) as ModelManifest;
+      const load = async (name: string) => {
+        const entry = manifest.models.find((m) => m.name === name);
+        if (entry === undefined) return null;
+        try {
+          return (await gltfLoader.loadAsync(`${base}models/${entry.file}`)).scene;
+        } catch {
+          return null;
+        }
+      };
+      const [a, b, c, station] = await Promise.all(
+        ["mountain-a", "mountain-b", "mountain-c", "station"].map(load),
+      );
+      view.useLandmarks({ mountains: [a ?? null, b ?? null, c ?? null], station: station ?? null });
+    } catch {
+      // 一覧が読めなければ今の形のまま
+    }
+  })();
+  // すれ違う電車は、ふつうの電車の形を色違いで使う
+  void loadTrain("train-commuter").then((loaded) => {
+    if (loaded !== null) view.usePassingModel(loaded.root);
+  });
   // 木（NORI-26）：Blender の木の形が読めたら渡す（素材が貼れたときだけ使う。読めなければ今の簡単な木）
   void loadTreeModels({
     base: import.meta.env.BASE_URL,
@@ -93,20 +138,6 @@ export const startStage2 = async (canvas: HTMLCanvasElement, hud: HTMLElement, s
     loadModel: async (url) => (await gltfLoader.loadAsync(url)).scene,
   }).then((models) => {
     if (models !== null) view.trees.setModels(models);
-  });
-  let trainModel: "box" | "glb" = "box";
-  void loadCarView({
-    base: import.meta.env.BASE_URL,
-    name: "train",
-    fetchManifest: async (url) => (await (await fetch(url)).json()) as ModelManifest,
-    loadModel: async (url) => (await gltfLoader.loadAsync(url)).scene,
-  }).then((loaded) => {
-    if (loaded === null) return;
-    scene.remove(trainView.root);
-    trainView = loaded;
-    trainView.root.rotation.order = "YXZ";
-    scene.add(trainView.root);
-    trainModel = "glb";
   });
 
   const camera = new THREE.PerspectiveCamera(CAMERA.fov, 1, 0.1, 700);
@@ -192,6 +223,12 @@ export const startStage2 = async (canvas: HTMLCanvasElement, hud: HTMLElement, s
     get trees() {
       return view.trees.mode;
     },
+    trainChoice: () => chooser.chosen,
+    landmarks: () => ({ ...view.landmarks }),
+    passingTrain: () => {
+      const p = view.passing.position;
+      return { x: p.x, y: p.y, z: p.z };
+    },
     screenOf: (x, y, z) => {
       projected.set(x, y, z).project(camera);
       return {
@@ -210,10 +247,14 @@ export const startStage2 = async (canvas: HTMLCanvasElement, hud: HTMLElement, s
     const frameSeconds = Math.min(0.25, (now - lastTime) / 1000);
     lastTime = now;
     input = mergeInputs([keyboard.read(), touch.read(), ...gamepads.read()]);
-    const { alpha } = stepper.advance(frameSeconds, () => {
-      previous = current;
-      current = game.step(current, input);
-    });
+    // 列車を選ぶまでは時間を進めない（描画だけ続ける）
+    const { alpha } =
+      chooser.chosen === null
+        ? { alpha: 1 }
+        : stepper.advance(frameSeconds, () => {
+            previous = current;
+            current = game.step(current, input);
+          });
 
     // 前の刻みとの間を補間（輪の切れ目をまたぐときは、近いほうの向きで）
     const length = game.track.length;
@@ -226,7 +267,12 @@ export const startStage2 = async (canvas: HTMLCanvasElement, hud: HTMLElement, s
     trainView.root.position.set(pose.x, pose.y, pose.z);
     trainView.root.rotation.set(pose.pitch, pose.heading, 0, "YXZ");
     trainView.update(moved, 0);
-    view.update(current, now / 1000, reducedMotion.matches);
+    view.update(
+      current,
+      now / 1000,
+      reducedMotion.matches,
+      previous.tick + (current.tick - previous.tick) * alpha,
+    );
     statusView.update(current.tick, {
       stars: [],
       nextCheckpoint: current.nextStation,

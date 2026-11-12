@@ -59,6 +59,12 @@ declare global {
         ring: { x: number; y: number; z: number };
         sky: { x: number; y: number; z: number };
       };
+      /** ステージ2で選んだ列車（まだなら null。NORI-59） */
+      trainChoice?: () => string | null;
+      /** ステージ2で Blender の山・駅に差しかえた数（NORI-59） */
+      landmarks?: () => { mountains: number; stations: number };
+      /** ステージ2のすれ違う電車の今の位置（NORI-59） */
+      passingTrain?: () => { x: number; y: number; z: number };
       /** ステージ3の空の景色（NORI-60）：数と、ほかの飛行機の形（"glb" は自作の plane.glb の色違い） */
       skyScenery?: () => {
         planes: number;

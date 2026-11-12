@@ -18,9 +18,16 @@ const watchErrors = (page: Page) => {
   return errors;
 };
 
-const ready = async (page: Page) => {
+/** 開いて、乗る列車を選ぶ（NORI-59。選ぶまで時間は進まない） */
+const ready = async (page: Page, choice: string = "train") => {
   await page.goto("./?stage=2");
   await page.waitForFunction(() => (window.__nori?.frames ?? 0) > 5, undefined, { timeout: 60_000 });
+  await expect(page.locator("#train-choice button")).toHaveCount(3);
+  // 選ぶ前は時間が止まっている
+  expect(await page.evaluate(() => window.__nori?.train?.()?.tick)).toBe(0);
+  await page.locator(`#train-choice button[data-train="${choice}"]`).click();
+  await expect(page.locator("#train-choice")).toBeHidden();
+  expect(await page.evaluate(() => window.__nori?.trainChoice?.())).toBe(choice);
 };
 
 /** ブレーキで駅のホーム（±6 m）に止まれる所まで、すすむ。そのあとブレーキで止める（刻みで待つので CI の遅さに左右されない） */
@@ -46,10 +53,38 @@ const driveToFirstStation = async (page: Page, testInfo?: TestInfo) => {
 
 const train = (page: Page) => page.evaluate(() => window.__nori?.train?.());
 
-test("ステージ2：走って駅に止まると、上の表示の旗に色が付く", async ({ page }, testInfo) => {
+// どの列車を選んでも、同じ走り方で駅に止まれる（速さ・操作は同じ。NORI-59）
+for (const choice of ["train", "train-commuter", "train-bullet"]) {
+  test(`ステージ2（${choice}）：走って駅に止まると、上の表示の旗に色が付く`, async ({ page }, testInfo) => {
+    await driveAndStop(page, testInfo, choice);
+  });
+}
+
+// すれ違う電車・海辺・富士山風の山・雲（NORI-59）
+test("ステージ2の景色：すれ違う電車が動き、海辺と遠くの山が見える", async ({ page }, testInfo) => {
+  test.setTimeout(120_000);
+  const errors = watchErrors(page);
+  await ready(page, "train-bullet");
+  const a = await page.evaluate(() => window.__nori?.passingTrain?.());
+  await page.waitForTimeout(1000);
+  const b = await page.evaluate(() => window.__nori?.passingTrain?.());
+  expect(Math.hypot((b?.x ?? 0) - (a?.x ?? 0), (b?.z ?? 0) - (a?.z ?? 0))).toBeGreaterThan(2);
+  // Blender の山・駅に差しかわる
+  await page.waitForFunction(() => (window.__nori?.landmarks?.().stations ?? 0) === 3, undefined, {
+    timeout: 30_000,
+  });
+  expect((await page.evaluate(() => window.__nori?.landmarks?.()))?.mountains).toBeGreaterThan(10);
+  await page.keyboard.down("ArrowUp");
+  await page.waitForTimeout(6000);
+  await page.keyboard.up("ArrowUp");
+  await page.screenshot({ path: testInfo.outputPath("stage2-scenery.png") });
+  expect(errors).toEqual([]);
+});
+
+const driveAndStop = async (page: Page, testInfo: TestInfo, choice: string) => {
   test.setTimeout(180_000);
   const errors = watchErrors(page);
-  await ready(page);
+  await ready(page, choice);
   expect(await page.evaluate(() => window.__nori?.stage)).toBe(2);
   await expect(page.locator("#status")).toBeVisible();
   await expect(page.locator("#star-count")).toBeHidden(); // ほしは置かない
@@ -68,7 +103,7 @@ test("ステージ2：走って駅に止まると、上の表示の旗に色が�
   await page.screenshot({ path: testInfo.outputPath("03-station.png") });
   expect(await page.evaluate(() => window.__nori?.carModel)).toBe("glb");
   expect(errors).toEqual([]);
-});
+};
 
 for (const mode of ["高画質", "低画質"] as const) {
   test(`ステージ2の見た目（${mode}）：駅の旗が土手より目立つ`, async ({ page }, testInfo) => {

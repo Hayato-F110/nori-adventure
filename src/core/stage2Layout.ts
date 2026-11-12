@@ -1,6 +1,7 @@
 // ステージ2の景色の配置（山・木・駅のホーム。NORI-26）。描画（stage2View）と光のベイク（Blender）で同じものを使う。
 // 純粋な計算だけ（Three.js・乱数・時刻を使わない）。同じ線路・駅 → 同じ配置。
 // 見た目だけの配置で、ゲームの状態（列車・駅に着いたか）には影響しない。
+import { SIM, STAGE2 } from "../config";
 import type { Track } from "./track";
 
 /** 線路の断面とホームの寸法（m。見た目だけ） */
@@ -41,7 +42,14 @@ export const offsetOnTrack = (track: Track, s: number, lateral: number) => {
 export const createStage2Scenery = (track: Track, stations: readonly number[]): Stage2Scenery => {
   const hash = sceneryHash;
   const samples = Array.from({ length: Math.ceil(track.length / 4) }, (_, i) => track.pointAt(i * 4));
+  // すれ違う電車の線路（左 STAGE2.passingOffset。NORI-59）
+  const passing = Array.from({ length: Math.ceil(track.length / 4) }, (_, i) =>
+    offsetOnTrack(track, i * 4, -STAGE2.passingOffset),
+  );
   const toTrack = (x: number, z: number) => Math.min(...samples.map((p) => Math.hypot(p.x - x, p.z - z)));
+  const toPassing = (x: number, z: number) => Math.min(...passing.map((p) => Math.hypot(p.x - x, p.z - z)));
+  // 海辺（z が STAGE2.seaFromZ より先）には、山・木を置かない
+  const inSea = (z: number, margin: number) => z + margin > STAGE2.seaFromZ;
   const { platform } = STAGE2_SCENERY;
 
   const platforms = stations.map((at) => ({
@@ -60,6 +68,7 @@ export const createStage2Scenery = (track: Track, stations: readonly number[]): 
     const x = Math.cos(angle) * distance;
     const z = Math.sin(angle) * distance;
     if (toTrack(x, z) < radius + 10) continue;
+    if (inSea(z, radius)) continue;
     mountains.push({ x, z, radius, height, rotation: hash(i + 400) * Math.PI });
   }
 
@@ -69,7 +78,8 @@ export const createStage2Scenery = (track: Track, stations: readonly number[]): 
     const s = hash(i + 1000) * track.length;
     const side = hash(i + 2000) < 0.5 ? -1 : 1;
     const p = offsetOnTrack(track, s, side * (9 + hash(i + 3000) * 26));
-    if (toTrack(p.x, p.z) < 8) continue;
+    if (toTrack(p.x, p.z) < 8 || toPassing(p.x, p.z) < 6) continue;
+    if (inSea(p.z, 3)) continue;
     if (platforms.some((q) => Math.hypot(q.x - p.x, q.z - p.z) < 12)) continue;
     spots.push({ x: p.x, z: p.z });
   }
@@ -81,4 +91,13 @@ export const createStage2Scenery = (track: Track, stations: readonly number[]): 
   }));
 
   return { mountains, trees, platforms };
+};
+
+/**
+ * すれ違う電車の、線路の上の距離（m。NORI-59）。逆向きに STAGE2.passingSpeed で回る。時刻（tick）だけで決まる。
+ * 位置は線路の左 STAGE2.passingOffset（offsetOnTrack で求める）
+ */
+export const passingTrainDistance = (trackLength: number, tick: number): number => {
+  const d = STAGE2.passingStart - STAGE2.passingSpeed * tick * SIM.fixedDt;
+  return ((d % trackLength) + trackLength) % trackLength;
 };

@@ -6,16 +6,19 @@ import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { ASSET, LOOK } from "../config";
 import type { ModelManifest } from "./carModel";
 
-/** 並べる順（ステージの順。最後に木 NORI-26）。manifest にないものは飛ばす */
+/** 並べる順（ステージの順。最後に木 NORI-26・海の生きもの・ステージ2の景色 NORI-59）。manifest にないものは飛ばす */
 export const GALLERY_ORDER = [
   "car",
   "train",
+  "train-commuter",
+  "train-bullet",
   "plane",
   "sub",
   "rover",
   "tree-a",
   "tree-b",
   ...ASSET.sea.variants,
+  ...ASSET.landmark.variants,
 ] as const;
 /** 隣との間（m） */
 export const GALLERY_GAP = 1.5;
