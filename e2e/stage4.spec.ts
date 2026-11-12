@@ -1,5 +1,5 @@
 import { expect, type Page, test, type TestInfo } from "@playwright/test";
-import { luminanceAt, ratio } from "./luminance";
+import { luminanceAt, peakLuminanceAt, ratio } from "./luminance";
 
 // NORI-28：ステージ4（海・潜水艇）。?stage=4 で開き、キーボードで生きもの（1匹目）へ操縦すると、上の表示の数が増える。
 // たからばこと水の明るさの比 3 以上（高画質・低画質）。スクリーンショット・コンソールエラー・FPS。
@@ -139,6 +139,56 @@ const checkLook = async (page: Page, testInfo: TestInfo, mode: "高画質" | "�
   expect(contrast, JSON.stringify({ quality, treasure, water, points })).toBeGreaterThanOrEqual(MIN_CONTRAST);
   expect(errors).toEqual([]);
 };
+
+// NORI-62：生きものの印（きらきら）も、まわりの水との明るさの比 3 以上（docs/game-rules.md「ステージ4」の見た目）。
+// 灰色でいちばん水に近いエイ（1匹目から数えて2番目）のまわりで確かめる
+test("ステージ4の見た目：生きもの（エイ）のきらきらがまわりの水より目立つ", async ({ page }, testInfo) => {
+  test.setTimeout(180_000);
+  const errors = watchErrors(page);
+  // きらきらの回転を止める（位置を読んでから撮るまでに、回ってずれないように）
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await ready(page);
+  await page.waitForFunction(() => window.__nori?.seaModels === 7, undefined, { timeout: 30_000 });
+  const RAY = 1;
+  // エイの 6 m 上をめざし、14 m まで近づく（真後ろからだと潜水艇に隠れる。上から見下ろす）
+  await steerTo(
+    page,
+    () =>
+      page.evaluate((i) => {
+        const s = window.__nori?.sub?.();
+        const c = window.__nori?.creatures?.()[i];
+        return s && c ? { sub: s.sub, goal: { ...c, y: c.y + 6 }, done: false } : null;
+      }, RAY),
+    14,
+  );
+  // 時間を止めて、2コマ描くのを待つ（遅い CI で、位置を読んでから撮るまでにエイが泳いでずれないように）
+  await page.evaluate(() => window.__nori?.freeze?.(true));
+  const frozenFrames = await page.evaluate(() => window.__nori?.frames ?? 0);
+  await page.waitForFunction((n) => (window.__nori?.frames ?? 0) >= n + 2, frozenFrames, { timeout: 30_000 });
+  // きらきら（1つめ）と、エイの横 6 m の水（きらきらの輪の外）
+  const points = await page.evaluate((i) => {
+    const c = window.__nori?.creatures?.()[i];
+    const k = window.__nori?.sparkles?.()[i];
+    const s = (x: number, y: number, z: number) => window.__nori?.screenOf(x, y, z) ?? { x: 0, y: 0 };
+    return c && k ? [s(k.x, k.y, k.z), s(c.x + 6, c.y, c.z)] : [];
+  }, RAY);
+  expect(points).toHaveLength(2);
+  const viewport = page.viewportSize() ?? { width: 0, height: 0 };
+  for (const p of points) {
+    expect(p.x).toBeGreaterThanOrEqual(2);
+    expect(p.x).toBeLessThanOrEqual(viewport.width - 3);
+    expect(p.y).toBeGreaterThanOrEqual(2);
+    expect(p.y).toBeLessThanOrEqual(viewport.height - 3);
+  }
+  await page.screenshot({ path: testInfo.outputPath("stage4-ray.png") });
+  const [, water = 0] = await luminanceAt(page, points);
+  // きらきらは小さい（約 20 px）ので、読んだ点のまわり 10 px でいちばん明るいところを測る
+  const sparkle = await peakLuminanceAt(page, points[0] ?? { x: 0, y: 0 }, 10);
+  await page.evaluate(() => window.__nori?.freeze?.(false));
+  const contrast = ratio(sparkle, water);
+  expect(contrast, JSON.stringify({ sparkle, water, points })).toBeGreaterThanOrEqual(MIN_CONTRAST);
+  expect(errors).toEqual([]);
+});
 
 test("ステージ4：CPU を4倍遅くしても 30fps 以上", { tag: "@fps" }, async ({ page }) => {
   test.skip(skipFps, "GPU のない CI では FPS を測らない");

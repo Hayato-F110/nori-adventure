@@ -155,6 +155,64 @@ test.describe("スマホ（縦向き 390×844・タッチ）", () => {
   });
 });
 
+// NORI-62：ステージ3・4は ▲（うえ）▼（した）を右に縦に並べる。docs/game-rules.md「入力」の「上下のボタン」
+test.describe("上下のボタン：タブレット（1024×768・タッチ）・ステージ4", () => {
+  test.use({ viewport: { width: 1024, height: 768 }, hasTouch: true, isMobile: true });
+
+  test("▲ が ▼ の真上にあり、どちらも 64 px 以上。▲ を押すと上がる", async ({ page }, testInfo) => {
+    const errors = collectErrors(page);
+    await page.goto("./?stage=4");
+    await waitStarted(page);
+    await page.touchscreen.tap(512, 200);
+    const up = await center(page, "#go");
+    const down = await center(page, "#back");
+    await expect(page.locator("#go")).toHaveAttribute("aria-label", "うえ");
+    await expect(page.locator("#back")).toHaveAttribute("aria-label", "した");
+    for (const b of [up.box, down.box]) expect(Math.min(b.width, b.height)).toBeGreaterThanOrEqual(64);
+    expect(up.box.width).toBe(down.box.width); // 主と副がないので同じ大きさ
+    expect(Math.abs(up.x - down.x)).toBeLessThan(1); // 縦にそろう
+    // ▲ が上。すき間はほかのボタンと同じ 20 px（小さな指で両方に触れない）
+    expect(down.box.y - (up.box.y + up.box.height)).toBeGreaterThanOrEqual(19);
+    await page.screenshot({ path: testInfo.outputPath("tablet-updown.png") });
+
+    // ▲ を押したままにすると、潜水艇が上がる（y が増える）
+    const depthNow = () => page.evaluate(() => window.__nori?.sub?.().sub.y ?? Number.NaN);
+    const before = await depthNow();
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send("Input.dispatchTouchEvent", {
+      type: "touchStart",
+      touchPoints: [{ x: up.x, y: up.y, id: 1 }],
+    });
+    const startTick = await page.evaluate(() => window.__nori?.sub?.().tick ?? 0);
+    await page.waitForFunction((t) => (window.__nori?.sub?.().tick ?? 0) >= t + 60, startTick, {
+      timeout: 90_000,
+    });
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+    expect(await depthNow()).toBeGreaterThan(before + 0.5);
+    expect(errors).toEqual([]);
+  });
+});
+
+test.describe("上下のボタン：スマホ（横向き 844×390・タッチ）・ステージ3", () => {
+  test.use({ viewport: { width: 844, height: 390 }, hasTouch: true, isMobile: true });
+
+  test("▲▼ とハンドルが重ならず、画面の中に収まる", async ({ page }, testInfo) => {
+    const errors = collectErrors(page);
+    await page.goto("./?stage=3");
+    await waitStarted(page);
+    await page.touchscreen.tap(422, 150);
+    const up = (await center(page, "#go")).box;
+    const down = (await center(page, "#back")).box;
+    const wheel = (await center(page, "#wheel")).box;
+    expect(wheel.x + wheel.width).toBeLessThan(Math.min(up.x, down.x));
+    expect(up.y).toBeGreaterThanOrEqual(0);
+    expect(down.y + down.height).toBeLessThanOrEqual(390);
+    expect(up.y + up.height).toBeLessThan(down.y);
+    await page.screenshot({ path: testInfo.outputPath("phone-updown.png") });
+    expect(errors).toEqual([]);
+  });
+});
+
 test.describe("スマホ（横向き 844×390・タッチ）", () => {
   test.use({ viewport: { width: 844, height: 390 }, hasTouch: true, isMobile: true });
 

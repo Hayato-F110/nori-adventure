@@ -195,6 +195,19 @@ body {
   right: calc(var(--touch-gap) * 2 + var(--touch-go-button) + env(safe-area-inset-right, 0px));
 }
 
+/* 上下のボタン（ステージ3・4。NORI-62）：右に ▲（上）▼（下）を縦に、同じ大きさで */
+.touch-updown .touch-go,
+.touch-updown .touch-back {
+  width: var(--touch-button);
+  height: var(--touch-button);
+  right: calc(var(--touch-gap) + env(safe-area-inset-right, 0px));
+}
+
+.touch-updown .touch-go {
+  /* ▼ の上に、ほかのボタンと同じすき間（--touch-gap）をあける。小さな指で両方に触れないように */
+  bottom: calc(var(--touch-gap) * 2 + var(--touch-button) + env(safe-area-inset-bottom, 0px));
+}
+
 /* ハンドル：つまみが左右に最大 --touch-steer-range だけ動く。横の幅はその2倍＋つまみ */
 .touch-wheel {
   left: calc(var(--touch-gap) + env(safe-area-inset-left, 0px));

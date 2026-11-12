@@ -30,6 +30,8 @@ export type Stage4View = {
   waterAt(depth: number): THREE.Color;
   /** 生きもの（番号 i）の今の位置（E2E で操縦の目標にする） */
   creatureAt(i: number): Point3;
+  /** 生きもの（番号 i）のきらきら（1つめ）の今の位置。見つけたあとは null（E2E で明るさの比を測る） */
+  sparkleAt(i: number): Point3 | null;
   /** たからばこの真ん中と、横の海底（E2E で明るさの比を測る） */
   marker(): { treasure: THREE.Vector3; water: THREE.Vector3 };
   /**
@@ -59,6 +61,21 @@ const seaParts = (model: THREE.Object3D) => {
 
 const std = (color: THREE.ColorRepresentation, extra: THREE.MeshStandardMaterialParameters = {}) =>
   new THREE.MeshStandardMaterial({ color, roughness: 0.8, ...extra });
+
+/**
+ * 生きものを、自分の色の STAGE4.creatureGlow 倍だけ自ら光らせる（青い水の中でも見えるように。NORI-62）。
+ * 素材は生きものごとに別にする（GLB の素材を書き換えるので、ほかと共有しない）
+ */
+const selfLit = <T extends THREE.Object3D>(obj: T): T => {
+  obj.traverse((o) => {
+    if (!(o instanceof THREE.Mesh) || !(o.material instanceof THREE.MeshStandardMaterial)) return;
+    const m = o.material.clone();
+    m.emissive.copy(m.color).multiplyScalar(STAGE4.creatureGlow);
+    m.emissiveIntensity = 1;
+    o.material = m;
+  });
+  return obj;
+};
 
 /** 生きものの簡単な形（前は −Z。大きさはおよそ 1〜3 m） */
 const creatureMesh = (kind: Creature["kind"]): THREE.Object3D => {
@@ -252,7 +269,7 @@ export const createStage4View = (hints: readonly Hint[], treasure: Point3): Stag
   const creatures = STAGE4.creatures.map((c) => {
     const mesh = new THREE.Group();
     mesh.name = c.kind;
-    let shape = creatureMesh(c.kind);
+    let shape = selfLit(creatureMesh(c.kind));
     const star = new THREE.Mesh(new THREE.OctahedronGeometry(STAGE4.foundStarSize), starMat);
     star.name = "star";
     star.position.y = 1.4 + STAGE4.foundStarGap; // 簡単な形の高さの半分（約 1.4 m）の上
@@ -267,6 +284,42 @@ export const createStage4View = (hints: readonly Hint[], treasure: Point3): Stag
     };
     return { c, mesh, star, replace };
   });
+
+  // まだ見つけていない生きもののまわりの「きらきら」（光に左右されない色。見つけたら消えて星になる）
+  // 全部で1つの InstancedMesh（生きもの × sparkleCount 個）。生きものの端から sparkleGap 外を水平に回る
+  const sparkles = new THREE.InstancedMesh(
+    // 丸い粒（見つけた印の星＝八面体と、形でも分ける）
+    new THREE.SphereGeometry(STAGE4.sparkleSize / 2, 8, 6),
+    new THREE.MeshBasicMaterial({
+      color: new THREE.Color(STAGE4.sparkleColor).multiplyScalar(STAGE4.sparkleGlow),
+      toneMapped: false,
+    }),
+    creatures.length * STAGE4.sparkleCount,
+  );
+  sparkles.name = "sparkles";
+  root.add(sparkles);
+  const sparkleRadius = creatures.map(({ c }) => {
+    const size = ASSET.sea.sizes[`sea-${c.kind}` as SeaName];
+    return Math.max(size.width, size.length) / 2 + STAGE4.sparkleGap;
+  });
+  const sparklePos = creatures.map(() => new THREE.Vector3());
+  const hidden = new THREE.Vector3(0, 0, 0);
+  const placeSparkles = (seconds: number, found: readonly boolean[]) => {
+    creatures.forEach(({ mesh }, i) => {
+      for (let k = 0; k < STAGE4.sparkleCount; k++) {
+        const a =
+          (2 * Math.PI * seconds) / STAGE4.sparkleTurnSeconds + (2 * Math.PI * k) / STAGE4.sparkleCount;
+        const r = sparkleRadius[i] ?? STAGE4.sparkleGap;
+        pos.set(mesh.position.x + Math.cos(a) * r, mesh.position.y, mesh.position.z + Math.sin(a) * r);
+        if (k === 0) sparklePos[i]?.copy(pos);
+        sparkles.setMatrixAt(
+          i * STAGE4.sparkleCount + k,
+          m4.compose(pos, q.identity(), found[i] === true ? hidden : one),
+        );
+      }
+    });
+    sparkles.instanceMatrix.needsUpdate = true;
+  };
 
   // まわりの魚の群れ（景色だけ）：群れごとに円を回る。1匹ずつ少しずらす
   const schoolColor = (s: number) => STAGE4.schoolColors[s % STAGE4.schoolColors.length] ?? "#ffffff";
@@ -328,6 +381,7 @@ export const createStage4View = (hints: readonly Hint[], treasure: Point3): Stag
       if (model === undefined || model.getObjectByName(ASSET.sea.nodes[0]) === undefined) continue;
       const height = ASSET.sea.sizes[name].height;
       const holder = new THREE.Group();
+      selfLit(model);
       model.position.y = -height / 2; // モデルの原点は底の中心。状態の位置は生きものの真ん中
       holder.add(model);
       cr.replace(holder, height);
@@ -365,6 +419,7 @@ export const createStage4View = (hints: readonly Hint[], treasure: Point3): Stag
     return used;
   };
 
+  let lastFound: readonly boolean[] = [];
   const water = new THREE.Color();
   return {
     root,
@@ -379,12 +434,14 @@ export const createStage4View = (hints: readonly Hint[], treasure: Point3): Stag
       const t = reducedMotion ? 0 : seconds;
       placeSchools(t);
       placeBubbles(t);
+      lastFound = state.found;
       creatures.forEach(({ c, mesh, star }, i) => {
         const p = creaturePosition(c, state.tick);
         mesh.position.set(p.x, p.y, p.z);
         mesh.rotation.y = p.heading;
         star.visible = state.found[i] === true;
       });
+      placeSparkles(t, state.found);
       // ゴールしたら、約1秒でふたが開く
       const open =
         state.finishTick === null
@@ -394,6 +451,11 @@ export const createStage4View = (hints: readonly Hint[], treasure: Point3): Stag
     },
     waterAt(depth) {
       return water.copy(WATER_SHALLOW).lerp(WATER_DEEP, Math.min(1, Math.max(0, depth / STAGE4.maxDepth)));
+    },
+    sparkleAt(i) {
+      if (lastFound[i] === true) return null;
+      const p = sparklePos[i];
+      return p === undefined ? null : { x: p.x, y: p.y, z: p.z };
     },
     creatureAt(i) {
       const m = creatures[i]?.mesh;
