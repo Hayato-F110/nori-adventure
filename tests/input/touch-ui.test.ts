@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { INPUT } from "../../src/config/index.ts";
+import { touchLayoutFor, UP_DOWN_BUTTONS } from "../../src/input/touch.ts";
 
 // タッチの操作の見た目（index.html・src/style.css）が、決まり（INPUT・子ども向け UI）に合っているか。
 const root = path.resolve(import.meta.dirname, "../..");
@@ -30,6 +31,32 @@ describe("タッチの操作の見た目", () => {
     expect(textBetweenTags(touchHtml)).toEqual([]);
     expect(touchHtml).toMatch(/aria-label="すすむ"/);
     expect(touchHtml).toMatch(/aria-label="さがる"/);
+  });
+
+  // docs/game-rules.md「入力」の「上下のボタン（ステージ3・4）」（NORI-62）
+  it("上下のボタンは、ステージ3・4だけ。ステージ1・2・5は ▶ ◀ のまま", () => {
+    expect([1, 2, 3, 4, 5].map(touchLayoutFor)).toEqual(["drive", "drive", "updown", "updown", "drive"]);
+  });
+
+  it("上下のボタンの読み上げは「うえ」「した」。絵は上向き・下向きの三角", () => {
+    expect(UP_DOWN_BUTTONS.up.label).toBe("うえ");
+    expect(UP_DOWN_BUTTONS.down.label).toBe("した");
+    // 三角の頂点（y がいちばん小さい点・大きい点）が真ん中（x=50）にある → 上向き・下向き
+    const tip = (d: string, pick: (a: number, b: number) => number) => {
+      const pts = [...d.matchAll(/(\d+) (\d+)/g)].map((m) => ({ x: Number(m[1]), y: Number(m[2]) }));
+      return pts.reduce((a, b) => (pick(a.y, b.y) === a.y ? a : b));
+    };
+    expect(tip(UP_DOWN_BUTTONS.up.path, Math.min).x).toBe(50);
+    expect(tip(UP_DOWN_BUTTONS.down.path, Math.max).x).toBe(50);
+  });
+
+  it("上下のボタンは2つとも --touch-button（96 px）で、右にそろえる", () => {
+    const block =
+      /\.touch-updown \.touch-go,\s*\.touch-updown \.touch-back\s*\{([^}]*)\}/.exec(css)?.[1] ?? "";
+    expect(block).toMatch(/width:\s*var\(--touch-button\)/);
+    expect(block).toMatch(/height:\s*var\(--touch-button\)/);
+    expect(block).toMatch(/right:/);
+    expect(css).toMatch(/\.touch-updown \.touch-go\s*\{[^}]*bottom:/);
   });
 
   it("長押しのメニュー・虫めがねを出さない（-webkit-touch-callout: none）", () => {

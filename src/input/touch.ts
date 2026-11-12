@@ -8,6 +8,22 @@ import { scaleWithDeadzone } from "./merge";
 export const steerFromOffset = (dx: number): number =>
   scaleWithDeadzone(dx, INPUT.touchSteerDeadzone, INPUT.touchSteerRange);
 
+/**
+ * ボタンの並べ方（docs/game-rules.md「入力」の「上下のボタン」。NORI-62）。
+ * drive：右下に ▶（すすむ）◀（さがる）。updown：右に ▲（うえ）▼（した）を縦に。中の値は同じ（▲ ＝ すすむ ＋1）
+ */
+export type TouchLayout = "drive" | "updown";
+
+/** いつも前へ進む乗り物（ステージ3 飛行機・ステージ4 潜水艇）は、▶ ◀ を上下に使うので ▲▼ にする */
+export const touchLayoutFor = (stage: number): TouchLayout =>
+  stage === 3 || stage === 4 ? "updown" : "drive";
+
+/** 上下のボタンの絵（三角。viewBox 0〜100）と読み上げ */
+export const UP_DOWN_BUTTONS = {
+  up: { path: "M18 68 L50 26 L82 68 Z", label: "うえ" },
+  down: { path: "M18 32 L50 74 L82 32 Z", label: "した" },
+} as const;
+
 export type TouchControls = {
   forward: HTMLElement;
   backward: HTMLElement;
@@ -17,7 +33,17 @@ export type TouchControls = {
   root: HTMLElement;
 };
 
-export const createTouchInput = (el: TouchControls, win: Window = window) => {
+export const createTouchInput = (el: TouchControls, win: Window = window, layout: TouchLayout = "drive") => {
+  if (layout === "updown") {
+    // 見た目と読み上げだけを替える（並べ方は CSS の .touch-updown）
+    el.root.classList.add("touch-updown");
+    const set = (button: HTMLElement, b: { path: string; label: string }) => {
+      button.setAttribute("aria-label", b.label);
+      button.querySelector("path")?.setAttribute("d", b.path);
+    };
+    set(el.forward, UP_DOWN_BUTTONS.up);
+    set(el.backward, UP_DOWN_BUTTONS.down);
+  }
   const forwardIds = new Set<number>();
   const backwardIds = new Set<number>();
   let wheelId: number | null = null;

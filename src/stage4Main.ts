@@ -10,7 +10,7 @@ import type { InputFrame } from "./core/types";
 import { createGamepadInput } from "./input/gamepad";
 import { createKeyboardInput } from "./input/keyboard";
 import { mergeInputs } from "./input/merge";
-import { createTouchInput } from "./input/touch";
+import { createTouchInput, touchLayoutFor } from "./input/touch";
 import type { ModelManifest } from "./render/carModel";
 import { loadLook } from "./render/look";
 import { startQuality } from "./render/qualityControl";
@@ -146,13 +146,17 @@ export const startStage4 = async (canvas: HTMLCanvasElement, hud: HTMLElement, s
 
   // ---- 入力と上の表示（見つけた生きものの数・時間） ----
   const keyboard = createKeyboardInput(window);
-  const touch = createTouchInput({
-    root: byId("touch"),
-    forward: byId("go"),
-    backward: byId("back"),
-    wheel: byId("wheel"),
-    knob: byId("knob"),
-  });
+  const touch = createTouchInput(
+    {
+      root: byId("touch"),
+      forward: byId("go"),
+      backward: byId("back"),
+      wheel: byId("wheel"),
+      knob: byId("knob"),
+    },
+    window,
+    touchLayoutFor(4), // ▲▼（上下）のボタン
+  );
   const gamepads = createGamepadInput();
   const statusView = createStatusView(
     { starCount: byId("star-count"), flags: [], time: byId("time"), goal: byId("goal") },
