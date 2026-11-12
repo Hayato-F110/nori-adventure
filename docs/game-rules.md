@@ -184,26 +184,34 @@ Blender で作った GLB を `npm run assets:import <名前>` で検査してか
 
 向き・原点・上限・大きさの許容は車と同じ。大きさは各ステージの当たり判定（半径）に合わせ、見た目と判定がずれないようにする。形と色はすべてオリジナル（既存の作品に似せない）。
 
-| 乗り物   | 項目               | 値                                                     | 設定のキー                         | 理由                                                           |
-| -------- | ------------------ | ------------------------------------------------------ | ---------------------------------- | -------------------------------------------------------------- |
-| 列車     | 幅                 | 2.2 m                                                  | `ASSET.vehicles.train.size.width`  | 機関車1両。線路の上だけを走り、当たり判定はない                |
-| 列車     | 高さ               | 2.6 m                                                  | `ASSET.vehicles.train.size.height` | 車より大きく、重さが見える                                     |
-| 列車     | 長さ               | 6.0 m                                                  | `ASSET.vehicles.train.size.length` | 車の約2倍。駅のホーム（12 m）に余裕で入る                      |
-| 列車     | ノードの名前       | `body`・`wheel_FL`・`wheel_FR`・`wheel_RL`・`wheel_RR` | `ASSET.vehicles.train.nodes`       | 車と同じ回し方でタイヤを回す（切らない）                       |
-| 飛行機   | 幅（翼の端から端） | 4.4 m                                                  | `ASSET.vehicles.plane.size.width`  | 当たり判定（半径 1.5 m）に近い。輪（半径 6 m）を余裕でくぐれる |
-| 飛行機   | 高さ               | 1.4 m                                                  | `ASSET.vehicles.plane.size.height` |                                                                |
-| 飛行機   | 長さ               | 3.6 m                                                  | `ASSET.vehicles.plane.size.length` | 当たり判定の直径（3 m）と大きく変わらない                      |
-| 飛行機   | ノードの名前       | `body`・`propeller`                                    | `ASSET.vehicles.plane.nodes`       | プロペラを回す                                                 |
-| 飛行機   | プロペラの位置     | 前（−Z の側）                                          | `ASSET.vehicles.plane.propellerAt` |                                                                |
-| 潜水艇   | 幅                 | 1.8 m                                                  | `ASSET.vehicles.sub.size.width`    | 当たり判定（半径 1.2 m）に収まる丸い形                         |
-| 潜水艇   | 高さ               | 1.8 m                                                  | `ASSET.vehicles.sub.size.height`   |                                                                |
-| 潜水艇   | 長さ               | 3.2 m                                                  | `ASSET.vehicles.sub.size.length`   |                                                                |
-| 潜水艇   | ノードの名前       | `body`・`propeller`・`light`                           | `ASSET.vehicles.sub.nodes`         | `light` は霧の中のライト（NORI-28）を付ける位置                |
-| 潜水艇   | プロペラの位置     | 後ろ（+Z の側）                                        | `ASSET.vehicles.sub.propellerAt`   |                                                                |
-| ローバー | 幅                 | 2.0 m                                                  | `ASSET.vehicles.rover.size.width`  | 当たり判定（半径 1.0 m）。月面で安定して見える広いタイヤの間隔 |
-| ローバー | 高さ               | 1.6 m                                                  | `ASSET.vehicles.rover.size.height` |                                                                |
-| ローバー | 長さ               | 2.8 m                                                  | `ASSET.vehicles.rover.size.length` |                                                                |
-| ローバー | ノードの名前       | `body`・`wheel_FL`・`wheel_FR`・`wheel_RL`・`wheel_RR` | `ASSET.vehicles.rover.nodes`       | 車と同じ回し方・切り方                                         |
+| 乗り物       | 項目               | 値                                                     | 設定のキー                                  | 理由                                                                      |
+| ------------ | ------------------ | ------------------------------------------------------ | ------------------------------------------- | ------------------------------------------------------------------------- |
+| 列車         | 幅                 | 2.2 m                                                  | `ASSET.vehicles.train.size.width`           | 機関車1両。線路の上だけを走り、当たり判定はない                           |
+| 列車         | 高さ               | 2.6 m                                                  | `ASSET.vehicles.train.size.height`          | 車より大きく、重さが見える                                                |
+| 列車         | 長さ               | 6.0 m                                                  | `ASSET.vehicles.train.size.length`          | 車の約2倍。駅のホーム（12 m）に余裕で入る                                 |
+| 列車         | ノードの名前       | `body`・`wheel_FL`・`wheel_FR`・`wheel_RL`・`wheel_RR` | `ASSET.vehicles.train.nodes`                | 車と同じ回し方でタイヤを回す（切らない）                                  |
+| ふつうの電車 | 幅                 | 2.2 m                                                  | `ASSET.vehicles.train-commuter.size.width`  | 子どもが選べる列車（NORI-59）。速さ・操作は列車と同じ（見た目だけ）       |
+| ふつうの電車 | 高さ               | 2.8 m                                                  | `ASSET.vehicles.train-commuter.size.height` | 屋根のパンタグラフの上まで                                                |
+| ふつうの電車 | 長さ               | 7.0 m                                                  | `ASSET.vehicles.train-commuter.size.length` | ホーム（12 m）に入る                                                      |
+| ふつうの電車 | ノードの名前       | `body`・`wheel_FL`・`wheel_FR`・`wheel_RL`・`wheel_RR` | `ASSET.vehicles.train-commuter.nodes`       | 列車と同じ                                                                |
+| 新幹線風     | 幅                 | 2.2 m                                                  | `ASSET.vehicles.train-bullet.size.width`    | 子どもが選べる列車（NORI-59）。オリジナルの形・色（実在の車両をまねない） |
+| 新幹線風     | 高さ               | 2.4 m                                                  | `ASSET.vehicles.train-bullet.size.height`   | 低い車体                                                                  |
+| 新幹線風     | 長さ               | 8.0 m                                                  | `ASSET.vehicles.train-bullet.size.length`   | とがった鼻（2.6 m）を含む。ホーム（12 m）に入る                           |
+| 新幹線風     | ノードの名前       | `body`・`wheel_FL`・`wheel_FR`・`wheel_RL`・`wheel_RR` | `ASSET.vehicles.train-bullet.nodes`         | 列車と同じ                                                                |
+| 飛行機       | 幅（翼の端から端） | 4.4 m                                                  | `ASSET.vehicles.plane.size.width`           | 当たり判定（半径 1.5 m）に近い。輪（半径 6 m）を余裕でくぐれる            |
+| 飛行機       | 高さ               | 1.4 m                                                  | `ASSET.vehicles.plane.size.height`          |                                                                           |
+| 飛行機       | 長さ               | 3.6 m                                                  | `ASSET.vehicles.plane.size.length`          | 当たり判定の直径（3 m）と大きく変わらない                                 |
+| 飛行機       | ノードの名前       | `body`・`propeller`                                    | `ASSET.vehicles.plane.nodes`                | プロペラを回す                                                            |
+| 飛行機       | プロペラの位置     | 前（−Z の側）                                          | `ASSET.vehicles.plane.propellerAt`          |                                                                           |
+| 潜水艇       | 幅                 | 1.8 m                                                  | `ASSET.vehicles.sub.size.width`             | 当たり判定（半径 1.2 m）に収まる丸い形                                    |
+| 潜水艇       | 高さ               | 1.8 m                                                  | `ASSET.vehicles.sub.size.height`            |                                                                           |
+| 潜水艇       | 長さ               | 3.2 m                                                  | `ASSET.vehicles.sub.size.length`            |                                                                           |
+| 潜水艇       | ノードの名前       | `body`・`propeller`・`light`                           | `ASSET.vehicles.sub.nodes`                  | `light` は霧の中のライト（NORI-28）を付ける位置                           |
+| 潜水艇       | プロペラの位置     | 後ろ（+Z の側）                                        | `ASSET.vehicles.sub.propellerAt`            |                                                                           |
+| ローバー     | 幅                 | 2.0 m                                                  | `ASSET.vehicles.rover.size.width`           | 当たり判定（半径 1.0 m）。月面で安定して見える広いタイヤの間隔            |
+| ローバー     | 高さ               | 1.6 m                                                  | `ASSET.vehicles.rover.size.height`          |                                                                           |
+| ローバー     | 長さ               | 2.8 m                                                  | `ASSET.vehicles.rover.size.length`          |                                                                           |
+| ローバー     | ノードの名前       | `body`・`wheel_FL`・`wheel_FR`・`wheel_RL`・`wheel_RR` | `ASSET.vehicles.rover.nodes`                | 車と同じ回し方・切り方                                                    |
 
 検査（`npm run assets:import <名前>`）は、名前（`car`・`train`・`plane`・`sub`・`rover`）でどの決まりを使うかを選ぶ。タイヤ（`wheel_*`）は前が −Z・左が −X、プロペラは左右の中心（x ≈ 0）で決めた側。回る部品のノードには回転を入れない（回すのはゲーム）。
 

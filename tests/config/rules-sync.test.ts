@@ -26,9 +26,9 @@ const rows: Row[] = markdown
   .filter((line) => line.startsWith("|"))
   .flatMap((line) => {
     const cells = line.split("|").slice(1, -1);
-    const keyCellIndex = cells.findIndex((cell) => /`[A-Z0-9]+\.[A-Za-z.]+`/.test(cell));
+    const keyCellIndex = cells.findIndex((cell) => /`[A-Z0-9]+\.[A-Za-z.-]+`/.test(cell));
     if (keyCellIndex < 1) return [];
-    const keys = [...(cells[keyCellIndex] ?? "").matchAll(/`([A-Z0-9]+\.[A-Za-z.]+)`/g)].map(
+    const keys = [...(cells[keyCellIndex] ?? "").matchAll(/`([A-Z0-9]+\.[A-Za-z.-]+)`/g)].map(
       (m) => m[1] ?? "",
     );
     // キーが1つの行だけを対象にする（複数キーの行は値の対応が文章なので対象外）
@@ -57,7 +57,7 @@ describe("game-rules.md と src/config の一致", () => {
   // 逆の向き：設定にだけある数値（文書に書かずに足した数値）がないこと。
   // 文書のどこかの表に、そのキーか、親のキー（例：`STAGE1.start`）が書いてあればよい
   it("src/config の値は、すべて game-rules.md に書いてある", () => {
-    const documented = new Set([...markdown.matchAll(/`([A-Z0-9]+\.[A-Za-z.]+)`/g)].map((m) => m[1] ?? ""));
+    const documented = new Set([...markdown.matchAll(/`([A-Z0-9]+\.[A-Za-z.-]+)`/g)].map((m) => m[1] ?? ""));
     const leaves = (node: unknown, prefix: string): string[] =>
       typeof node === "object" && node !== null
         ? Object.entries(node).flatMap(([k, v]) => leaves(v, prefix === "" ? k : `${prefix}.${k}`))

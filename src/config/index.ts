@@ -324,6 +324,15 @@ export const ASSET = {
       size: { width: 2.2, height: 2.6, length: 6.0 },
       nodes: ["body", "wheel_FL", "wheel_FR", "wheel_RL", "wheel_RR"],
     },
+    /** NORI-59：子どもが選べる列車（ふつうの電車・新幹線風）。速さ・操作は今の列車と同じ */
+    "train-commuter": {
+      size: { width: 2.2, height: 2.8, length: 7.0 },
+      nodes: ["body", "wheel_FL", "wheel_FR", "wheel_RL", "wheel_RR"],
+    },
+    "train-bullet": {
+      size: { width: 2.2, height: 2.4, length: 8.0 },
+      nodes: ["body", "wheel_FL", "wheel_FR", "wheel_RL", "wheel_RR"],
+    },
     plane: {
       size: { width: 4.4, height: 1.4, length: 3.6 },
       nodes: ["body", "propeller"],
