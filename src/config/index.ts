@@ -590,6 +590,12 @@ export const SOUND = {
   attackSeconds: 0.01,
   musicAttackSeconds: 0.02,
   musicFadeInSeconds: 2,
+  musicFadeOutSeconds: 2,
+  /** BGM の1音を、8 分音符の長さのどれだけ鳴らすか（残りは次の音とのすき間） */
+  musicNoteRatio: 0.9,
+  /** BGM を何秒先まで予約するか・最初の音をどれだけ遅らせるか */
+  scheduleAheadSeconds: 0.3,
+  scheduleLeadSeconds: 0.05,
   muteRampSeconds: 0.1,
   /** 使ってよい音の高さ（MIDI の番号。110〜1319 Hz） */
   lowestNote: 45,

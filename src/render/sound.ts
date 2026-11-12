@@ -96,7 +96,7 @@ export const startSound = (stage: StageNumber) => {
     musicBus.gain.setValueAtTime(0, ctx.currentTime);
     musicBus.gain.linearRampToValueAtTime(SOUND.musicGain, ctx.currentTime + SOUND.musicFadeInSeconds);
     musicBus.connect(master);
-    nextNoteTime = ctx.currentTime + 0.05;
+    nextNoteTime = ctx.currentTime + SOUND.scheduleLeadSeconds;
     removeUnlock();
   };
   // 「操作」に当たる入力（HTML の仕様 user activation）：Esc 以外のキー・マウスの押し下げ・タッチの指を離す
@@ -133,11 +133,15 @@ export const startSound = (stage: StageNumber) => {
   const noteSeconds = 30 / music.bpm; // 8 分音符 = 半拍
   const scheduleMusic = () => {
     if (ctx === null || musicBus === null || musicStopped || ctx.state !== "running") return;
-    // 少し先（0.3 秒）までの音を予約する（フレームが遅れても途切れない）
-    while (nextNoteTime < ctx.currentTime + 0.3) {
+    // 画面が止まって戻ったときに、過ぎた時刻の音をまとめて予約しない
+    nextNoteTime = Math.max(nextNoteTime, ctx.currentTime + SOUND.scheduleLeadSeconds);
+    // 少し先までの音を予約する（フレームが遅れても途切れない）
+    while (nextNoteTime < ctx.currentTime + SOUND.scheduleAheadSeconds) {
       const note = music.notes[noteIndex % music.notes.length] ?? 0;
-      if (note !== 0)
-        tone(musicBus, "triangle", note, nextNoteTime, noteSeconds * 0.9, 1, SOUND.musicAttackSeconds);
+      if (note !== 0) {
+        const length = noteSeconds * SOUND.musicNoteRatio;
+        tone(musicBus, "triangle", note, nextNoteTime, length, 1, SOUND.musicAttackSeconds);
+      }
       nextNoteTime += noteSeconds;
       noteIndex++;
     }
@@ -165,7 +169,7 @@ export const startSound = (stage: StageNumber) => {
           musicStopped = true;
           musicBus.gain.cancelScheduledValues(ctx.currentTime);
           musicBus.gain.setValueAtTime(musicBus.gain.value, ctx.currentTime);
-          musicBus.gain.linearRampToValueAtTime(0, ctx.currentTime + SOUND.musicFadeInSeconds);
+          musicBus.gain.linearRampToValueAtTime(0, ctx.currentTime + SOUND.musicFadeOutSeconds);
         }
       }
       scheduleMusic();
