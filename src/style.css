@@ -491,17 +491,23 @@ body {
   filter: drop-shadow(0 2px 4px rgb(0 0 0 / 35%));
 }
 
+/* 画面の真ん中（列車を選ぶ画面と同じ形）。幅 360 px のスマホでも収まるよう、すき間を画面の幅に合わせて詰める */
 .clear {
   position: fixed;
   left: 50%;
-  bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+  top: 50%;
   z-index: 20;
   display: flex;
-  gap: 24px;
-  padding: 18px;
+  gap: min(24px, 3vw);
+  padding: min(18px, 2vw);
   border-radius: 28px;
   background: rgb(0 0 0 / 35%);
-  transform: translateX(-50%);
+  transform: translate(-50%, -50%);
+}
+
+/* 保護者の方への入口は、タイトルの上にも出す */
+.parent-link {
+  z-index: 30;
 }
 
 .confetti {

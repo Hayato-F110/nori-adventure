@@ -3,6 +3,7 @@
 // 状態は読むだけ（ゴールしたかどうかを毎フレーム受け取る）。
 import { CLEAR } from "../config";
 import { nextAfter, type StageNumber, stageUrl } from "../core/route";
+import { focusFirstOnKey } from "../input/keyFocus";
 import { browserStorage, saveCleared } from "./progress";
 
 const COLORS = ["#ffd23f", "#ff6f59", "#1fa88e", "#6fc8ff", "#b48cff"] as const;
@@ -96,8 +97,11 @@ export const startClearFlow = (stage: StageNumber) => {
     },
     showButtons: () => {
       if (panel === null) return;
+      // タッチの操作ボタン（ハンドル・◀）とゴールの星を隠す：狭い画面でボタンが重なり、
+      // 操作しようとした指がクリアのボタンに当たるのを防ぐ（kids-ui-reviewer の指摘）。ゴールのあとは操作を受け付けない
+      for (const id of ["touch", "goal"]) document.getElementById(id)?.setAttribute("hidden", "");
       panel.hidden = false;
-      panel.querySelector<HTMLElement>("a")?.focus();
+      focusFirstOnKey(window, [...panel.querySelectorAll<HTMLElement>("a")]);
     },
   });
 };

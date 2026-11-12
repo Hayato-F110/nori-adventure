@@ -31,6 +31,12 @@ test("タイトル：./ で乗り物の絵のボタンが4つ出て、ゲーム�
   await expect(page.locator("#game")).toBeHidden();
   await expect(page.locator(".title-star:visible")).toHaveCount(0);
   expect(await page.evaluate(() => window.__nori)).toBeUndefined();
+  // 開いたときは、どのボタンにも枠を出さない（車へ誘導しない）。保護者の方への入口は見える
+  expect(await page.evaluate(() => document.activeElement === document.body)).toBe(true);
+  await expect(page.locator("#parent")).toBeVisible();
+  // キーボードの人は、最初のキーで車のボタンへ
+  await page.keyboard.press("Tab");
+  expect(await page.evaluate(() => document.activeElement?.getAttribute("data-stage"))).toBe("1");
   await page.screenshot({ path: testInfo.outputPath("title.png") });
   expect(errors).toEqual([]);
 });
@@ -97,6 +103,9 @@ test("クリア：たからばこに着くと紙ふぶき、3 秒後に3つの�
   for (const b of await links.all()) expect((await b.boundingBox())?.width ?? 0).toBeGreaterThanOrEqual(96);
   await expect(page.locator("#clear-again")).toHaveAttribute("href", "./?stage=4");
   await expect(page.locator("#clear-home")).toHaveAttribute("href", "./");
+  // ボタンが出たら、タッチの操作とゴールの星は隠す（重なって押し間違えないように）
+  await expect(page.locator("#touch")).toBeHidden();
+  await expect(page.locator("#goal")).toBeHidden();
   await page.screenshot({ path: testInfo.outputPath("clear-buttons.png") });
 
   // ステージ4のあとの「つぎ」はタイトル（ステージ5はまだない）
