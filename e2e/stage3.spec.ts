@@ -132,6 +132,58 @@ const checkLook = async (page: Page, testInfo: TestInfo, mode: "高画質" | "�
   expect(errors).toEqual([]);
 };
 
+// NORI-60：空をにぎやかに。ほかの飛行機（自作の形の色違い）・ただよう気球・鳥・山のふもとの木（高画質は Blender の木）
+test("ステージ3の景色：ほかの飛行機・気球・鳥・木がある", async ({ page }, testInfo) => {
+  test.setTimeout(150_000);
+  const errors = watchErrors(page);
+  await ready(page);
+  await page.waitForFunction(() => window.__nori?.look !== "loading", undefined, { timeout: 60_000 });
+  await page.waitForFunction(() => window.__nori?.skyScenery?.().planeModel === "glb", undefined, {
+    timeout: 30_000,
+  });
+  const scenery = await page.evaluate(() => window.__nori?.skyScenery?.());
+  expect(scenery).toMatchObject({ planes: 3, planeModel: "glb", balloons: 4, birds: 24 });
+  if ((await page.evaluate(() => window.__nori?.quality)) === "high") {
+    await page.waitForFunction(() => window.__nori?.trees === "model", undefined, { timeout: 30_000 });
+  }
+  // 少し左へ回って、山と木・ほかの飛行機の見える方を撮る
+  await page.keyboard.down("ArrowLeft");
+  await page.waitForTimeout(2500);
+  await page.keyboard.up("ArrowLeft");
+  await page.waitForTimeout(1000);
+  await page.screenshot({ path: testInfo.outputPath("stage3-scenery.png") });
+
+  // ほかの飛行機（1機目）の方へ向いて飛び、画面に映ることを確かめる
+  const held = new Set<string>();
+  let onScreen = false;
+  for (let i = 0; i < 300 && !onScreen; i++) {
+    const info = await page.evaluate(() => {
+      const p = window.__nori?.plane?.()?.plane;
+      const o = window.__nori?.skyScenery?.().planeAt[0];
+      if (p === undefined || o === undefined) return null;
+      const s = window.__nori?.screenOf(o.x, o.y, o.z) ?? { x: -1, y: -1 };
+      return { p, o, s };
+    });
+    if (info === null) break;
+    const { p, o, s } = info;
+    const vp = page.viewportSize() ?? { width: 0, height: 0 };
+    const ahead = (o.x - p.x) * -Math.sin(p.heading) + (o.z - p.z) * -Math.cos(p.heading) > 0;
+    onScreen = ahead && s.x > 100 && s.x < vp.width - 100 && s.y > 80 && s.y < vp.height - 80;
+    const want = Math.atan2(-(o.x - p.x), -(o.z - p.z));
+    const diff = Math.atan2(Math.sin(want - p.heading), Math.cos(want - p.heading));
+    const keys = new Set<string>();
+    if (diff < -0.04) keys.add("ArrowRight");
+    if (diff > 0.04) keys.add("ArrowLeft");
+    if (o.y - p.y > 1.5) keys.add("ArrowUp");
+    await setKeys(page, held, keys);
+    await page.waitForTimeout(100);
+  }
+  await setKeys(page, held, new Set());
+  await page.screenshot({ path: testInfo.outputPath("stage3-other-plane.png") });
+  expect(onScreen).toBe(true);
+  expect(errors).toEqual([]);
+});
+
 test("ステージ3：CPU を4倍遅くしても 30fps 以上", { tag: "@fps" }, async ({ page }) => {
   test.skip(skipFps, "GPU のない CI では FPS を測らない");
   test.setTimeout(120_000);

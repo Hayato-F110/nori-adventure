@@ -52,7 +52,7 @@ export const LIGHTMAPS = {
 export const STAGE_SURFACES = {
   stage1: ["grass", "road", "brick", "facade", "bark"],
   stage2: ["grass", "road", "brick", "bark"],
-  stage3: ["grass"],
+  stage3: ["grass", "bark"],
   stage4: ["sand"],
 } as const satisfies Record<keyof typeof LIGHTMAPS, readonly SurfaceName[]>;
 
