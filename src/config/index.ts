@@ -227,6 +227,30 @@ export const STAGE4 = {
   minAmbient: 0.35,
   cameraDistance: 8,
   cameraHeight: 2.5,
+  /** 色（16進の文字列）。たからばこ・あわと、まわりの明るさの比はこれらで決まる */
+  waterShallowColor: "#2f8fc0",
+  waterDeepColor: "#0d3a5c",
+  treasureColor: "#ffc93c",
+  treasureLidColor: "#ffb21f",
+  sandColor: "#8f7f5e",
+  bubbleColor: "#bff4ff",
+  schoolColors: ["#ffd23f", "#4fc3f7", "#ff7043", "#ba68c8", "#c0ca33"],
+  /** 手がかりのあわ：半径 m、散らばり ±m、のぼる速さ m/s、のぼる高さ m（そのあと下からまた） */
+  bubbleRadius: 0.25,
+  bubbleSpread: 1,
+  bubbleRiseSpeed: 1.6,
+  bubbleRiseHeight: 4,
+  /** 光の強さ：海面からの光（浅いところ）、潜水艇のライト、たからばこの光（強さと届く距離 m） */
+  sunIntensity: 1.6,
+  spotIntensity: 60,
+  treasureLightIntensity: 30,
+  treasureLightRange: 14,
+  /** 見つけた印の星：大きさ m、生きものの上のすき間 m */
+  foundStarSize: 0.4,
+  foundStarGap: 0.8,
+  /** ゴールしたら、ふたが開くまでの秒と角度（ラジアン） */
+  lidOpenSeconds: 1,
+  lidOpenAngle: 1.9,
 } as const;
 
 /** ステージ5のローバー（月の重力でジャンプ） */

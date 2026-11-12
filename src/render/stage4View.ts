@@ -12,13 +12,8 @@ const SEABED = -STAGE4.maxDepth;
 const GROUND_SIZE = STAGE4.boundsHalfSize * 2 + 120;
 
 /** 水の色：浅いところ（明るい）と深いところ（暗い。真っ暗にはしない） */
-export const WATER_SHALLOW = new THREE.Color(0x2f8fc0);
-export const WATER_DEEP = new THREE.Color(0x0d3a5c);
-/** たからばこ（金色。自ら光るので、暗い海でも目立つ） */
-const TREASURE_COLOR = 0xffc93c;
-const TREASURE_LID_COLOR = 0xffb21f;
-/** 海底の砂（深い海なので、浜の砂より暗く。たからばこが目立つように） */
-const SAND_COLOR = 0x8f7f5e;
+const WATER_SHALLOW = new THREE.Color(STAGE4.waterShallowColor);
+const WATER_DEEP = new THREE.Color(STAGE4.waterDeepColor);
 
 /** 0〜1 の決まった値（海草・魚の並びだけに使う） */
 const hash = (i: number): number => {
@@ -62,10 +57,7 @@ const seaParts = (model: THREE.Object3D) => {
   return parts.length > 0 ? parts : null;
 };
 
-/** 群れの色（5色。群れごとに順に使う） */
-const SCHOOL_COLORS = [0xffd23f, 0x4fc3f7, 0xff7043, 0xba68c8, 0xc0ca33];
-
-const std = (color: number, extra: THREE.MeshStandardMaterialParameters = {}) =>
+const std = (color: THREE.ColorRepresentation, extra: THREE.MeshStandardMaterialParameters = {}) =>
   new THREE.MeshStandardMaterial({ color, roughness: 0.8, ...extra });
 
 /** 生きものの簡単な形（前は −Z。大きさはおよそ 1〜3 m） */
@@ -167,7 +159,7 @@ export const createStage4View = (hints: readonly Hint[], treasure: Point3): Stag
   // 海底（砂）と岩
   const sand = new THREE.Mesh(
     new THREE.PlaneGeometry(GROUND_SIZE, GROUND_SIZE).rotateX(-Math.PI / 2),
-    std(SAND_COLOR, { roughness: 1 }),
+    std(STAGE4.sandColor, { roughness: 1 }),
   );
   sand.position.y = SEABED;
   root.add(sand);
@@ -201,8 +193,8 @@ export const createStage4View = (hints: readonly Hint[], treasure: Point3): Stag
   root.add(weeds);
 
   // 光るあわ（手がかり）：近いほど多い。上へのぼって、また下から
-  const bubbleGeo = new THREE.SphereGeometry(0.25, 8, 6);
-  const bubbleMat = new THREE.MeshBasicMaterial({ color: 0xbff4ff, toneMapped: false });
+  const bubbleGeo = new THREE.SphereGeometry(STAGE4.bubbleRadius, 8, 6);
+  const bubbleMat = new THREE.MeshBasicMaterial({ color: STAGE4.bubbleColor, toneMapped: false });
   const bubbleTotal = hints.reduce((s, h) => s + h.bubbles, 0);
   const bubbles = new THREE.InstancedMesh(bubbleGeo, bubbleMat, bubbleTotal);
   const bubbleBase: { x: number; y: number; z: number; phase: number }[] = [];
@@ -210,9 +202,9 @@ export const createStage4View = (hints: readonly Hint[], treasure: Point3): Stag
     for (let k = 0; k < h.bubbles; k++) {
       const n = hi * 31 + k;
       bubbleBase.push({
-        x: h.x + (hash(n) - 0.5) * 2,
+        x: h.x + (hash(n) - 0.5) * 2 * STAGE4.bubbleSpread,
         y: h.y - 2,
-        z: h.z + (hash(n + 100) - 0.5) * 2,
+        z: h.z + (hash(n + 100) - 0.5) * 2 * STAGE4.bubbleSpread,
         phase: hash(n + 200),
       });
     }
@@ -225,13 +217,13 @@ export const createStage4View = (hints: readonly Hint[], treasure: Point3): Stag
   const chest = new THREE.Group();
   chest.name = "treasure";
   // さらに STAGE4.treasureGlow 倍に明るくして、霧で薄まっても明るさが残るようにする
-  const glowing = (hex: number) =>
+  const glowing = (color: string) =>
     new THREE.MeshBasicMaterial({
-      color: new THREE.Color(hex).multiplyScalar(STAGE4.treasureGlow),
+      color: new THREE.Color(color).multiplyScalar(STAGE4.treasureGlow),
       toneMapped: false,
     });
-  const gold = glowing(TREASURE_COLOR);
-  const lidGold = glowing(TREASURE_LID_COLOR);
+  const gold = glowing(STAGE4.treasureColor);
+  const lidGold = glowing(STAGE4.treasureLidColor);
   const strap = std(0x6b3f1d);
   const box = new THREE.Mesh(new THREE.BoxGeometry(2.2, 1.2, 1.4), gold);
   box.name = "gold";
@@ -248,7 +240,7 @@ export const createStage4View = (hints: readonly Hint[], treasure: Point3): Stag
     lidBand.position.x = x;
     lidPivot.add(lidBand);
   }
-  const glow = new THREE.PointLight(0xffd36b, 30, 14);
+  const glow = new THREE.PointLight(0xffd36b, STAGE4.treasureLightIntensity, STAGE4.treasureLightRange);
   glow.position.y = 2;
   chest.add(box, lidPivot, glow);
   chest.position.set(treasure.x, treasure.y, treasure.z);
@@ -261,9 +253,9 @@ export const createStage4View = (hints: readonly Hint[], treasure: Point3): Stag
     const mesh = new THREE.Group();
     mesh.name = c.kind;
     let shape = creatureMesh(c.kind);
-    const star = new THREE.Mesh(new THREE.OctahedronGeometry(0.4), starMat);
+    const star = new THREE.Mesh(new THREE.OctahedronGeometry(STAGE4.foundStarSize), starMat);
     star.name = "star";
-    star.position.y = 2.2;
+    star.position.y = 1.4 + STAGE4.foundStarGap; // 簡単な形の高さの半分（約 1.4 m）の上
     star.visible = false;
     mesh.add(shape, star);
     root.add(mesh);
@@ -271,13 +263,13 @@ export const createStage4View = (hints: readonly Hint[], treasure: Point3): Stag
       mesh.remove(shape);
       shape = next;
       mesh.add(shape);
-      star.position.y = height / 2 + 0.8;
+      star.position.y = height / 2 + STAGE4.foundStarGap;
     };
     return { c, mesh, star, replace };
   });
 
   // まわりの魚の群れ（景色だけ）：群れごとに円を回る。1匹ずつ少しずらす
-  const schoolColor = (s: number) => SCHOOL_COLORS[s % SCHOOL_COLORS.length] ?? 0xffffff;
+  const schoolColor = (s: number) => STAGE4.schoolColors[s % STAGE4.schoolColors.length] ?? "#ffffff";
   const newSchoolMesh = (geometry: THREE.BufferGeometry, material: THREE.Material | THREE.Material[]) => {
     const mesh = new THREE.InstancedMesh(geometry, material, STAGE4.schoolSize);
     mesh.name = "school";
@@ -316,7 +308,8 @@ export const createStage4View = (hints: readonly Hint[], treasure: Point3): Stag
   };
   const placeBubbles = (seconds: number) => {
     bubbleBase.forEach((b, i) => {
-      const rise = ((seconds * 0.4 + b.phase) % 1) * 4;
+      const h = STAGE4.bubbleRiseHeight;
+      const rise = ((seconds * (STAGE4.bubbleRiseSpeed / h) + b.phase) % 1) * h;
       pos.set(b.x, b.y + rise, b.z);
       bubbles.setMatrixAt(i, m4.compose(pos, q.identity(), one));
     });
@@ -357,7 +350,7 @@ export const createStage4View = (hints: readonly Hint[], treasure: Point3): Stag
         const materials = parts.map((p, k) => {
           if (k !== 0) return p.material;
           const m = p.material.clone() as THREE.MeshStandardMaterial;
-          m.color.setHex(schoolColor(i));
+          m.color.set(schoolColor(i));
           return m;
         });
         const next = newSchoolMesh(geometry, materials);
@@ -394,8 +387,10 @@ export const createStage4View = (hints: readonly Hint[], treasure: Point3): Stag
       });
       // ゴールしたら、約1秒でふたが開く
       const open =
-        state.finishTick === null ? 0 : Math.min(1, ((state.tick - state.finishTick) * SIM.fixedDt) / 1);
-      lidPivot.rotation.x = -open * 1.9;
+        state.finishTick === null
+          ? 0
+          : Math.min(1, ((state.tick - state.finishTick) * SIM.fixedDt) / STAGE4.lidOpenSeconds);
+      lidPivot.rotation.x = -open * STAGE4.lidOpenAngle;
     },
     waterAt(depth) {
       return water.copy(WATER_SHALLOW).lerp(WATER_DEEP, Math.min(1, Math.max(0, depth / STAGE4.maxDepth)));

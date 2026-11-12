@@ -58,13 +58,20 @@ export const startStage4 = async (canvas: HTMLCanvasElement, hud: HTMLElement, s
   const hemi = new THREE.HemisphereLight(0xbfe8ff, 0x3a5a6a, LOOK.hemiPlain);
   scene.add(hemi);
   // 海面からの光（上から）。影は潜水艇のまわりだけ
-  const sun = new THREE.DirectionalLight(0xdff6ff, 1.6);
+  const sun = new THREE.DirectionalLight(0xdff6ff, STAGE4.sunIntensity);
   sun.castShadow = true;
   sun.shadow.mapSize.set(1024, 1024);
   Object.assign(sun.shadow.camera, { left: -25, right: 25, top: 25, bottom: -25, near: 1, far: 80 });
   scene.add(sun, sun.target);
   // 潜水艇のライト（前を照らす）
-  const spot = new THREE.SpotLight(0xfff2cc, 60, STAGE4.lightRange, STAGE4.lightAngle, 0.5, 1);
+  const spot = new THREE.SpotLight(
+    0xfff2cc,
+    STAGE4.spotIntensity,
+    STAGE4.lightRange,
+    STAGE4.lightAngle,
+    0.5,
+    1,
+  );
   scene.add(spot, spot.target);
   scene.add(view.root);
 
@@ -260,7 +267,7 @@ export const startStage4 = async (canvas: HTMLCanvasElement, hud: HTMLElement, s
     fog.color.copy(color);
     // 上からの光は、深いほど弱く（minAmbient より暗くしない）
     const depthRatio = Math.min(1, -p.y / STAGE4.maxDepth);
-    sun.intensity = 1.6 * Math.max(STAGE4.minAmbient, 1 - depthRatio);
+    sun.intensity = STAGE4.sunIntensity * Math.max(STAGE4.minAmbient, 1 - depthRatio);
     sun.position.set(p.x + 10, p.y + 40, p.z + 5);
     sun.target.position.set(p.x, p.y, p.z);
     // ライト：潜水艇の前から、進む向きへ
