@@ -18,7 +18,7 @@ test.describe("タブレット（1024×768・タッチ）", () => {
 
   test("短いタップでは開かず、2秒押し続けて離すとポリシーが開く", async ({ page, context }, testInfo) => {
     const errors = watchErrors(page);
-    await page.goto("./");
+    await page.goto("./?stage=1");
     await page.waitForFunction(() => (window.__nori?.frames ?? 0) > 5, undefined, { timeout: 60_000 });
     const box = await page.locator("#parent").boundingBox();
     if (box === null) throw new Error("#parent が見えない");

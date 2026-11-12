@@ -22,9 +22,13 @@ import { startQuality } from "./render/qualityControl";
 import { createStatusView } from "./render/statusView";
 import { loadTreeModels } from "./render/trees";
 import { createParentLink } from "./input/parentLink";
+import { parseRoute } from "./core/route";
+import { startClearFlow } from "./render/clearFlow";
 
 declare global {
   interface Window {
+    /** E2E 用：タイトル画面で星を付けたステージ（NORI-30） */
+    __noriTitle?: { cleared: number[] };
     /** E2E テストと開発用の読み取り口（状態を書き換える手段は置かない） */
     __nori?: {
       fpsSamples: number[];
@@ -103,8 +107,18 @@ const showDebug = params.has("debug");
 const parentLink = document.querySelector<HTMLAnchorElement>("#parent");
 if (parentLink !== null) createParentLink(parentLink);
 
+// 開く画面は URL で決める（NORI-30。docs/game-rules.md「タイトル画面・ステージ選び・クリアの演出」）
+const route = parseRoute(location.search);
+
+// ?stage がない（知らない値も）：タイトル画面。3D は描かず、乗り物の絵のリンクを出すだけ
+if (route.kind === "title") {
+  const { startTitle } = await import("./render/titleScreen");
+  window.__noriTitle = { cleared: startTitle() };
+  await new Promise<never>(() => undefined);
+}
+
 // ?models：乗り物のモデルを並べて見る確認用の画面（NORI-20〜23）。ゲームは始めない
-if (params.has("models")) {
+if (route.kind === "models") {
   hud.hidden = true;
   for (const id of ["touch", "status"]) document.getElementById(id)?.setAttribute("hidden", "");
   const { startModelGallery } = await import("./render/modelGallery");
@@ -113,22 +127,24 @@ if (params.has("models")) {
   await new Promise<never>(() => undefined);
 }
 
-// ?stage=2：山道を列車で進むステージ（NORI-26）。タイトル画面（NORI-30）ができるまでのつなぎ
-if (params.get("stage") === "2") {
+const stage = route.kind === "stage" ? route.stage : 1;
+
+// ?stage=2：山道を列車で進むステージ（NORI-26）
+if (stage === 2) {
   const { startStage2 } = await import("./stage2Main");
   await startStage2(canvas, hud, showDebug);
   await new Promise<never>(() => undefined);
 }
 
 // ?stage=3：空を飛行機で飛ぶステージ（NORI-27）
-if (params.get("stage") === "3") {
+if (stage === 3) {
   const { startStage3 } = await import("./stage3Main");
   await startStage3(canvas, hud, showDebug);
   await new Promise<never>(() => undefined);
 }
 
 // ?stage=4：海を潜水艇で探検するステージ（NORI-28）
-if (params.get("stage") === "4") {
+if (stage === 4) {
   const { startStage4 } = await import("./stage4Main");
   await startStage4(canvas, hud, showDebug);
   await new Promise<never>(() => undefined);
@@ -248,6 +264,8 @@ const statusView = createStatusView(
   },
   SIM.fixedDt,
 );
+// ゴールしたら紙ふぶきと「もう一回・つぎ・タイトル」（NORI-30）
+const clearFlow = startClearFlow(1);
 const stepper = createFixedStepper(SIM.fixedDt, SIM.maxStepsPerFrame);
 let previous: GameState = game.initial();
 let current: GameState = previous;
@@ -323,6 +341,7 @@ const frame = (now: number) => {
     current.invincibleTicks === 0 || reducedMotion.matches || Math.floor(now / RESPAWN.blinkMs) % 2 === 0;
   courseView.update(current.course, pose, now / 1000);
   statusView.update(current.tick, current.course);
+  clearFlow.update(current.course.finishTick !== null, now / 1000);
   // 復活したら、カメラもすぐ新しい位置へ（街の上を流れて、車を見失わないように）
   if (respawned) {
     lastRespawns = current.respawns;

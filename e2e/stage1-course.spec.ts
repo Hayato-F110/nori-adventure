@@ -11,7 +11,7 @@ test("ステージ1：走るとほしが取れて、上の数が増える", asyn
   });
   page.on("pageerror", (error) => consoleErrors.push(error.message));
 
-  await page.goto("./");
+  await page.goto("./?stage=1");
   await page.waitForFunction(() => (window.__nori?.frames ?? 0) > 5, undefined, { timeout: 60_000 });
   await expect(page.locator("#status")).toBeVisible();
   await expect(page.locator("#star-count")).toHaveText("0");

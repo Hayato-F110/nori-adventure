@@ -16,7 +16,7 @@ const waitFrames = (page: Page) =>
   page.waitForFunction(() => (window.__nori?.frames ?? 0) > 5, undefined, { timeout: 60_000 });
 
 for (const [name, query] of [
-  ["ステージ1", "./"],
+  ["ステージ1", "./?stage=1"],
   ["ステージ2", "./?stage=2"],
   ["ステージ3", "./?stage=3"],
 ] as const) {
