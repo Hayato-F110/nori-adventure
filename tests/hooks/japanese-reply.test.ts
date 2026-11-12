@@ -29,13 +29,27 @@ describe("Hook：英語だけの行があれば、応答を止めて日本語で
     expect(findEnglishLines(text)).toEqual([]);
   });
 
-  it("この回（最後のオーナーのメッセージのあと）の文章だけを集める。道具の結果はまたぐ", () => {
+  const said = (text: string) => ({
+    type: "assistant",
+    message: { role: "assistant", content: [{ type: "text", text }] },
+  });
+
+  it("前回この Hook が動いたあと（stop_hook_summary のあと）の文章を集める。途中のメッセージや知らせでは区切らない", () => {
     const jsonl = [
-      { message: { role: "assistant", content: [{ type: "text", text: "Old English reply from before." }] } },
-      { message: { role: "user", content: "よい" } },
-      { message: { role: "assistant", content: [{ type: "text", text: "Starting with the tests." }] } },
-      { message: { role: "user", content: [{ type: "tool_result", content: "ok" }] } },
-      { message: { role: "assistant", content: [{ type: "text", text: "完了しました。" }] } },
+      said("Old English reply from before."),
+      { type: "system", subtype: "stop_hook_summary" },
+      { type: "user", message: { role: "user", content: "よい" } },
+      said("Starting with the tests."),
+      // 作業の途中に届いたオーナーのメッセージ・裏の作業の知らせ（11/12 にここで区切って見落とした）
+      { type: "user", message: { role: "user", content: "先ほどの Hook は効いている?" } },
+      { type: "user", message: { role: "user", content: "<task-notification>…</task-notification>" } },
+      { type: "user", message: { role: "user", content: [{ type: "tool_result", content: "ok" }] } },
+      // 記録用の写しは数えない（同じ文章が2回入る）
+      {
+        type: "api-request-blob",
+        message: { role: "assistant", content: [{ type: "text", text: "完了しました。" }] },
+      },
+      said("完了しました。"),
     ]
       .map((e) => JSON.stringify(e))
       .join("\n");
@@ -57,13 +71,8 @@ describe("Hook：英語だけの行があれば、応答を止めて日本語で
     writeFileSync(
       transcript,
       [
-        { message: { role: "user", content: "はい" } },
-        {
-          message: {
-            role: "assistant",
-            content: [{ type: "text", text: "Now the engine that plays sounds." }],
-          },
-        },
+        { type: "user", message: { role: "user", content: "はい" } },
+        said("Now the engine that plays sounds."),
       ]
         .map((e) => JSON.stringify(e))
         .join("\n"),
