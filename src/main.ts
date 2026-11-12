@@ -21,6 +21,7 @@ import type { Quality } from "./render/quality";
 import { startQuality } from "./render/qualityControl";
 import { createStatusView } from "./render/statusView";
 import { loadTreeModels } from "./render/trees";
+import { createParentLink } from "./input/parentLink";
 
 declare global {
   interface Window {
@@ -82,6 +83,10 @@ const hud = document.querySelector<HTMLDivElement>("#hud");
 if (canvas === null || hud === null) throw new Error("index.html に #game と #hud が必要です");
 const params = new URLSearchParams(location.search);
 const showDebug = params.has("debug");
+
+// 保護者の方への入口（NORI-54）：どのステージでも左上に。2秒押し続けて離すとポリシーを開く
+const parentLink = document.querySelector<HTMLAnchorElement>("#parent");
+if (parentLink !== null) createParentLink(parentLink);
 
 // ?models：乗り物のモデルを並べて見る確認用の画面（NORI-20〜23）。ゲームは始めない
 if (params.has("models")) {

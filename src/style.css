@@ -335,3 +335,41 @@ body {
 .quality:active {
   transform: scale(0.94);
 }
+
+/* ---- 保護者の方への入口（NORI-54。docs/game-rules.md「保護者の方への入口」）---- */
+/* 大きさは PARENT.buttonSize と同じ値（tests/input/parentLink.test.ts で一致を確かめる）。
+   子ども向けのボタン（64 px 以上）の例外：保護者向けで、目立たせない */
+:root {
+  --parent-button: 48px;
+}
+
+.parent-link {
+  -webkit-touch-callout: none;
+  position: fixed;
+  top: calc(12px + env(safe-area-inset-top, 0px));
+  left: calc(12px + env(safe-area-inset-left, 0px));
+  width: var(--parent-button);
+  height: var(--parent-button);
+  border-radius: 50%;
+  background: rgb(0 0 0 / 25%);
+  touch-action: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.parent-link svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* 押している間に増える輪（--hold：0〜1。円周 2π×46 ≈ 289） */
+.parent-ring {
+  fill: none;
+  stroke: #ffd23f;
+  stroke-width: 8;
+  stroke-dasharray: 289;
+  stroke-dashoffset: calc((1 - var(--hold, 0)) * 289);
+  transform: rotate(-90deg);
+  transform-origin: 50% 50%;
+}

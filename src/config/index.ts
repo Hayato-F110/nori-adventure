@@ -443,6 +443,12 @@ export const LOOK = {
   qualityButtonSize: 72,
 } as const;
 
+/** 保護者の方への入口（プライバシーポリシー。NORI-54）。押し続けたときだけ開く */
+export const PARENT = {
+  holdSeconds: 2,
+  buttonSize: 48,
+} as const;
+
 export const CONFIG = {
   SIM,
   PHYSICS,
@@ -463,4 +469,5 @@ export const CONFIG = {
   ASSET,
   ASSIST,
   LOOK,
+  PARENT,
 } as const;
