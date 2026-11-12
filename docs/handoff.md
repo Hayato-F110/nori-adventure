@@ -12,6 +12,7 @@
   - できた：`tools/blender/build-vehicles.py` に `train-commuter`（2.2×2.8×7.0 m、4416 三角形）と `train-bullet`（2.2×2.4×8.0 m、2412 三角形）。`blender-work/export/` に GLB を書き出し済み（見本の絵は `blender-work/renders/`）
   - 次：① `ASSET.vehicles` に2台を足して `npm run assets:import train-commuter` と `train-bullet` ② game-rules.md に決まりの表 ③ すれ違う電車・海辺・富士山風の山・雲（コード） ④ Blender で山3種・駅 ⑤ 列車を選ぶボタン ⑥ E2E
   - Blender の MCP：ファイルを開く（`open_mainfile`・`read_homefile`）のと、スクリプトを動かすのは、別の実行に分ける（同じ実行だと `bpy.context.object` がなくて止まる）
+- **11/13（スプリント2の最終日）にスプリントのふりかえり**（`CLAUDE.md`「進め方」。11/12 にオーナーが決めた）：devlog のあと `docs/retro/sprint-2.md`。材料は Jira のポイント、CI の失敗（たまに落ちる車の E2E）、オーナーの指摘（試行錯誤・Jira の状態と開始日・シェルの引用符のミス）
 - **ステージ1の車の E2E はたまに落ちる**：PR #46 で、建物に触れた回数 7（ステージ1は変えていない）。流し直すと 0 で通った。本物の時間でキーを押すので、入力が入る刻みが回ごとに変わるのが原因と考える。NORI-37 か NORI-34 で、入力の記録の再生で走らせる形に直す案
 - **NORI-40（AI 動画）**：車・飛行機・潜水艇は済み。**11/13：オーナーが Firefly でローバー**（指示の文は `blender-work/ai-video/sub-prompt.txt` をローバーに直す）→ 4本を比べて判断・完了。Jira の説明は 11/12 に直した
 - **Blender**：noriblender で開いたまま（11/12 15:50 に隔離を確認、`isolated: true`）。新しいセッションで使う前に、もう一度隔離を確かめる
