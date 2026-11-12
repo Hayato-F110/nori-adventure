@@ -4,7 +4,11 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 // @ts-expect-error -- Hook は素の JavaScript（.mjs）で、型定義を持たない
-import { findEnglishLines, textsOfThisTurn } from "../../.claude/hooks/japanese-reply.mjs";
+import {
+  findEnglishLines,
+  textsBeforeThisTool,
+  textsOfThisTurn,
+} from "../../.claude/hooks/japanese-reply.mjs";
 
 const root = path.resolve(import.meta.dirname, "../..");
 const hook = path.join(root, ".claude/hooks/japanese-reply.mjs");
@@ -80,5 +84,43 @@ describe("Hook：英語だけの行があれば、応答を止めて日本語で
     expect(run({ transcript_path: transcript })).toBe(2);
     expect(run({ transcript_path: transcript, stop_hook_active: true })).toBe(0);
     expect(run({ last_assistant_message: "日本語の報告です。" })).toBe(0);
+  });
+
+  // 応答の終わりだけでは途中の1行を止められなかった（11/12、2回）ので、道具を呼ぶ直前にも調べる
+  it("道具を呼ぶ直前：最後の道具の結果より後に書いた文だけを見る", () => {
+    const jsonl = [
+      said("Old English line before the last tool."),
+      { type: "user", message: { role: "user", content: [{ type: "tool_result", content: "ok" }] } },
+      said("Next I'll update the sound engine to use the tracker."),
+    ]
+      .map((e) => JSON.stringify(e))
+      .join("\n");
+    expect(textsBeforeThisTool(jsonl)).toEqual(["Next I'll update the sound engine to use the tracker."]);
+  });
+
+  it("道具を呼ぶ直前に英語だけの文があれば終了コード 2（その呼び出しを止める）。日本語なら通す", () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "nori-hook-"));
+    const write = (text: string) => {
+      const file = path.join(dir, `${text.length}.jsonl`);
+      writeFileSync(
+        file,
+        [
+          { type: "user", message: { role: "user", content: [{ type: "tool_result", content: "ok" }] } },
+          said(text),
+        ]
+          .map((e) => JSON.stringify(e))
+          .join("\n"),
+      );
+      return file;
+    };
+    expect(
+      run({
+        hook_event_name: "PreToolUse",
+        transcript_path: write("Next I'll update the sound engine now."),
+      }),
+    ).toBe(2);
+    expect(run({ hook_event_name: "PreToolUse", transcript_path: write("次に音の仕組みを直します。") })).toBe(
+      0,
+    );
   });
 });
