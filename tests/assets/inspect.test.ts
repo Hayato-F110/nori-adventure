@@ -1,7 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { ASSET } from "../../src/config/index.ts";
+import { ASSET, STAGE4 } from "../../src/config/index.ts";
 import { type AssetKind, checkGlb, inspectGlb, kindOf, validateGlb } from "../../tools/assets/inspect.ts";
-import { makeCarGlb, makeTreeGlb, makeVehicleGlb, rewriteGlbJson, type VehicleKind } from "./fixture.ts";
+import {
+  makeCarGlb,
+  makeSeaGlb,
+  makeTreeGlb,
+  makeVehicleGlb,
+  rewriteGlbJson,
+  type VehicleKind,
+} from "./fixture.ts";
 
 // docs/game-rules.md「3D モデル（アセット）」の決まりを、tools/assets/ の検査が守らせることを確かめる。
 // 数値は ASSET から読む（直書きしない）。
@@ -228,5 +235,45 @@ describe("木（ASSET.tree）", () => {
 
   it("原点が幹の底にないと止まる", async () => {
     expect((await problemsOf(await makeTreeGlb({ liftY: 1 }), "tree")).join("\n")).toMatch(/原点/);
+  });
+});
+
+// docs/game-rules.md「海の生きもののモデル」（NORI-28）
+describe("海の生きもの（ASSET.sea）", () => {
+  it.each(ASSET.sea.variants)("%s は、自分の大きさの決まりで検査し、正しい形なら問題0", async (name) => {
+    expect(kindOf(name)).toBe(name);
+    const glb = await makeSeaGlb(name);
+    expect((await validateGlb(glb)).errors).toBe(0);
+    expect(await problemsOf(glb, name)).toEqual([]);
+  });
+
+  it("大きさが ±10% の外だと止まる", async () => {
+    expect(
+      (await problemsOf(await makeSeaGlb("sea-dolphin", { scale: 1.3 }), "sea-dolphin")).join("\n"),
+    ).toMatch(/長さ/);
+  });
+
+  it(`大きさが ASSET.sea.maxGlbBytes（${ASSET.sea.maxGlbBytes} B）を超えると止まる`, async () => {
+    const report = await inspectGlb(await makeSeaGlb("sea-fish"));
+    expect(checkGlb({ ...report, bytes: ASSET.sea.maxGlbBytes + 1 }, "sea-fish").join("\n")).toMatch(
+      /大きさが/,
+    );
+  });
+
+  it(`三角形が ASSET.sea.maxTriangles（${ASSET.sea.maxTriangles}）を超えると止まる`, async () => {
+    const report = await inspectGlb(await makeSeaGlb("sea-turtle"));
+    expect(checkGlb({ ...report, triangles: ASSET.sea.maxTriangles + 1 }, "sea-turtle").join("\n")).toMatch(
+      /三角形/,
+    );
+  });
+
+  it("部品 body がないと止まる", async () => {
+    expect(await problemsOf(await makeSeaGlb("sea-ray", { omitNodes: ["body"] }), "sea-ray")).toContain(
+      "ノード body がない",
+    );
+  });
+
+  it("見つける生きもの（STAGE4.creatures）は、みな sea- の名前のモデルがある", () => {
+    for (const c of STAGE4.creatures) expect(ASSET.sea.variants).toContain(`sea-${c.kind}`);
   });
 });

@@ -55,6 +55,132 @@
       "importedAt": "2026-11-11"
     },
     {
+      "name": "sea-dolphin",
+      "file": "sea-dolphin.glb",
+      "sha256": "07b583845ac919a84d3b2becfc5cf7e21b0540db501ef720121a8ea552ea4a9b",
+      "bytes": 14328,
+      "triangles": 600,
+      "size": {
+        "width": 1.4,
+        "height": 1.4,
+        "length": 4
+      },
+      "createdWith": "Blender 5.3.0（noriblender の隔離環境。Blender MCP で Claude が作成を補助）",
+      "source": "blender-work/sea-dolphin.blend",
+      "author": "Hayato-F110",
+      "license": "CC-BY-4.0",
+      "externalAssets": "なし",
+      "importedAt": "2026-11-12"
+    },
+    {
+      "name": "sea-fish",
+      "file": "sea-fish.glb",
+      "sha256": "1f1a925f11911628ff46a249c5a24b700bbe2e1fcaa65ace9406eb003c87bd55",
+      "bytes": 7152,
+      "triangles": 224,
+      "size": {
+        "width": 0.3,
+        "height": 0.45,
+        "length": 0.8
+      },
+      "createdWith": "Blender 5.3.0（noriblender の隔離環境。Blender MCP で Claude が作成を補助）",
+      "source": "blender-work/sea-fish.blend",
+      "author": "Hayato-F110",
+      "license": "CC-BY-4.0",
+      "externalAssets": "なし",
+      "importedAt": "2026-11-12"
+    },
+    {
+      "name": "sea-jellyfish",
+      "file": "sea-jellyfish.glb",
+      "sha256": "0eaa2fb487d4cee780d2e1b1df5222c6fda3b7df8889ec6e2fec41eca72f4acc",
+      "bytes": 12224,
+      "triangles": 592,
+      "size": {
+        "width": 1.6,
+        "height": 2.4,
+        "length": 1.6
+      },
+      "createdWith": "Blender 5.3.0（noriblender の隔離環境。Blender MCP で Claude が作成を補助）",
+      "source": "blender-work/sea-jellyfish.blend",
+      "author": "Hayato-F110",
+      "license": "CC-BY-4.0",
+      "externalAssets": "なし",
+      "importedAt": "2026-11-12"
+    },
+    {
+      "name": "sea-octopus",
+      "file": "sea-octopus.glb",
+      "sha256": "a36d01a5b9493ac0bb8fe9b316e23d2eeaf3f867dd36d998a1aa04a839ca908f",
+      "bytes": 19712,
+      "triangles": 960,
+      "size": {
+        "width": 2.2,
+        "height": 1.8,
+        "length": 2.2
+      },
+      "createdWith": "Blender 5.3.0（noriblender の隔離環境。Blender MCP で Claude が作成を補助）",
+      "source": "blender-work/sea-octopus.blend",
+      "author": "Hayato-F110",
+      "license": "CC-BY-4.0",
+      "externalAssets": "なし",
+      "importedAt": "2026-11-12"
+    },
+    {
+      "name": "sea-ray",
+      "file": "sea-ray.glb",
+      "sha256": "c83a77c818016770f626805c661881fe35b97b1e40c73dc19c7da7496a909ec7",
+      "bytes": 10412,
+      "triangles": 396,
+      "size": {
+        "width": 3.6,
+        "height": 0.5,
+        "length": 4
+      },
+      "createdWith": "Blender 5.3.0（noriblender の隔離環境。Blender MCP で Claude が作成を補助）",
+      "source": "blender-work/sea-ray.blend",
+      "author": "Hayato-F110",
+      "license": "CC-BY-4.0",
+      "externalAssets": "なし",
+      "importedAt": "2026-11-12"
+    },
+    {
+      "name": "sea-tropical",
+      "file": "sea-tropical.glb",
+      "sha256": "aeac3351131fcd87c074f77369b43604bf21e6d6a14cd240987fa3b92b2b3ff9",
+      "bytes": 11068,
+      "triangles": 452,
+      "size": {
+        "width": 0.5,
+        "height": 1,
+        "length": 1.4
+      },
+      "createdWith": "Blender 5.3.0（noriblender の隔離環境。Blender MCP で Claude が作成を補助）",
+      "source": "blender-work/sea-tropical.blend",
+      "author": "Hayato-F110",
+      "license": "CC-BY-4.0",
+      "externalAssets": "なし",
+      "importedAt": "2026-11-12"
+    },
+    {
+      "name": "sea-turtle",
+      "file": "sea-turtle.glb",
+      "sha256": "b5ad824d9e40514220cdeaa9b6946a52131c19a162e0e5a9cd6592b2937d545f",
+      "bytes": 17904,
+      "triangles": 822,
+      "size": {
+        "width": 2,
+        "height": 0.8,
+        "length": 2.4
+      },
+      "createdWith": "Blender 5.3.0（noriblender の隔離環境。Blender MCP で Claude が作成を補助）",
+      "source": "blender-work/sea-turtle.blend",
+      "author": "Hayato-F110",
+      "license": "CC-BY-4.0",
+      "externalAssets": "なし",
+      "importedAt": "2026-11-12"
+    },
+    {
       "name": "sub",
       "file": "sub.glb",
       "sha256": "ab91672a2fec90be476b48716cb2b887d44a670ced92fec0625dae4644d25f31",

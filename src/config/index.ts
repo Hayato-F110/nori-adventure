@@ -168,30 +168,89 @@ export const STAGE3 = {
   cameraHeight: 3,
 } as const;
 
-/** ステージ4の潜水艇 */
+/** ステージ4の潜水艇（NORI-28。ステージ3と同じ操作：←→ で曲がる、↑↓ で上下、速さは一定） */
 export const SUB = {
-  maxForwardSpeed: 5,
-  maxReverseSpeed: 2,
-  acceleration: 2,
-  coastDeceleration: 1.5,
-  turnRate: 1.2,
+  cruiseSpeed: 4,
+  minSpeed: 2,
+  speedChange: 1,
+  turnRate: 0.8,
   verticalSpeed: 2,
+  /** 見た目の機首の上下（rad。見た目だけ） */
+  maxTilt: 0.3,
+  tiltRate: 0.6,
+  /** いちばん浅い深さ（海面の下 m） */
+  minDepth: 1.5,
   collisionRadius: 1.2,
-  bumpSpeedFactor: 0.3,
+  bumpSpeedFactor: 0.5,
 } as const;
 
-/** ステージ4の海（光と霧） */
+/** ステージ4の海（光と霧）。深さは海面（y = 0）からの下向きの距離。y = −depth */
 export const STAGE4 = {
   boundsHalfSize: 120,
   maxDepth: 40,
+  /** スタート（−Z の向き） */
+  start: { x: 0, z: 100, depth: 6 },
+  /** たからばこ（ゴール）の中心 */
+  treasure: { x: 0, z: -90, depth: 39.4 },
+  treasureRadius: 3,
+  /** たからばこの金色の明るさ（倍。1 より大きいと、霧で薄まっても明るく残る。霧の遠い端では見えなくなる） */
+  treasureGlow: 3,
+  hintCount: 8,
+  hintWave: 15,
+  /** いちばん遠い手がかりのあわの数。たからばこに近いほど 1 個ずつ多い */
+  hintBubbles: 3,
+  creatureCount: 6,
+  /** 生きもの：円（中心 x・z・深さ、半径 m）の上を、1周 seconds 秒で回る。phase は始めの角度（rad） */
+  creatures: [
+    { kind: "turtle", x: 18, z: 70, depth: 10, radius: 6, seconds: 30, phase: 0 },
+    { kind: "ray", x: -2, z: 40, depth: 16, radius: 8, seconds: 36, phase: 1.5 },
+    { kind: "jellyfish", x: 22, z: 5, depth: 20, radius: 3, seconds: 40, phase: 3 },
+    { kind: "octopus", x: -18, z: -25, depth: 36, radius: 2, seconds: 30, phase: 0.5 },
+    { kind: "tropical", x: 5, z: -50, depth: 30, radius: 5, seconds: 20, phase: 2 },
+    { kind: "dolphin", x: -15, z: -70, depth: 26, radius: 10, seconds: 24, phase: 4 },
+  ],
+  discoverRadius: 8,
+  /** 岩（海底の球。中心 x・z、半径 m。中心は海底） */
+  rocks: [
+    { x: -32, z: 70, radius: 6 },
+    { x: 35, z: 30, radius: 7 },
+    { x: -35, z: -10, radius: 6 },
+    { x: 35, z: -30, radius: 5 },
+    { x: -30, z: -60, radius: 7 },
+  ],
+  schoolCount: 5,
+  schoolSize: 12,
   fogNear: 6,
   fogFar: 40,
   lightRange: 25,
   lightAngle: 0.6,
   minAmbient: 0.35,
-  creatureCount: 6,
-  discoverRadius: 8,
-  treasureRadius: 3,
+  cameraDistance: 8,
+  cameraHeight: 2.5,
+  /** 色（16進の文字列）。たからばこ・あわと、まわりの明るさの比はこれらで決まる */
+  waterShallowColor: "#2f8fc0",
+  waterDeepColor: "#0d3a5c",
+  treasureColor: "#ffc93c",
+  treasureLidColor: "#ffb21f",
+  sandColor: "#8f7f5e",
+  bubbleColor: "#bff4ff",
+  schoolColors: ["#ffd23f", "#4fc3f7", "#ff7043", "#ba68c8", "#c0ca33"],
+  /** 手がかりのあわ：半径 m、散らばり ±m、のぼる速さ m/s、のぼる高さ m（そのあと下からまた） */
+  bubbleRadius: 0.25,
+  bubbleSpread: 1,
+  bubbleRiseSpeed: 1.6,
+  bubbleRiseHeight: 4,
+  /** 光の強さ：海面からの光（浅いところ）、潜水艇のライト、たからばこの光（強さと届く距離 m） */
+  sunIntensity: 1.6,
+  spotIntensity: 60,
+  treasureLightIntensity: 30,
+  treasureLightRange: 14,
+  /** 見つけた印の星：大きさ m、生きものの上のすき間 m */
+  foundStarSize: 0.4,
+  foundStarGap: 0.8,
+  /** ゴールしたら、ふたが開くまでの秒と角度（ラジアン） */
+  lidOpenSeconds: 1,
+  lidOpenAngle: 1.9,
 } as const;
 
 /** ステージ5のローバー（月の重力でジャンプ） */
@@ -274,6 +333,30 @@ export const ASSET = {
     nodes: ["trunk", "leaves"],
     maxTriangles: 800,
     maxGlbBytes: 262144,
+  },
+  /** 海の生きもの（NORI-28）。前は −Z、原点は底の中心。名前は STAGE4.creatures の kind に sea- を付けたもの */
+  sea: {
+    variants: [
+      "sea-turtle",
+      "sea-ray",
+      "sea-jellyfish",
+      "sea-octopus",
+      "sea-tropical",
+      "sea-dolphin",
+      "sea-fish",
+    ],
+    sizes: {
+      "sea-turtle": { width: 2, height: 0.8, length: 2.4 },
+      "sea-ray": { width: 3.6, height: 0.5, length: 4 },
+      "sea-jellyfish": { width: 1.6, height: 2.4, length: 1.6 },
+      "sea-octopus": { width: 2.2, height: 1.8, length: 2.2 },
+      "sea-tropical": { width: 0.5, height: 1, length: 1.4 },
+      "sea-dolphin": { width: 1.4, height: 1.4, length: 4 },
+      "sea-fish": { width: 0.3, height: 0.45, length: 0.8 },
+    },
+    nodes: ["body"],
+    maxTriangles: 1500,
+    maxGlbBytes: 131072,
   },
   allowedExtensions: [
     "KHR_materials_emissive_strength",

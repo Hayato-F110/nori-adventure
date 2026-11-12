@@ -6,6 +6,7 @@ import { createGame } from "./core/game";
 import { createFixedStepper } from "./core/loop";
 import type { Stage2State } from "./core/stage2";
 import type { Ring, Stage3State } from "./core/stage3";
+import type { Stage4State } from "./core/stage4";
 import type { CarState, GameState, InputFrame, Pose2D } from "./core/types";
 import { createGamepadInput } from "./input/gamepad";
 import { createKeyboardInput } from "./input/keyboard";
@@ -32,7 +33,18 @@ declare global {
       /** ステージ1の状態（ステージ2では使わない） */
       state: () => GameState;
       /** 遊んでいるステージ（ステージ2のときだけ 2） */
-      stage?: 2 | 3;
+      stage?: 2 | 3 | 4;
+      /** ステージ4の状態（NORI-28） */
+      sub?: () => Stage4State;
+      /** ステージ4の生きものの今の位置 */
+      creatures?: () => { x: number; y: number; z: number }[];
+      /** ステージ4で自作モデル（sea-*）に差し替えた種類の数（0〜7） */
+      seaModels?: number;
+      /** ステージ4のたからばこの真ん中と、横の海底（E2E で明るさの比を測る） */
+      treasureMarker?: () => {
+        treasure: { x: number; y: number; z: number };
+        water: { x: number; y: number; z: number };
+      };
       /** ステージ3の状態（NORI-27） */
       plane?: () => Stage3State;
       /** ステージ3の輪（最後はゴール） */
@@ -88,6 +100,13 @@ if (params.get("stage") === "2") {
 if (params.get("stage") === "3") {
   const { startStage3 } = await import("./stage3Main");
   await startStage3(canvas, hud, showDebug);
+  await new Promise<never>(() => undefined);
+}
+
+// ?stage=4：海を潜水艇で探検するステージ（NORI-28）
+if (params.get("stage") === "4") {
+  const { startStage4 } = await import("./stage4Main");
+  await startStage4(canvas, hud, showDebug);
   await new Promise<never>(() => undefined);
 }
 
