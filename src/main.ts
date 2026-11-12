@@ -38,6 +38,8 @@ declare global {
       sub?: () => Stage4State;
       /** ステージ4の生きものの今の位置 */
       creatures?: () => { x: number; y: number; z: number }[];
+      /** ステージ4の生きもののきらきら（1つめ）の位置。見つけたあとは null（NORI-62） */
+      sparkles?: () => ({ x: number; y: number; z: number } | null)[];
       /** ステージ4で自作モデル（sea-*）に差し替えた種類の数（0〜7） */
       seaModels?: number;
       /** ステージ4のたからばこの真ん中と、横の海底（E2E で明るさの比を測る） */

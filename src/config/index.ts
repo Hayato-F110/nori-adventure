@@ -245,6 +245,19 @@ export const STAGE4 = {
   spotIntensity: 60,
   treasureLightIntensity: 30,
   treasureLightRange: 14,
+  /** 生きものが自ら光る量（自分の色の何倍。色が分かる程度に少しだけ。NORI-62） */
+  creatureGlow: 3,
+  /**
+   * まだ見つけていない生きもののまわりの「きらきら」（光に左右されない色。見つけたら消えて星になる。NORI-62）：
+   * 色、数、大きさ m、生きものの端からのすき間 m、1周の秒
+   */
+  sparkleColor: "#fffbe0",
+  /** きらきらの明るさ（倍。1 より大きいと、霧で薄まっても白く残る。霧の遠い端では見えない） */
+  sparkleGlow: 3,
+  sparkleCount: 6,
+  sparkleSize: 0.35,
+  sparkleGap: 0.6,
+  sparkleTurnSeconds: 6,
   /** 見つけた印の星：大きさ m、生きものの上のすき間 m */
   foundStarSize: 0.4,
   foundStarGap: 0.8,

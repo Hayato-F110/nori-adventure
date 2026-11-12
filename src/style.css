@@ -204,7 +204,8 @@ body {
 }
 
 .touch-updown .touch-go {
-  bottom: calc(var(--touch-gap) * 1.5 + var(--touch-button) + env(safe-area-inset-bottom, 0px));
+  /* ▼ の上に、ほかのボタンと同じすき間（--touch-gap）をあける。小さな指で両方に触れないように */
+  bottom: calc(var(--touch-gap) * 2 + var(--touch-button) + env(safe-area-inset-bottom, 0px));
 }
 
 /* ハンドル：つまみが左右に最大 --touch-steer-range だけ動く。横の幅はその2倍＋つまみ */

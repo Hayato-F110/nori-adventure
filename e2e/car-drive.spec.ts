@@ -117,6 +117,8 @@ test("車が12秒走り、FPS とコンソールエラーを記録する", { tag
     fpsSamples: drivingSamples,
     fpsAverage: Math.round(average * 10) / 10,
     fpsMin: Math.min(...drivingSamples),
+    // 測り終えたときの画質（40 fps 未満が続くと低に下がる。落ちたときに、画質のせいかを見分ける）
+    quality: await page.evaluate(() => window.__nori?.quality),
     consoleErrors,
     userAgent: await page.evaluate(() => navigator.userAgent),
     gpu: maskGpu(
@@ -140,6 +142,9 @@ test("車が12秒走り、FPS とコンソールエラーを記録する", { tag
   if (!process.env["NORI_SKIP_FPS"]) {
     // 手元の PC：実際の時間どおりに進み（10秒以上）、60fps 前後
     expect(simSeconds).toBeGreaterThanOrEqual(10);
-    expect(average).toBeGreaterThanOrEqual(MIN_AVERAGE_FPS);
+    expect(
+      average,
+      JSON.stringify({ quality: report.quality, fpsMin: report.fpsMin }),
+    ).toBeGreaterThanOrEqual(MIN_AVERAGE_FPS);
   }
 });

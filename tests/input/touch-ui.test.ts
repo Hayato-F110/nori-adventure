@@ -56,7 +56,10 @@ describe("タッチの操作の見た目", () => {
     expect(block).toMatch(/width:\s*var\(--touch-button\)/);
     expect(block).toMatch(/height:\s*var\(--touch-button\)/);
     expect(block).toMatch(/right:/);
-    expect(css).toMatch(/\.touch-updown \.touch-go\s*\{[^}]*bottom:/);
+    // ▲ は ▼ の上に、ほかのボタンと同じすき間（--touch-gap）をあける
+    expect(css).toMatch(
+      /\.touch-updown \.touch-go\s*\{[^}]*bottom:\s*calc\(var\(--touch-gap\) \* 2 \+ var\(--touch-button\)/,
+    );
   });
 
   it("長押しのメニュー・虫めがねを出さない（-webkit-touch-callout: none）", () => {

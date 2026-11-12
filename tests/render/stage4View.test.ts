@@ -101,6 +101,46 @@ describe("ステージ4の生きもの（簡単な形 → 自作モデル）", (
     for (const s of before) expect(s.parent).toBeNull();
   });
 
+  // NORI-62：まだ見つけていない生きもののまわりの「きらきら」（docs/game-rules.md「ステージ4」）
+  it("6. きらきらは光に左右されない色で、生きもの × sparkleCount 個を1回で描く。見つけたら消える", () => {
+    const view = newView();
+    const sp = view.root.getObjectByName("sparkles") as THREE.InstancedMesh;
+    expect(sp).toBeInstanceOf(THREE.InstancedMesh);
+    expect(sp.count).toBe(STAGE4.creatures.length * STAGE4.sparkleCount);
+    const mat = sp.material as THREE.MeshBasicMaterial;
+    expect(mat).toBeInstanceOf(THREE.MeshBasicMaterial);
+    expect(mat.toneMapped).toBe(false);
+    // 色は sparkleColor の sparkleGlow 倍（霧の中でも白く残る）
+    expect(mat.color.r).toBeCloseTo(new THREE.Color(STAGE4.sparkleColor).r * STAGE4.sparkleGlow, 5);
+
+    const found = STAGE4.creatures.map((_, i) => i === 1);
+    view.update({ ...game.initial(), found }, 0, false);
+    expect(view.sparkleAt(1)).toBeNull();
+    // 見つけた生きもののきらきらは大きさ 0（消える）、ほかは生きものの端から sparkleGap 外
+    // 行列の 3×3 の部分がすべて 0。decompose は行列式 0 のとき大きさ 1 を返すので使わない
+    const m = new THREE.Matrix4();
+    sp.getMatrixAt(1 * STAGE4.sparkleCount, m);
+    expect([0, 1, 2, 4, 5, 6, 8, 9, 10].map((k) => m.elements[k])).toEqual([0, 0, 0, 0, 0, 0, 0, 0, 0]);
+    const c = view.creatureAt(0);
+    const at = view.sparkleAt(0);
+    const size = ASSET.sea.sizes["sea-turtle"];
+    expect(at).not.toBeNull();
+    expect(Math.hypot((at?.x ?? 0) - c.x, (at?.z ?? 0) - c.z)).toBeCloseTo(
+      Math.max(size.width, size.length) / 2 + STAGE4.sparkleGap,
+      5,
+    );
+  });
+
+  it("7. 生きものは自分の色の creatureGlow 倍だけ自ら光る（モデルの色は変えない）", () => {
+    const view = newView();
+    view.useSeaModels(allModels());
+    const body = view.root.getObjectByName("turtle")?.getObjectByName("body");
+    const mesh = body?.children[0] as THREE.Mesh;
+    const mat = mesh.material as THREE.MeshStandardMaterial;
+    expect(mat.color.getHex()).toBe(0x808080);
+    expect(mat.emissive.r).toBeCloseTo(mat.color.r * STAGE4.creatureGlow, 5);
+  });
+
   it("5. たからばこは光に左右されない色（MeshBasic・トーンマップなし）。霧は残す", () => {
     const view = newView();
     const chest = view.root.getObjectByName("treasure");

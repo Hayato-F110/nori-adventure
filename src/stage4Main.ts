@@ -205,6 +205,7 @@ export const startStage4 = async (canvas: HTMLCanvasElement, hud: HTMLElement, s
     stage: 4,
     sub: () => structuredClone(current),
     creatures: () => STAGE4.creatures.map((_, i) => view.creatureAt(i)),
+    sparkles: () => STAGE4.creatures.map((_, i) => view.sparkleAt(i)),
     get seaModels() {
       return view.seaModels;
     },
