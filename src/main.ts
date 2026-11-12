@@ -16,7 +16,7 @@ import { type CarView, createCarView, loadCarView, type ModelManifest } from "./
 import { createCity } from "./render/city";
 import { createCourseView } from "./render/courseView";
 import { createFollowCamera } from "./render/followCamera";
-import { loadLook } from "./render/look";
+import { loadLook, surfacesFor } from "./render/look";
 import type { Quality } from "./render/quality";
 import { startQuality } from "./render/qualityControl";
 import { createStatusView } from "./render/statusView";
@@ -161,7 +161,7 @@ const quality = startQuality({
 void loadLook({
   base: import.meta.env.BASE_URL,
   renderer,
-  surfaces: LOOK.surfaces,
+  surfaces: surfacesFor(LOOK.surfaces, "stage1"),
   aoIntensity: LOOK.aoIntensity,
   aoDirect: LOOK.aoDirect,
   maxAnisotropy: LOOK.maxAnisotropy,

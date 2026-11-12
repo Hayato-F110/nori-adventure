@@ -39,12 +39,20 @@ export const isRadianceHdr = (bytes: Uint8Array) =>
 export const LIGHTMAP_FILE = "ground_ao.webp";
 /** ステージ2の地面の陰（NORI-26。tools/blender/bake-stage2-ao.py） */
 export const STAGE2_LIGHTMAP_FILE = "ground_ao_stage2.webp";
-export const LIGHTMAP_FILES: readonly string[] = [LIGHTMAP_FILE, STAGE2_LIGHTMAP_FILE];
+/** ステージ3・4の地面・海底の陰（NORI-27・28。tools/blender/bake-sky-sea-ao.py） */
+export const STAGE3_LIGHTMAP_FILE = "ground_ao_stage3.webp";
+export const STAGE4_LIGHTMAP_FILE = "ground_ao_stage4.webp";
+export const LIGHTMAP_FILES: readonly string[] = [
+  LIGHTMAP_FILE,
+  STAGE2_LIGHTMAP_FILE,
+  STAGE3_LIGHTMAP_FILE,
+  STAGE4_LIGHTMAP_FILE,
+];
 export const OWN_LICENSE = "CC-BY-4.0";
 
-/** ファイル名の決まり：<素材>_<color|normal|roughness>.webp、sky.hdr、ground_ao.webp・ground_ao_stage2.webp だけ（フォルダをまたぐ文字は許さない） */
+/** ファイル名の決まり：<素材>_<color|normal|roughness>.webp、sky.hdr、ground_ao.webp・ground_ao_stage[2-4].webp だけ（フォルダをまたぐ文字は許さない） */
 export const FILE_PATTERN =
-  /^(?:[A-Za-z0-9]+_(?:color|normal|roughness)\.webp|sky\.hdr|ground_ao\.webp|ground_ao_stage2\.webp)$/;
+  /^(?:[A-Za-z0-9]+_(?:color|normal|roughness)\.webp|sky\.hdr|ground_ao\.webp|ground_ao_stage[2-4]\.webp)$/;
 
 /** 決まりに合わない点を、日本語の文の一覧で返す（空なら合格） */
 export const checkTextureFiles = (

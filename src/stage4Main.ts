@@ -12,7 +12,7 @@ import { createKeyboardInput } from "./input/keyboard";
 import { mergeInputs } from "./input/merge";
 import { createTouchInput, touchLayoutFor } from "./input/touch";
 import type { ModelManifest } from "./render/carModel";
-import { loadLook } from "./render/look";
+import { LIGHTMAPS, loadLook, surfacesFor } from "./render/look";
 import { startQuality } from "./render/qualityControl";
 import { createStage4View } from "./render/stage4View";
 import { createStatusView } from "./render/statusView";
@@ -96,10 +96,11 @@ export const startStage4 = async (canvas: HTMLCanvasElement, hud: HTMLElement, s
   void loadLook({
     base: import.meta.env.BASE_URL,
     renderer,
-    surfaces: LOOK.surfaces,
+    surfaces: surfacesFor(LOOK.surfaces, "stage4"),
     aoIntensity: LOOK.aoIntensity,
     aoDirect: LOOK.aoDirect,
     maxAnisotropy: LOOK.maxAnisotropy,
+    lightmap: LIGHTMAPS.stage4,
   }).then((look) => quality.lookLoaded(look));
 
   // ---- 潜水艇：箱で始め、GLB（sub）が読めたら差しかえる。プロペラを回す ----
