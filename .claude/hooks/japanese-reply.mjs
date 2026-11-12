@@ -25,7 +25,10 @@ export const findEnglishLines = (text) => {
     .filter((line) => (line.match(/[A-Za-z]{2,}/g) ?? []).length >= 4);
 };
 
-/** transcript（JSONL）から、最後のオーナーのメッセージのあとに書いた文章を集める */
+/**
+ * transcript（JSONL）から、前回この Hook が動いたあと（記録の stop_hook_summary のあと）に書いた文章を集める。
+ * 作業の途中に届いたオーナーのメッセージや、裏の作業の知らせでは区切らない（11/12、それで英語の行を見落とした）
+ */
 export const textsOfThisTurn = (jsonl) => {
   const texts = [];
   for (const line of jsonl.split("\n").reverse()) {
@@ -35,18 +38,12 @@ export const textsOfThisTurn = (jsonl) => {
     } catch {
       continue;
     }
-    const message = entry?.message;
-    if (!message) continue;
-    const content = message.content;
-    if (message.role === "user") {
-      // 道具の結果は会話の途中なので、その先も見る。文字のメッセージがオーナーの番の始まり
-      const isToolResult = Array.isArray(content) && content.every((c) => c?.type === "tool_result");
-      if (!isToolResult) break;
-      continue;
-    }
-    if (message.role === "assistant" && Array.isArray(content)) {
-      for (const c of content) if (c?.type === "text" && typeof c.text === "string") texts.push(c.text);
-    }
+    if (entry?.type === "system" && entry?.subtype === "stop_hook_summary") break;
+    // 同じ文章が、記録用の写し（api-request-blob）にも入るので、assistant の本体だけを見る
+    if (entry?.type !== "assistant") continue;
+    const content = entry?.message?.content;
+    if (!Array.isArray(content)) continue;
+    for (const c of content) if (c?.type === "text" && typeof c.text === "string") texts.push(c.text);
   }
   return texts.reverse();
 };
