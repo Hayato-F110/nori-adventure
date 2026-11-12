@@ -3,7 +3,7 @@
 import * as THREE from "three";
 import { HDRLoader } from "three/addons/loaders/HDRLoader.js";
 
-export type SurfaceName = "grass" | "road" | "brick" | "facade" | "bark";
+export type SurfaceName = "grass" | "road" | "brick" | "facade" | "bark" | "sand";
 
 export type SurfaceSpec = {
   readonly texture: string;
@@ -24,7 +24,8 @@ type TextureManifest = { textures: { file: string }[] };
 export type LookDeps = {
   base: string;
   renderer: THREE.WebGLRenderer;
-  surfaces: Readonly<Record<SurfaceName, SurfaceSpec>>;
+  /** 読む素材（ステージで使うものだけ。surfacesFor） */
+  surfaces: Readonly<Partial<Record<SurfaceName, SurfaceSpec>>>;
   /** 焼き付けた地面の陰の強さ（LOOK.aoIntensity） */
   aoIntensity?: number;
   /** 焼き付けた陰を、太陽の直接の光にも効かせる割合（LOOK.aoDirect。0 なら効かせない） */
@@ -37,7 +38,30 @@ export type LookDeps = {
 };
 
 /** 焼き付けた地面の陰の画像（ステージごと。tools/assets/textures.ts の LIGHTMAP_FILES と同じ） */
-export const LIGHTMAPS = { stage1: "ground_ao.webp", stage2: "ground_ao_stage2.webp" } as const;
+export const LIGHTMAPS = {
+  stage1: "ground_ao.webp",
+  stage2: "ground_ao_stage2.webp",
+  stage3: "ground_ao_stage3.webp",
+  stage4: "ground_ao_stage4.webp",
+} as const;
+
+/**
+ * ステージごとに使う素材（その分だけ読む。使わない素材を読むと、起動の直後が重くなる）。
+ * 街（city.ts）：芝・道・れんが・外壁、木（trees.ts）：幹・芝、ステージ2：芝・道（土手）・れんが、ステージ3：芝、ステージ4：砂
+ */
+export const STAGE_SURFACES = {
+  stage1: ["grass", "road", "brick", "facade", "bark"],
+  stage2: ["grass", "road", "brick", "bark"],
+  stage3: ["grass"],
+  stage4: ["sand"],
+} as const satisfies Record<keyof typeof LIGHTMAPS, readonly SurfaceName[]>;
+
+/** 全部の素材（LOOK.surfaces）から、そのステージで使うものだけを取り出す */
+export const surfacesFor = (
+  all: Readonly<Record<SurfaceName, SurfaceSpec>>,
+  stage: keyof typeof STAGE_SURFACES,
+): Partial<Record<SurfaceName, SurfaceSpec>> =>
+  Object.fromEntries(STAGE_SURFACES[stage].map((name) => [name, all[name]]));
 
 const MAPS = ["color", "normal", "roughness"] as const;
 
@@ -56,11 +80,12 @@ export const loadLook = async (deps: LookDeps): Promise<Look | null> => {
       t.anisotropy = Math.min(deps.maxAnisotropy ?? 1, deps.renderer.capabilities.getMaxAnisotropy());
       return t;
     };
-    const names = Object.keys(deps.surfaces) as SurfaceName[];
+    const specs = (Object.entries(deps.surfaces) as [SurfaceName, SurfaceSpec | undefined][]).filter(
+      (e): e is [SurfaceName, SurfaceSpec] => e[1] !== undefined,
+    );
     const maps = new Map<SurfaceName, Record<(typeof MAPS)[number], THREE.Texture>>();
     await Promise.all(
-      names.map(async (name) => {
-        const spec = deps.surfaces[name];
+      specs.map(async ([name, spec]) => {
         const [color, normal, roughness] = await Promise.all(
           MAPS.map((m) => load(`${spec.texture}_${m}.webp`, m === "color")),
         );
@@ -84,14 +109,14 @@ export const loadLook = async (deps: LookDeps): Promise<Look | null> => {
     const cache = new Map<string, THREE.MeshStandardMaterial>();
     return {
       environment,
-      tileMeters: (surface) => deps.surfaces[surface].tileMeters,
+      tileMeters: (surface) => deps.surfaces[surface]?.tileMeters ?? 1,
       material(surface, tint) {
         const key = `${surface}|${tint === undefined ? "" : new THREE.Color(tint).getHexString()}`;
         const hit = cache.get(key);
         if (hit) return hit;
         const m = maps.get(surface);
         if (m === undefined) throw new Error(`素材がない：${surface}`);
-        const [r = 1, g = 1, b = 1] = deps.surfaces[surface].tint;
+        const [r = 1, g = 1, b = 1] = deps.surfaces[surface]?.tint ?? [];
         // tint は線形の値。建物の色（sRGB の16進）は、その上にかける
         const color = new THREE.Color().setRGB(r, g, b, THREE.LinearSRGBColorSpace);
         if (tint !== undefined) color.multiply(new THREE.Color(tint));

@@ -401,6 +401,8 @@ export const LOOK = {
     brick: { texture: "Facade018A", tileMeters: 13, tint: [1, 1, 1] },
     facade: { texture: "Facade006", tileMeters: 12, tint: [1, 1, 1] },
     bark: { texture: "Bark001", tileMeters: 1, tint: [0.75, 0.55, 0.4] },
+    /** 海底の砂（ステージ4）。素材の平均の色 × 色味 ＝ STAGE4.sandColor と同じ明るさ */
+    sand: { texture: "Ground054", tileMeters: 3.5, tint: [0.83, 0.82, 0.72] },
   },
   /** 木の葉：芝の素材（芝の tint の上）にかける色。芝より少し暗い緑（新しく読む素材を増やさない）。線形の RGB */
   leafTint: [0.75, 0.85, 0.7],
@@ -416,6 +418,11 @@ export const LOOK = {
   lightmapSize: 1024,
   /** ステージ2の地面の陰を焼き付ける範囲（中心から四方へ、1辺 m）。線路と木のあるところ */
   mountainBakeSize: 320,
+  /** ステージ3（空）の焼き付けの範囲（1辺 m）と陰の届く距離（m）。山が大きいので遠くまで（NORI-27） */
+  skyBakeSize: 500,
+  skyAoDistance: 20,
+  /** ステージ4（海）の焼き付けの範囲（1辺 m）。陰の届く距離は aoDistance（NORI-28） */
+  seaBakeSize: 240,
   maxLightmapBytes: 524288,
   aoDistance: 6,
   bakeSamples: 64,
@@ -443,6 +450,12 @@ export const LOOK = {
   qualityButtonSize: 72,
 } as const;
 
+/** 保護者の方への入口（プライバシーポリシー。NORI-54）。押し続けたときだけ開く */
+export const PARENT = {
+  holdSeconds: 2,
+  buttonSize: 48,
+} as const;
+
 export const CONFIG = {
   SIM,
   PHYSICS,
@@ -463,4 +476,5 @@ export const CONFIG = {
   ASSET,
   ASSIST,
   LOOK,
+  PARENT,
 } as const;

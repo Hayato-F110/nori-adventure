@@ -1,7 +1,14 @@
 import * as THREE from "three";
 import { describe, expect, it } from "vitest";
 import { LOOK } from "../../src/config";
-import { loadLook, setBoxUvMeters, setGroundUv1, setPlaneUvMeters } from "../../src/render/look";
+import {
+  loadLook,
+  STAGE_SURFACES,
+  setBoxUvMeters,
+  setGroundUv1,
+  setPlaneUvMeters,
+  surfacesFor,
+} from "../../src/render/look";
 
 // docs/game-rules.md「見た目」（NORI-56）
 describe("UV をメートル単位にする（テクスチャが建物の大きさで伸びない）", () => {
@@ -83,5 +90,27 @@ describe("loadLook：読めないときは null（単色のまま続ける）", 
       fetchManifest: () => Promise.resolve({ textures: [] }),
     });
     expect(look).toBeNull();
+  });
+});
+
+// 使わない素材は読まない（起動の直後を軽くする。PR #43 の CI でステージ1が遅くなった件）
+describe("ステージごとに使う素材だけを読む", () => {
+  it("砂はステージ4だけ。ステージ3は芝だけ、ステージ4は砂だけ", () => {
+    expect(STAGE_SURFACES.stage4).toEqual(["sand"]);
+    expect(STAGE_SURFACES.stage3).toEqual(["grass"]);
+    for (const s of ["stage1", "stage2", "stage3"] as const) expect(STAGE_SURFACES[s]).not.toContain("sand");
+  });
+
+  it("surfacesFor は、そのステージの素材だけを、設定（LOOK.surfaces）の値のまま返す", () => {
+    const four = surfacesFor(LOOK.surfaces, "stage4");
+    expect(Object.keys(four)).toEqual(["sand"]);
+    expect(four.sand).toBe(LOOK.surfaces.sand);
+    expect(Object.keys(surfacesFor(LOOK.surfaces, "stage1")).sort()).toEqual([
+      "bark",
+      "brick",
+      "facade",
+      "grass",
+      "road",
+    ]);
   });
 });

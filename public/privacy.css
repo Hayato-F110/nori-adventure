@@ -1,0 +1,66 @@
+/* プライバシーポリシーのページ（NORI-54）。保護者の方が読むので、ふつうの文書の見た目にする */
+:root {
+  color-scheme: light dark;
+  --text: #1d1f24;
+  --muted: #5a606b;
+  --bg: #ffffff;
+  --link: #1f5fbf;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --text: #e8eaee;
+    --muted: #a7adb8;
+    --bg: #15171c;
+    --link: #8ab4ff;
+  }
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family:
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    "Hiragino Sans",
+    "Noto Sans JP",
+    sans-serif;
+  line-height: 1.8;
+}
+
+main {
+  max-width: 44rem;
+  margin: 0 auto;
+  padding: 1.5rem 1rem 4rem;
+}
+
+h1 {
+  font-size: 1.6rem;
+  margin: 2rem 0 0.25rem;
+}
+
+h2 {
+  font-size: 1.15rem;
+  margin: 1.75rem 0 0.25rem;
+}
+
+a {
+  color: var(--link);
+}
+
+code {
+  font-size: 0.95em;
+  overflow-wrap: anywhere;
+}
+
+.date,
+.lang-switch {
+  color: var(--muted);
+}
+
+section + section {
+  margin-top: 3rem;
+  border-top: 1px solid var(--muted);
+}

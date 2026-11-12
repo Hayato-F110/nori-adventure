@@ -13,7 +13,7 @@ import { createKeyboardInput } from "./input/keyboard";
 import { mergeInputs } from "./input/merge";
 import { createTouchInput } from "./input/touch";
 import { type CarView, loadCarView, type ModelManifest } from "./render/carModel";
-import { LIGHTMAPS, loadLook } from "./render/look";
+import { LIGHTMAPS, loadLook, surfacesFor } from "./render/look";
 import { startQuality } from "./render/qualityControl";
 import { createStage2View } from "./render/stage2View";
 import { createStatusView } from "./render/statusView";
@@ -71,7 +71,7 @@ export const startStage2 = async (canvas: HTMLCanvasElement, hud: HTMLElement, s
   void loadLook({
     base: import.meta.env.BASE_URL,
     renderer,
-    surfaces: LOOK.surfaces,
+    surfaces: surfacesFor(LOOK.surfaces, "stage2"),
     lightmap: LIGHTMAPS.stage2,
     aoIntensity: LOOK.aoIntensity,
     aoDirect: LOOK.aoDirect,
