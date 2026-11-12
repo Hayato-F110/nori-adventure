@@ -3,12 +3,14 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-// @ts-expect-error -- Hook は素の JavaScript（.mjs）で、型定義を持たない
-import {
-  findEnglishLines,
-  textsBeforeThisTool,
-  textsOfThisTurn,
-} from "../../.claude/hooks/japanese-reply.mjs";
+// @ts-expect-error -- Hook は素の JavaScript（.mjs）で、型定義を持たない（整形で行が分かれないよう、まとめて読む）
+import * as hook_ from "../../.claude/hooks/japanese-reply.mjs";
+
+const { findEnglishLines, textsBeforeThisTool, textsOfThisTurn } = hook_ as {
+  findEnglishLines: (text: string) => string[];
+  textsBeforeThisTool: (jsonl: string) => string[];
+  textsOfThisTurn: (jsonl: string) => string[];
+};
 
 const root = path.resolve(import.meta.dirname, "../..");
 const hook = path.join(root, ".claude/hooks/japanese-reply.mjs");
