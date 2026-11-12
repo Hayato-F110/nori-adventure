@@ -19,6 +19,9 @@ import bpy
 # ASSET.vehicles.<名前>.size（幅・高さ・長さ）
 SIZE = {
     "train": (2.2, 2.6, 6.0),
+    # NORI-59：子どもが選べる列車。速さ・操作は今の列車と同じ（見た目だけ）
+    "train-commuter": (2.2, 2.8, 7.0),
+    "train-bullet": (2.2, 2.4, 8.0),
     "plane": (4.4, 1.4, 3.6),
     "sub": (1.8, 1.8, 3.2),
     "rover": (2.0, 1.6, 2.8),
@@ -191,6 +194,103 @@ def build_train(m):
     return [body, *wheels]
 
 
+def _train_wheels(m, accent, wy):
+    R, TW = 0.42, 0.3
+    W = 2.2
+    wx = W / 2 - TW / 2
+    return [
+        wheel("wheel_FL", R, TW, m["tire"], accent, (-wx, wy, R)),
+        wheel("wheel_FR", R, TW, m["tire"], accent, (wx, wy, R)),
+        wheel("wheel_RL", R, TW, m["tire"], accent, (-wx, -wy, R)),
+        wheel("wheel_RR", R, TW, m["tire"], accent, (wx, -wy, R)),
+    ]
+
+
+def build_train_commuter(m):
+    # ふつうの電車（NORI-59）：箱形の車体。クリーム色にコーラル色の帯。屋根にパンタグラフ。実在の車両の配色はまねない
+    W, H, L = SIZE["train-commuter"]
+    body_color = material("commuter_body", srgb(0xFFF1D0), 0.5)
+    stripe = material("commuter_stripe", srgb(0xFF6F59), 0.5)
+    roof = material("commuter_roof", srgb(0x9AA3AD), 0.6)
+    chassis = material("train_chassis", srgb(0x34343E), 0.8)
+    door = material("commuter_door", srgb(0xE9DDBF), 0.5)
+    glass = m["glass"]
+    deck_top = 0.86
+    top = H - 0.45  # 車体の上の端（その上に屋根とパンタグラフ。パンタグラフの上の端が H）
+    body_h = top - deck_top
+    parts = [
+        box((W - 0.3, L - 0.2, 0.34), (0, 0, deck_top - 0.17), chassis, bevel=0.06),
+        box((W - 0.06, L - 0.1, body_h), (0, 0, deck_top + body_h / 2), body_color, bevel=0.2),
+        # 帯（窓の下）
+        box((W - 0.02, L - 0.3, 0.24), (0, 0, deck_top + 0.45), stripe, bevel=0.04),
+        # 屋根
+        box((W - 0.4, L - 0.6, 0.16), (0, 0, top + 0.06), roof, bevel=0.06),
+    ]
+    # 横の窓（左右に4つずつ）とドア（左右に2つずつ）
+    for x in (-(W - 0.06) / 2, (W - 0.06) / 2):
+        for y in (-2.3, -0.75, 0.75, 2.3):
+            parts.append(box((0.06, 0.9, 0.62), (x, y, deck_top + 1.05), glass, bevel=0.05))
+        for y in (-1.5, 1.5):
+            parts.append(box((0.05, 0.5, body_h - 0.25), (x, y, deck_top + (body_h - 0.25) / 2 + 0.05), door, bevel=0.03))
+    # 前の大きな窓・ライト（+Y）と、後ろのライト（−Y）
+    parts.append(box((1.7, 0.06, 0.75), (0, L / 2 - 0.04, deck_top + 1.05), glass, bevel=0.06))
+    for x in (-0.7, 0.7):
+        parts.append(cylinder(0.13, 0.08, (x, L / 2 - 0.02, deck_top + 0.45), Y_AXIS, m["light"], vertices=16))
+        parts.append(box((0.32, 0.08, 0.14), (x, -L / 2 + 0.03, deck_top + 0.45), m["tail"], bevel=0.04))
+    # パンタグラフ（ひし形の枠。屋根の上 H まで）
+    base_z = top + 0.14
+    for s in (-1, 1):
+        parts.append(cylinder(0.03, 0.36, (0, 1.2 + s * 0.14, base_z + 0.13), (s * 0.9, 0, 0), m["dark"], vertices=8))
+    parts.append(box((1.1, 0.08, 0.05), (0, 1.2, H - 0.025), m["dark"]))
+    body = join(parts, "body")
+    return [body, *_train_wheels(m, stripe, 2.4)]
+
+
+def build_train_bullet(m):
+    # 新幹線風（NORI-59）：とがった低い鼻と、まるい長い車体。白に紺の窓の帯と金色の線。実在の車両の形・配色はまねない
+    W, H, L = SIZE["train-bullet"]
+    body_color = material("bullet_body", srgb(0xF7F8FA), 0.35)
+    band = material("bullet_band", srgb(0x24345C), 0.4)
+    gold = material("bullet_gold", srgb(0xF2B33D), 0.4)
+    skirt = material("bullet_skirt", srgb(0x8E97A3), 0.6)
+    glass = m["glass"]
+    nose_len = 2.6
+    body_len = L - nose_len
+    body_y = -L / 2 + body_len / 2  # 車体の中心（鼻は +Y の先）
+    body_h = 1.62
+    zc = 0.72 + body_h / 2
+    parts = [
+        box((W - 0.06, body_len, body_h), (0, body_y, zc), body_color, bevel=0.45, segments=4),
+        # 下のすそ（車体の下だけ。車輪の上半分を隠す）
+        box((W - 0.12, body_len - 0.2, 0.36), (0, body_y, 0.62), skirt, bevel=0.08),
+        # 紺の窓の帯と、金色の線（左右）
+        box((W - 0.01, body_len - 0.5, 0.42), (0, body_y + 0.1, zc + 0.28), band, bevel=0.05),
+        box((W - 0.01, body_len - 0.5, 0.08), (0, body_y + 0.1, zc - 0.12), gold),
+    ]
+    # 鼻：前（+Y）へ細くなる円すいを、上下につぶす
+    bpy.ops.mesh.primitive_cone_add(
+        vertices=24, radius1=1.0, radius2=0.1, depth=nose_len, location=(0, L / 2 - nose_len / 2, zc - 0.25), rotation=(-math.pi / 2, 0, 0)
+    )
+    nose = bpy.context.object
+    # 回転を先に適用してから、上下（世界の Z）だけつぶす（先に scale を入れると、円すいの長さの向きが縮む）
+    bpy.ops.object.transform_apply(location=False, rotation=True, scale=False)
+    nose.scale = (1.0, 1.0, 0.85)
+    bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
+    parts.append(finish(nose, body_color))
+    # 運転席の窓（鼻の付け根の上）
+    bpy.ops.mesh.primitive_uv_sphere_add(segments=16, ring_count=8, radius=0.5, location=(0, L / 2 - nose_len + 0.45, zc + 0.43))
+    cab = bpy.context.object
+    cab.scale = (1.3, 1.6, 0.42)
+    bpy.ops.object.transform_apply(location=False, rotation=True, scale=True)
+    parts.append(finish(cab, band))
+    # 前のライト（鼻の左右）と後ろのライト
+    for x in (-0.55, 0.55):
+        parts.append(box((0.3, 0.3, 0.1), (x, L / 2 - 1.2, zc - 0.28), m["light"], bevel=0.04))
+        parts.append(box((0.34, 0.08, 0.14), (x, -L / 2 + 0.03, zc - 0.2), m["tail"], bevel=0.04))
+    body = join(parts, "body")
+    return [body, *_train_wheels(m, gold, 2.3)]
+
+
 def build_plane(m):
     W, H, L = SIZE["plane"]
     body_color = material("plane_body", srgb(0xFF6B5B))  # 空の青の中で目立つ、さんご色
@@ -302,7 +402,14 @@ def build_rover(m):
     return [body, *wheels]
 
 
-BUILDERS = {"train": build_train, "plane": build_plane, "sub": build_sub, "rover": build_rover}
+BUILDERS = {
+    "train": build_train,
+    "train-commuter": build_train_commuter,
+    "train-bullet": build_train_bullet,
+    "plane": build_plane,
+    "sub": build_sub,
+    "rover": build_rover,
+}
 
 
 def triangles(objs):
