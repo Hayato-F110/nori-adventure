@@ -561,6 +561,23 @@ export const PARENT = {
   buttonSize: 48,
 } as const;
 
+/** タイトル画面とステージ選び（NORI-30。docs/game-rules.md「タイトル画面・ステージ選び・クリアの演出」） */
+export const TITLE = {
+  /** 選べるステージ（ステージ5は NORI-29 でできるまで出さない） */
+  stages: [1, 2, 3, 4],
+  /** 乗り物の絵のボタン（px） */
+  buttonSize: 120,
+} as const;
+
+/** クリアの演出（NORI-30） */
+export const CLEAR = {
+  confettiSeconds: 3,
+  confettiPieces: 40,
+  buttonsDelaySeconds: 3,
+  /** もう一回・つぎ・タイトルのボタン（px） */
+  buttonSize: 96,
+} as const;
+
 export const CONFIG = {
   SIM,
   PHYSICS,
@@ -582,4 +599,6 @@ export const CONFIG = {
   ASSIST,
   LOOK,
   PARENT,
+  TITLE,
+  CLEAR,
 } as const;
