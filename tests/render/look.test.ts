@@ -95,9 +95,9 @@ describe("loadLook：読めないときは null（単色のまま続ける）", 
 
 // 使わない素材は読まない（起動の直後を軽くする。PR #43 の CI でステージ1が遅くなった件）
 describe("ステージごとに使う素材だけを読む", () => {
-  it("砂はステージ4だけ。ステージ3は芝だけ、ステージ4は砂だけ", () => {
+  it("砂はステージ4だけ。ステージ3は芝と樹皮（山のふもとの木。NORI-60）、ステージ4は砂だけ", () => {
     expect(STAGE_SURFACES.stage4).toEqual(["sand"]);
-    expect(STAGE_SURFACES.stage3).toEqual(["grass"]);
+    expect(STAGE_SURFACES.stage3).toEqual(["grass", "bark"]);
     for (const s of ["stage1", "stage2", "stage3"] as const) expect(STAGE_SURFACES[s]).not.toContain("sand");
   });
 

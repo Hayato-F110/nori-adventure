@@ -16,6 +16,7 @@ import { LIGHTMAPS, loadLook, surfacesFor } from "./render/look";
 import { startQuality } from "./render/qualityControl";
 import { createStage3View } from "./render/stage3View";
 import { createStatusView } from "./render/statusView";
+import { loadTreeModels } from "./render/trees";
 
 /** 飛行機の高さの半分（原点は底の中心。状態の y は機体の真ん中） */
 const HALF_HEIGHT = ASSET.vehicles.plane.size.height / 2;
@@ -56,7 +57,10 @@ export const startStage3 = async (canvas: HTMLCanvasElement, hud: HTMLElement, s
   scene.add(sun, sun.target);
 
   const game = createStage3Game();
-  const view = createStage3View(game.rings, game.goal);
+  const view = createStage3View(game.rings, game.goal, {
+    // 山のふもとの木：切り替えの前にシェーダーを裏で用意する（一瞬止まらないように。ステージ1・2と同じ）
+    precompile: (staged) => renderer.compileAsync(staged, camera, scene),
+  });
   scene.add(view.root);
 
   // ---- 見た目と画質（ステージ1・2と同じ決まり） ----
@@ -77,7 +81,10 @@ export const startStage3 = async (canvas: HTMLCanvasElement, hud: HTMLElement, s
     aoDirect: LOOK.aoDirect,
     maxAnisotropy: LOOK.maxAnisotropy,
     lightmap: LIGHTMAPS.stage3,
-  }).then((look) => quality.lookLoaded(look));
+  }).then((look) => {
+    if (look !== null) view.trees.prepare(look);
+    quality.lookLoaded(look);
+  });
 
   // ---- 飛行機：箱で始め、GLB（plane）が読めたら差しかえる。プロペラを回す ----
   let planeRoot: THREE.Object3D = createBoxPlane();
@@ -85,6 +92,14 @@ export const startStage3 = async (canvas: HTMLCanvasElement, hud: HTMLElement, s
   let planeModel: "box" | "glb" = "box";
   scene.add(planeRoot);
   const gltfLoader = new GLTFLoader();
+  // 山のふもとの木（NORI-60）：Blender の木の形が読めたら渡す（素材が貼れたときだけ使う）
+  void loadTreeModels({
+    base: import.meta.env.BASE_URL,
+    fetchManifest: async (url) => (await (await fetch(url)).json()) as ModelManifest,
+    loadModel: async (url) => (await gltfLoader.loadAsync(url)).scene,
+  }).then((models) => {
+    if (models !== null) view.trees.setModels(models);
+  });
   void (async () => {
     try {
       const base = import.meta.env.BASE_URL;
@@ -93,6 +108,8 @@ export const startStage3 = async (canvas: HTMLCanvasElement, hud: HTMLElement, s
       if (entry === undefined) return;
       const model = (await gltfLoader.loadAsync(`${base}models/${entry.file}`)).scene;
       if (ASSET.vehicles.plane.nodes.some((n) => model.getObjectByName(n) === undefined)) return;
+      // ほかの飛行機（NORI-60）も同じ形を色違いで使う
+      view.usePlaneModel(model);
       model.traverse((o) => {
         if (o instanceof THREE.Mesh) o.castShadow = true;
       });
@@ -193,7 +210,17 @@ export const startStage3 = async (canvas: HTMLCanvasElement, hud: HTMLElement, s
     get quality() {
       return quality.quality;
     },
-    trees: "simple",
+    get trees() {
+      return view.trees.mode;
+    },
+    skyScenery: () => ({
+      planes: view.scenery.planes.children.length,
+      // ほかの飛行機は、自分の飛行機の GLB が読めたときに同じ形へ差しかえる
+      planeModel,
+      balloons: view.scenery.balloons.children.length,
+      birds: view.scenery.birds[0]?.count ?? 0,
+      planeAt: view.scenery.planes.children.map((o) => v3(o.position)),
+    }),
     screenOf: (x, y, z) => {
       projected.set(x, y, z).project(camera);
       return {
@@ -233,7 +260,8 @@ export const startStage3 = async (canvas: HTMLCanvasElement, hud: HTMLElement, s
     // 上下は +X まわり（機首が上がる向きが正）、左右の傾きは前後の軸まわり（右に傾くと右の翼が下がる）
     planeRoot.rotation.set(p.pitch, p.heading, -p.bank, "YXZ");
     if (propeller && !reducedMotion.matches) propeller.rotation.z += frameSeconds * 30;
-    view.update(current);
+    // 景色（ほかの飛行機・気球・鳥）は、刻みの間を補間した時刻で動かす
+    view.update(current, previous.tick + (current.tick - previous.tick) * alpha);
     statusView.update(current.tick, {
       stars: current.rings,
       nextCheckpoint: 0,

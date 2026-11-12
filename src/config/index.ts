@@ -193,6 +193,59 @@ export const STAGE3 = {
   ],
   cameraDistance: 10,
   cameraHeight: 3,
+  // ---- 空をにぎやかに（NORI-60）。どれも景色だけで、当たり判定はない。動きは時刻だけで決まる ----
+  /** ほかの飛行機（中心のまわりの円。dir は 1 で左回り、-1 で右回り。phase は時刻 0 の角度 rad。color は機体の色） */
+  otherPlanes: [
+    { radius: 165, height: 46, dir: 1, phase: 0.5, color: "#f4f4f0" },
+    { radius: 260, height: 48, dir: -1, phase: 2.6, color: "#ffc93c" },
+    { radius: 280, height: 44, dir: 1, phase: 4.4, color: "#4caf7a" },
+  ],
+  /** ほかの飛行機の速さ（m/s） */
+  otherPlaneSpeed: 10,
+  /** ただよう気球（中心の位置。上下にゆれる） */
+  driftBalloons: [
+    { x: 60, y: 30, z: -40, color: "#ff5d8f" },
+    { x: -200, y: 40, z: -40, color: "#3fb6ff" },
+    { x: 170, y: 45, z: 120, color: "#ffd23f" },
+    { x: 20, y: 36, z: 195, color: "#7ad35a" },
+  ],
+  /** ただよう気球の大きさ（球の半径 m） */
+  driftBalloonRadius: 4,
+  /** 上下のゆれの幅（中心から上・下へ m） */
+  driftBob: 3,
+  /** 上下のゆれの1往復の時間（s） */
+  driftPeriod: 20,
+  /** 鳥の群れ（円の中心と高さ） */
+  birdFlocks: [
+    { x: -60, y: 40, z: -20 },
+    { x: 180, y: 38, z: -80 },
+    { x: -110, y: 36, z: 195 },
+    { x: 40, y: 44, z: -220 },
+  ],
+  /** 1つの群れの鳥の数 */
+  birdsPerFlock: 6,
+  /** 群れが回る円の半径（m） */
+  birdCircleRadius: 20,
+  /** 鳥の速さ（m/s） */
+  birdSpeed: 8,
+  /** 羽ばたきの回数（1秒に） */
+  birdFlapHz: 3,
+  /** 羽の角度の最大（rad） */
+  birdFlapAngle: 0.5,
+  /** 羽の片側の長さ（m） */
+  birdWingSpan: 1.2,
+  /** 群れの中の鳥と鳥の間（円の上の角度 rad） */
+  birdGap: 0.22,
+  /** 山のふもとの木（山1つあたり） */
+  treesPerMountain: 12,
+  /** 木を置く場所：山の底の端から外へ、この距離の間（m） */
+  treeRingMin: 4,
+  treeRingMax: 16,
+  /** 木の大きさの倍率（木の高さは 4 m × 倍率） */
+  treeScaleMin: 1.5,
+  treeScaleMax: 2.5,
+  /** 景色の物と、輪・ゴールの中心との最も近い距離（m）。輪と空の明るさの比を測る場所をふさがない */
+  sceneryClearance: 30,
 } as const;
 
 /** ステージ4の潜水艇（NORI-28。ステージ3と同じ操作：←→ で曲がる、↑↓ で上下、速さは一定） */

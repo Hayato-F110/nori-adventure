@@ -65,6 +65,15 @@ declare global {
       landmarks?: () => { mountains: number; stations: number };
       /** ステージ2のすれ違う電車の今の位置（NORI-59） */
       passingTrain?: () => { x: number; y: number; z: number };
+      /** ステージ3の空の景色（NORI-60）：数と、ほかの飛行機の形（"glb" は自作の plane.glb の色違い） */
+      skyScenery?: () => {
+        planes: number;
+        planeModel: "box" | "glb";
+        balloons: number;
+        birds: number;
+        /** ほかの飛行機の今の位置 */
+        planeAt: { x: number; y: number; z: number }[];
+      };
       /** ステージ2の状態（NORI-26） */
       train?: () => Stage2State;
       /** ステージ2の駅ごとの、旗の真ん中とそばの土手（3D の点。E2E で明るさの比を測る） */
