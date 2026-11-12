@@ -2,7 +2,7 @@
 // 音のファイルは使わず、その場で正弦波・三角波を作る。状態は読むだけ（鳴らす音は src/core/soundCues.ts が決める）。
 // ブラウザは最初の操作（キー・タッチ・クリック）まで音を出さないので、その時に AudioContext を作る。
 import { SOUND } from "../config";
-import { noteFrequency, type SoundCue, type SoundSnapshot, soundCues } from "../core/soundCues";
+import { createSoundCueTracker, noteFrequency, type SoundCue, type SoundSnapshot } from "../core/soundCues";
 import type { StageNumber } from "../core/route";
 import { browserStorage } from "./progress";
 import { loadSoundOn, saveSoundOn } from "./soundPrefs";
@@ -147,12 +147,11 @@ export const startSound = (stage: StageNumber) => {
     }
   };
 
-  let prev: SoundSnapshot | null = null;
+  const tracker = createSoundCueTracker();
   return {
     /** 毎フレーム、今の状態を渡す */
     update(snapshot: SoundSnapshot) {
-      const cues = prev === null ? [] : soundCues(prev, snapshot);
-      prev = snapshot;
+      const cues = tracker.next(snapshot);
       if (ctx !== null && master !== null) {
         for (const cue of cues) {
           played.push(cue);

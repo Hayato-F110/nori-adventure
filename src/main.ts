@@ -349,6 +349,7 @@ const frame = (now: number) => {
   statusView.update(current.tick, current.course);
   clearFlow.update(current.course.finishTick !== null, now / 1000);
   sound.update({
+    tick: current.tick,
     collected: current.course.stars.filter(Boolean).length,
     checkpoints: current.course.nextCheckpoint,
     finished: current.course.finishTick !== null,

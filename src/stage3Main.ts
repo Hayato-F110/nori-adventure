@@ -274,6 +274,7 @@ export const startStage3 = async (canvas: HTMLCanvasElement, hud: HTMLElement, s
     });
     clearFlow.update(current.finishTick !== null, now / 1000);
     sound.update({
+      tick: current.tick,
       collected: current.rings.filter(Boolean).length,
       checkpoints: 0,
       finished: current.finishTick !== null,

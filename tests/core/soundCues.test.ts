@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { SOUND } from "../../src/config/index.ts";
-import { noteFrequency, type SoundSnapshot, soundCues } from "../../src/core/soundCues.ts";
+import { SIM, SOUND } from "../../src/config/index.ts";
+import {
+  createSoundCueTracker,
+  noteFrequency,
+  type SoundSnapshot,
+  soundCues,
+} from "../../src/core/soundCues.ts";
 
 // docs/game-rules.md「効果音と BGM」（NORI-31）。テストの一覧の 1〜4
 describe("音の高さ", () => {
@@ -53,7 +58,7 @@ describe("音の大きさ", () => {
 });
 
 describe("鳴らす音の決め方（状態の変化から）", () => {
-  const base: SoundSnapshot = { collected: 0, checkpoints: 0, finished: false, touching: false };
+  const base: SoundSnapshot = { tick: 0, collected: 0, checkpoints: 0, finished: false, touching: false };
 
   it("何も変わらなければ鳴らさない", () => {
     expect(soundCues(base, base)).toEqual([]);
@@ -75,5 +80,42 @@ describe("鳴らす音の決め方（状態の変化から）", () => {
 
   it("同じ刻みに2つ起きたら両方", () => {
     expect(soundCues(base, { ...base, collected: 1, finished: true })).toEqual(["collect", "goal"]);
+  });
+});
+
+describe("ぶつかった音の間隔（0.5 秒＝30 刻み。11/12 にオーナーが承認）", () => {
+  const at = (tick: number, touching: boolean): SoundSnapshot => ({
+    tick,
+    collected: 0,
+    checkpoints: 0,
+    finished: false,
+    touching,
+  });
+  const gap = Math.round(SOUND.bumpCooldownSeconds / SIM.fixedDt);
+
+  it("間隔は 30 刻み", () => {
+    expect(gap).toBe(30);
+  });
+
+  it("触れる・離れるをくり返しても、30 刻みの間は鳴らさない。30 刻みたてば鳴る", () => {
+    const tracker = createSoundCueTracker();
+    const bumps: number[] = [];
+    // 10 刻みごとに触れる・離れるをくり返す
+    for (let t = 0; t <= 100; t++) {
+      const cues = tracker.next(at(t, Math.floor(t / 10) % 2 === 1));
+      if (cues.includes("bump")) bumps.push(t);
+    }
+    expect(bumps).toEqual([10, 50, 90]);
+  });
+
+  it("ほかの音は間隔をあけない", () => {
+    const tracker = createSoundCueTracker();
+    tracker.next({ ...at(0, false) });
+    expect(tracker.next({ ...at(1, false), collected: 1 })).toEqual(["collect"]);
+    expect(tracker.next({ ...at(2, false), collected: 2 })).toEqual(["collect"]);
+  });
+
+  it("最初の状態では鳴らさない（前がないので比べない）", () => {
+    expect(createSoundCueTracker().next(at(0, true))).toEqual([]);
   });
 });

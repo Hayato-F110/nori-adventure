@@ -586,6 +586,8 @@ export const SOUND = {
   buttonSize: 72,
   effectGain: 0.25,
   bumpGain: 0.12,
+  /** ぶつかった音を一度鳴らしたら、この秒数は鳴らさない（刻みで数える） */
+  bumpCooldownSeconds: 0.5,
   musicGain: 0.08,
   attackSeconds: 0.01,
   musicAttackSeconds: 0.02,
@@ -598,12 +600,13 @@ export const SOUND = {
   scheduleLeadSeconds: 0.05,
   muteRampSeconds: 0.1,
   /** 使ってよい音の高さ（MIDI の番号。110〜1319 Hz） */
-  lowestNote: 45,
+  lowestNote: 52,
   highestNote: 88,
   effects: {
     collect: { wave: "sine", notes: [84, 88], noteSeconds: 0.08 },
     checkpoint: { wave: "triangle", notes: [79, 84], noteSeconds: 0.12 },
-    bump: { wave: "sine", notes: [57, 45], noteSeconds: 0.15 },
+    // 同じ高さの「ポン、ポン」（下がる音は「しっぱい」に聞こえる。11/12 にオーナーが承認）
+    bump: { wave: "sine", notes: [60, 60], noteSeconds: 0.1 },
     goal: { wave: "triangle", notes: [72, 76, 79, 84], noteSeconds: 0.15 },
   },
   /** ステージごとの BGM：1 分の拍の数と、8 分音符 16 個（三角波でくり返す） */
