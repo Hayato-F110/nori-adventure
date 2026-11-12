@@ -17,6 +17,7 @@ import { startQuality } from "./render/qualityControl";
 import { createStage3View } from "./render/stage3View";
 import { createStatusView } from "./render/statusView";
 import { startClearFlow } from "./render/clearFlow";
+import { startSound } from "./render/sound";
 import { loadTreeModels } from "./render/trees";
 
 /** 飛行機の高さの半分（原点は底の中心。状態の y は機体の真ん中） */
@@ -157,6 +158,7 @@ export const startStage3 = async (canvas: HTMLCanvasElement, hud: HTMLElement, s
 
   // ゴールしたら紙ふぶきと「もう一回・つぎ・タイトル」（NORI-30）
   const clearFlow = startClearFlow(3);
+  const sound = startSound(3);
   const stepper = createFixedStepper(SIM.fixedDt, SIM.maxStepsPerFrame);
   let previous: Stage3State = game.initial();
   let current: Stage3State = previous;
@@ -271,6 +273,12 @@ export const startStage3 = async (canvas: HTMLCanvasElement, hud: HTMLElement, s
       finishTick: current.finishTick,
     });
     clearFlow.update(current.finishTick !== null, now / 1000);
+    sound.update({
+      collected: current.rings.filter(Boolean).length,
+      checkpoints: 0,
+      finished: current.finishTick !== null,
+      touching: current.plane.touching,
+    });
     placeCamera(p, 1 - Math.exp(-CAMERA.followSharpness * frameSeconds));
     sun.position.set(p.x + 20, p.y + 40, p.z + 10);
     sun.target.position.set(p.x, p.y, p.z);

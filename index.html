@@ -97,6 +97,33 @@
         <path d="M40 74 L28 62 L44 56 Z" fill="#fff" />
       </svg>
     </button>
+    <!-- 消音のボタン（NORI-31）：スピーカーの絵。消音のときは斜線。押した状態（音あり）を aria-pressed で伝える -->
+    <button id="sound" class="sound" type="button" aria-label="おと" aria-pressed="true">
+      <svg viewBox="0 0 100 100" aria-hidden="true">
+        <path
+          d="M18 38 H34 L54 20 V80 L34 62 H18 Z"
+          fill="#fff"
+          stroke="#fff"
+          stroke-width="4"
+          stroke-linejoin="round"
+        />
+        <path
+          class="sound-waves"
+          d="M66 36 Q76 50 66 64 M76 26 Q92 50 76 74"
+          fill="none"
+          stroke="#fff"
+          stroke-width="7"
+          stroke-linecap="round"
+        />
+        <path
+          class="sound-slash"
+          d="M16 16 L84 84"
+          stroke="#ff6f59"
+          stroke-width="10"
+          stroke-linecap="round"
+        />
+      </svg>
+    </button>
     <!-- 保護者の方への入口（NORI-54）：2秒押し続けて離すと、プライバシーポリシーを新しいタブで開く -->
     <a
       id="parent"

@@ -543,3 +543,49 @@ body {
     display: none;
   }
 }
+
+/* ---- 消音のボタン（NORI-31。docs/game-rules.md「効果音と BGM」）---- */
+/* 大きさは SOUND.buttonSize と同じ値（tests/render/sound.test.ts で一致を確かめる）。右上の画質のボタンの左 */
+:root {
+  --sound-button: 72px;
+}
+
+.sound {
+  position: fixed;
+  top: calc(12px + env(safe-area-inset-top, 0px));
+  right: calc(24px + var(--quality-button) + env(safe-area-inset-right, 0px));
+  z-index: 30;
+  width: var(--sound-button);
+  height: var(--sound-button);
+  padding: 12px;
+  border: 0;
+  border-radius: 50%;
+  background: rgb(0 0 0 / 35%);
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+}
+
+.sound svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.sound:active {
+  transform: scale(0.94);
+}
+
+.sound:focus-visible {
+  outline: 5px solid #ffd23f;
+  outline-offset: 3px;
+}
+
+.sound .sound-slash,
+.sound.muted .sound-waves {
+  display: none;
+}
+
+.sound.muted .sound-slash {
+  display: inline;
+}
