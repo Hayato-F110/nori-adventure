@@ -12,7 +12,7 @@ import { createKeyboardInput } from "./input/keyboard";
 import { mergeInputs } from "./input/merge";
 import { createTouchInput, touchLayoutFor } from "./input/touch";
 import type { ModelManifest } from "./render/carModel";
-import { loadLook } from "./render/look";
+import { LIGHTMAPS, loadLook } from "./render/look";
 import { startQuality } from "./render/qualityControl";
 import { createStage3View } from "./render/stage3View";
 import { createStatusView } from "./render/statusView";
@@ -76,6 +76,7 @@ export const startStage3 = async (canvas: HTMLCanvasElement, hud: HTMLElement, s
     aoIntensity: LOOK.aoIntensity,
     aoDirect: LOOK.aoDirect,
     maxAnisotropy: LOOK.maxAnisotropy,
+    lightmap: LIGHTMAPS.stage3,
   }).then((look) => quality.lookLoaded(look));
 
   // ---- 飛行機：箱で始め、GLB（plane）が読めたら差しかえる。プロペラを回す ----

@@ -3,7 +3,7 @@
 import * as THREE from "three";
 import { HDRLoader } from "three/addons/loaders/HDRLoader.js";
 
-export type SurfaceName = "grass" | "road" | "brick" | "facade" | "bark";
+export type SurfaceName = "grass" | "road" | "brick" | "facade" | "bark" | "sand";
 
 export type SurfaceSpec = {
   readonly texture: string;
@@ -37,7 +37,12 @@ export type LookDeps = {
 };
 
 /** 焼き付けた地面の陰の画像（ステージごと。tools/assets/textures.ts の LIGHTMAP_FILES と同じ） */
-export const LIGHTMAPS = { stage1: "ground_ao.webp", stage2: "ground_ao_stage2.webp" } as const;
+export const LIGHTMAPS = {
+  stage1: "ground_ao.webp",
+  stage2: "ground_ao_stage2.webp",
+  stage3: "ground_ao_stage3.webp",
+  stage4: "ground_ao_stage4.webp",
+} as const;
 
 const MAPS = ["color", "normal", "roughness"] as const;
 
