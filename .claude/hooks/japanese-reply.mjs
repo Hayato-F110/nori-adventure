@@ -70,6 +70,35 @@ export const textsBeforeThisTool = (jsonl) => {
   return texts.reverse();
 };
 
+/** 道具を呼ぶ直前の Hook が止めたときの知らせの書き出し（下の main と同じ文） */
+export const BEFORE_TOOL_MARK = "道具を呼ぶ前に止めました";
+
+/**
+ * 前回この Hook が動いたあと（stop_hook_summary のあと）に、道具を呼ぶ直前の Hook がもう止めた行を集める。
+ * その行は止めた時点で日本語で言い直しているので、応答の終わりでもう一度止めない（11/12、同じ行を2回止めた）
+ */
+export const linesAlreadyFlagged = (jsonl) => {
+  const lines = [];
+  for (const line of jsonl.split("\n").reverse()) {
+    let entry;
+    try {
+      entry = JSON.parse(line);
+    } catch {
+      continue;
+    }
+    if (entry?.type === "system" && entry?.subtype === "stop_hook_summary") break;
+    if (entry?.type !== "user") continue;
+    const content = entry?.message?.content;
+    if (!Array.isArray(content)) continue;
+    for (const c of content) {
+      if (c?.type !== "tool_result" || c.is_error !== true || typeof c.content !== "string") continue;
+      if (!c.content.includes(BEFORE_TOOL_MARK)) continue;
+      for (const l of c.content.split("\n")) if (l.startsWith("- ")) lines.push(l.slice(2).trim());
+    }
+  }
+  return lines;
+};
+
 const readStdin = async () => {
   const chunks = [];
   for await (const chunk of process.stdin) chunks.push(chunk);
@@ -81,17 +110,21 @@ const main = async () => {
   if (input.stop_hook_active) return;
   const beforeTool = input.hook_event_name === "PreToolUse";
   let texts = [];
+  let flagged = [];
   if (typeof input.transcript_path === "string") {
     try {
       const jsonl = readFileSync(input.transcript_path, "utf8");
       texts = beforeTool ? textsBeforeThisTool(jsonl) : textsOfThisTurn(jsonl);
+      if (!beforeTool) flagged = linesAlreadyFlagged(jsonl);
     } catch {
       texts = [];
     }
   }
   if (!beforeTool && typeof input.last_assistant_message === "string")
     texts.push(input.last_assistant_message);
-  const found = [...new Set(texts.flatMap(findEnglishLines))];
+  // 止めた知らせでは 120 文字で切っているので、行の始まりで比べる
+  const already = (l) => flagged.some((f) => l.slice(0, 120) === f.slice(0, 120));
+  const found = [...new Set(texts.flatMap(findEnglishLines))].filter((l) => !already(l));
   if (found.length === 0) return;
   const list = found
     .slice(0, 5)
@@ -99,7 +132,7 @@ const main = async () => {
     .join("\n");
   process.stderr.write(
     beforeTool
-      ? "道具を呼ぶ前に止めました：直前の文が英語だけです（返答はすべて日本語の決まり）。\n" +
+      ? `${BEFORE_TOOL_MARK}：直前の文が英語だけです（返答はすべて日本語の決まり）。\n` +
           list +
           "\n同じ内容を日本語で書き直してから、もう一度この道具を呼んでください。\n"
       : "止めました：この回の文章に、英語だけの行があります（返答はすべて日本語の決まり）。\n" +
