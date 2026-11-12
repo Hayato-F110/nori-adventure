@@ -48,6 +48,28 @@ export const textsOfThisTurn = (jsonl) => {
   return texts.reverse();
 };
 
+/**
+ * 道具を呼ぶ直前（PreToolUse）用：記録の終わりから、最後の user の記録（道具の結果・メッセージ）までに書いた文章を集める。
+ * つまり、今の道具の呼び出しの前に書いた1行（「次に〜します」の報告）だけを見る
+ */
+export const textsBeforeThisTool = (jsonl) => {
+  const texts = [];
+  for (const line of jsonl.split("\n").reverse()) {
+    let entry;
+    try {
+      entry = JSON.parse(line);
+    } catch {
+      continue;
+    }
+    if (entry?.type === "user") break;
+    if (entry?.type !== "assistant") continue;
+    const content = entry?.message?.content;
+    if (!Array.isArray(content)) continue;
+    for (const c of content) if (c?.type === "text" && typeof c.text === "string") texts.push(c.text);
+  }
+  return texts.reverse();
+};
+
 const readStdin = async () => {
   const chunks = [];
   for await (const chunk of process.stdin) chunks.push(chunk);
@@ -57,24 +79,32 @@ const readStdin = async () => {
 const main = async () => {
   const input = JSON.parse((await readStdin()) || "{}");
   if (input.stop_hook_active) return;
+  const beforeTool = input.hook_event_name === "PreToolUse";
   let texts = [];
   if (typeof input.transcript_path === "string") {
     try {
-      texts = textsOfThisTurn(readFileSync(input.transcript_path, "utf8"));
+      const jsonl = readFileSync(input.transcript_path, "utf8");
+      texts = beforeTool ? textsBeforeThisTool(jsonl) : textsOfThisTurn(jsonl);
     } catch {
       texts = [];
     }
   }
-  if (typeof input.last_assistant_message === "string") texts.push(input.last_assistant_message);
+  if (!beforeTool && typeof input.last_assistant_message === "string")
+    texts.push(input.last_assistant_message);
   const found = [...new Set(texts.flatMap(findEnglishLines))];
   if (found.length === 0) return;
+  const list = found
+    .slice(0, 5)
+    .map((l) => `- ${l.slice(0, 120)}`)
+    .join("\n");
   process.stderr.write(
-    "止めました：この回の文章に、英語だけの行があります（返答はすべて日本語の決まり）。\n" +
-      found
-        .slice(0, 5)
-        .map((l) => `- ${l.slice(0, 120)}`)
-        .join("\n") +
-      "\n最後の報告を日本語で書き直して、もう一度送ってください（途中の行は直せないので、報告の中で日本語で言い直す）。\n",
+    beforeTool
+      ? "道具を呼ぶ前に止めました：直前の文が英語だけです（返答はすべて日本語の決まり）。\n" +
+          list +
+          "\n同じ内容を日本語で書き直してから、もう一度この道具を呼んでください。\n"
+      : "止めました：この回の文章に、英語だけの行があります（返答はすべて日本語の決まり）。\n" +
+          list +
+          "\n最後の報告を日本語で書き直して、もう一度送ってください（途中の行は直せないので、報告の中で日本語で言い直す）。\n",
   );
   process.exit(BLOCK);
 };
