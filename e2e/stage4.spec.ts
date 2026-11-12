@@ -161,7 +161,10 @@ test("ステージ4の見た目：生きもの（エイ）のきらきらがま�
       }, RAY),
     14,
   );
-  await page.waitForTimeout(500);
+  // 時間を止めて、2コマ描くのを待つ（遅い CI で、位置を読んでから撮るまでにエイが泳いでずれないように）
+  await page.evaluate(() => window.__nori?.freeze?.(true));
+  const frozenFrames = await page.evaluate(() => window.__nori?.frames ?? 0);
+  await page.waitForFunction((n) => (window.__nori?.frames ?? 0) >= n + 2, frozenFrames, { timeout: 30_000 });
   // きらきら（1つめ）と、エイの横 6 m の水（きらきらの輪の外）
   const points = await page.evaluate((i) => {
     const c = window.__nori?.creatures?.()[i];
@@ -179,8 +182,9 @@ test("ステージ4の見た目：生きもの（エイ）のきらきらがま�
   }
   await page.screenshot({ path: testInfo.outputPath("stage4-ray.png") });
   const [, water = 0] = await luminanceAt(page, points);
-  // きらきらは小さく、エイと一緒に泳ぐので、読んだ点のまわり 10 px でいちばん明るいところを測る
+  // きらきらは小さい（約 20 px）ので、読んだ点のまわり 10 px でいちばん明るいところを測る
   const sparkle = await peakLuminanceAt(page, points[0] ?? { x: 0, y: 0 }, 10);
+  await page.evaluate(() => window.__nori?.freeze?.(false));
   const contrast = ratio(sparkle, water);
   expect(contrast, JSON.stringify({ sparkle, water, points })).toBeGreaterThanOrEqual(MIN_CONTRAST);
   expect(errors).toEqual([]);

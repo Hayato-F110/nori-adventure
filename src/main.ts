@@ -40,6 +40,8 @@ declare global {
       creatures?: () => { x: number; y: number; z: number }[];
       /** ステージ4の生きもののきらきら（1つめ）の位置。見つけたあとは null（NORI-62） */
       sparkles?: () => ({ x: number; y: number; z: number } | null)[];
+      /** E2E 用：ステージ4の時間を止める・戻す（状態を進めず、描画だけ続ける） */
+      freeze?: (on: boolean) => void;
       /** ステージ4で自作モデル（sea-*）に差し替えた種類の数（0〜7） */
       seaModels?: number;
       /** ステージ4のたからばこの真ん中と、横の海底（E2E で明るさの比を測る） */

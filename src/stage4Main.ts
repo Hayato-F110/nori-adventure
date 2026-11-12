@@ -233,10 +233,18 @@ export const startStage4 = async (canvas: HTMLCanvasElement, hud: HTMLElement, s
   const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
   placeCamera(current.sub, 1);
   let lastTime = performance.now();
+  // E2E 用：時間を止める（状態を進めず、描画だけ続ける）。遅い CI でも、読んだ位置と撮った画面がずれない
+  let frozenAt: number | null = null;
+  if (window.__nori) {
+    window.__nori.freeze = (on: boolean) => {
+      frozenAt = on ? lastTime : null;
+    };
+  }
 
-  const frame = (now: number) => {
-    const frameSeconds = Math.min(0.25, (now - lastTime) / 1000);
-    lastTime = now;
+  const frame = (realNow: number) => {
+    const now = frozenAt ?? realNow;
+    const frameSeconds = frozenAt === null ? Math.min(0.25, (realNow - lastTime) / 1000) : 0;
+    if (frozenAt === null) lastTime = realNow;
     input = mergeInputs([keyboard.read(), touch.read(), ...gamepads.read()]);
     const { alpha } = stepper.advance(frameSeconds, () => {
       previous = current;
@@ -285,12 +293,12 @@ export const startStage4 = async (canvas: HTMLCanvasElement, hud: HTMLElement, s
 
     frames++;
     windowFrames++;
-    if (now - windowStart >= 1000) {
-      const fps = (windowFrames * 1000) / (now - windowStart);
+    if (realNow - windowStart >= 1000) {
+      const fps = (windowFrames * 1000) / (realNow - windowStart);
       fpsSamples.push(Math.round(fps * 10) / 10);
       quality.sample(fps, fpsSamples.length);
       windowFrames = 0;
-      windowStart = now;
+      windowStart = realNow;
       if (showDebug) hud.textContent = `${fps.toFixed(0)} fps · ${(-p.y).toFixed(0)} m`;
     }
     if (window.__nori) window.__nori.frames = frames;
