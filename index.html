@@ -114,6 +114,48 @@
         <path d="M55 76 Q55 60 66 60 Q77 60 77 76 Z" fill="#fff" />
       </svg>
     </a>
+    <!-- ステージ2の始めに、乗る列車を選ぶ（NORI-59）。絵だけ（文字なし）。速さ・操作は3つとも同じ -->
+    <div id="train-choice" class="train-choice" hidden role="group" aria-label="のる れっしゃを えらぶ">
+      <button type="button" class="train-choice-button" data-train="train" aria-label="きかんしゃ">
+        <svg viewBox="0 0 120 70" aria-hidden="true">
+          <rect x="8" y="44" width="104" height="8" rx="3" fill="#34343e" />
+          <rect x="14" y="26" width="58" height="20" rx="10" fill="#1fa88e" />
+          <rect x="68" y="12" width="40" height="34" rx="6" fill="#1fa88e" />
+          <rect x="64" y="8" width="48" height="7" rx="3" fill="#e84a5f" />
+          <rect x="24" y="10" width="10" height="18" rx="2" fill="#e84a5f" />
+          <rect x="78" y="18" width="20" height="12" rx="2" fill="#6fc8ff" />
+          <circle cx="30" cy="56" r="8" fill="#2b2b33" />
+          <circle cx="90" cy="56" r="8" fill="#2b2b33" />
+        </svg>
+      </button>
+      <button type="button" class="train-choice-button" data-train="train-commuter" aria-label="でんしゃ">
+        <svg viewBox="0 0 120 70" aria-hidden="true">
+          <rect x="8" y="12" width="104" height="38" rx="8" fill="#fff1d0" />
+          <rect x="8" y="36" width="104" height="6" fill="#ff6f59" />
+          <rect x="16" y="18" width="16" height="13" rx="2" fill="#6fc8ff" />
+          <rect x="40" y="18" width="16" height="13" rx="2" fill="#6fc8ff" />
+          <rect x="64" y="18" width="16" height="13" rx="2" fill="#6fc8ff" />
+          <rect x="88" y="18" width="16" height="13" rx="2" fill="#6fc8ff" />
+          <path d="M52 12 L60 4 L68 12" fill="none" stroke="#3a3a46" stroke-width="3" />
+          <circle cx="28" cy="56" r="8" fill="#2b2b33" />
+          <circle cx="92" cy="56" r="8" fill="#2b2b33" />
+        </svg>
+      </button>
+      <button type="button" class="train-choice-button" data-train="train-bullet" aria-label="しんかんせん">
+        <svg viewBox="0 0 120 70" aria-hidden="true">
+          <path
+            d="M6 48 L6 22 Q6 14 16 14 L70 14 Q92 14 116 44 L116 48 Z"
+            fill="#f7f8fa"
+            stroke="#8e97a3"
+            stroke-width="2"
+          />
+          <rect x="12" y="20" width="62" height="10" rx="3" fill="#24345c" />
+          <rect x="10" y="34" width="70" height="3" fill="#f2b33d" />
+          <circle cx="28" cy="56" r="8" fill="#2b2b33" />
+          <circle cx="86" cy="56" r="8" fill="#2b2b33" />
+        </svg>
+      </button>
+    </div>
     <div id="goal" class="goal" hidden role="img" aria-label="ごーる">
       <svg viewBox="0 0 100 100" aria-hidden="true">
         <path

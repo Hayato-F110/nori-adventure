@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { STAGE2 } from "../../src/config";
-import { createStage2Scenery, STAGE2_SCENERY } from "../../src/core/stage2Layout";
+import { SIM } from "../../src/config";
+import {
+  createStage2Scenery,
+  offsetOnTrack,
+  passingTrainDistance,
+  STAGE2_SCENERY,
+} from "../../src/core/stage2Layout";
 import { createTrack } from "../../src/core/track";
 
 // ステージ2の景色の配置（NORI-26）。描画と光のベイク（Blender）が同じ配置を使うための、純粋な関数
@@ -41,5 +47,42 @@ describe("ステージ2の景色の配置", () => {
       expect(Math.abs(o.x)).toBeLessThan(half);
       expect(Math.abs(o.z)).toBeLessThan(half);
     }
+  });
+});
+
+// NORI-59：すれ違う電車・海辺（docs/game-rules.md「景色と列車を増やす」）。テストの一覧の 2・3
+describe("すれ違う電車と海辺", () => {
+  const passing = samples.map((_, i) => offsetOnTrack(track, i, -STAGE2.passingOffset));
+  const toPassing = (x: number, z: number) => Math.min(...passing.map((p) => Math.hypot(p.x - x, p.z - z)));
+
+  it("すれ違う電車は時刻だけで決まり、逆向きに STAGE2.passingSpeed で進み、線路の長さで1周する", () => {
+    const L = track.length;
+    expect(passingTrainDistance(L, 0)).toBeCloseTo(STAGE2.passingStart, 9);
+    expect(passingTrainDistance(L, 777)).toBe(passingTrainDistance(L, 777));
+    const a = passingTrainDistance(L, 600);
+    const b = passingTrainDistance(L, 601);
+    expect(a - b).toBeCloseTo(STAGE2.passingSpeed * SIM.fixedDt, 9);
+    const lap = L / STAGE2.passingSpeed / SIM.fixedDt;
+    expect(passingTrainDistance(L, 600 + lap)).toBeCloseTo(a, 6);
+    for (const t of [0, 1000, 5000, 99999]) {
+      const d = passingTrainDistance(L, t);
+      expect(d).toBeGreaterThanOrEqual(0);
+      expect(d).toBeLessThan(L);
+    }
+  });
+
+  it("2本目の線路は、自分の線路の中心から STAGE2.passingOffset m（どこでも 4 m 以上）・ホームから 5 m 以上離れる", () => {
+    for (const p of passing) expect(toTrack(p.x, p.z)).toBeGreaterThan(4);
+    for (const q of scenery.platforms) expect(toPassing(q.x, q.z)).toBeGreaterThanOrEqual(5);
+  });
+
+  it("木は2本目の線路から 6 m 以上離れる", () => {
+    for (const t of scenery.trees) expect(toPassing(t.x, t.z)).toBeGreaterThanOrEqual(6);
+  });
+
+  it("海辺（z > STAGE2.seaFromZ）に山・木を置かない。線路は海辺から 15 m 以上離れる", () => {
+    for (const m of scenery.mountains) expect(m.z + m.radius).toBeLessThanOrEqual(STAGE2.seaFromZ);
+    for (const t of scenery.trees) expect(t.z + 3).toBeLessThanOrEqual(STAGE2.seaFromZ);
+    for (const p of [...samples, ...passing]) expect(p.z).toBeLessThan(STAGE2.seaFromZ - 15);
   });
 });

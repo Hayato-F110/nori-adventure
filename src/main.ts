@@ -59,6 +59,10 @@ declare global {
         ring: { x: number; y: number; z: number };
         sky: { x: number; y: number; z: number };
       };
+      /** ステージ2で選んだ列車（まだなら null。NORI-59） */
+      trainChoice?: () => string | null;
+      /** ステージ2のすれ違う電車の今の位置（NORI-59） */
+      passingTrain?: () => { x: number; y: number; z: number };
       /** ステージ2の状態（NORI-26） */
       train?: () => Stage2State;
       /** ステージ2の駅ごとの、旗の真ん中とそばの土手（3D の点。E2E で明るさの比を測る） */

@@ -336,6 +336,50 @@ body {
   transform: scale(0.94);
 }
 
+/* ---- ステージ2の始めに、乗る列車を選ぶ（NORI-59。docs/game-rules.md「景色と列車を増やす」）---- */
+/* 大きさは STAGE2.choiceButtonSize と同じ値（tests/input/trainChoice.test.ts で一致を確かめる）。
+   真ん中のパネルだけ（画面全体はふさがない。右上の画質のボタンは押せる） */
+:root {
+  --choice-button: 96px;
+}
+
+.train-choice {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  z-index: 20;
+  display: flex;
+  gap: 20px;
+  padding: 20px;
+  border-radius: 28px;
+  background: rgb(0 0 0 / 35%);
+  transform: translate(-50%, -50%);
+}
+
+.train-choice[hidden] {
+  display: none;
+}
+
+.train-choice-button {
+  width: var(--choice-button);
+  height: var(--choice-button);
+  padding: 8px;
+  border: 4px solid #fff;
+  border-radius: 20px;
+  background: #fffaf0;
+  cursor: pointer;
+}
+
+.train-choice-button:focus-visible {
+  outline: 5px solid #ffd23f;
+  outline-offset: 2px;
+}
+
+.train-choice-button svg {
+  width: 100%;
+  height: 100%;
+}
+
 /* ---- 保護者の方への入口（NORI-54。docs/game-rules.md「保護者の方への入口」）---- */
 /* 大きさは PARENT.buttonSize と同じ値（tests/input/parentLink.test.ts で一致を確かめる）。
    子ども向けのボタン（64 px 以上）の例外：保護者向けで、目立たせない */

@@ -119,6 +119,33 @@ export const STAGE2 = {
   startDistance: 0,
   cameraDistance: 12,
   cameraHeight: 6,
+  // ---- 景色と列車を増やす（NORI-59） ----
+  /** 子どもが選べる列車（GLB の名前）。速さ・操作は3つとも同じ（見た目だけ） */
+  trainChoices: ["train", "train-commuter", "train-bullet"],
+  /** 列車を選ぶボタンの大きさ（px） */
+  choiceButtonSize: 96,
+  /** すれ違う電車の線路（線路の左、m） */
+  passingOffset: 4.2,
+  /** すれ違う電車の速さ（m/s。逆向き） */
+  passingSpeed: 8,
+  /** すれ違う電車の、時刻 0 の線路の上の距離（m） */
+  passingStart: 300,
+  /** 海辺：z がこれより大きい所が砂浜、その先が海（m） */
+  seaFromZ: 105,
+  beachWidth: 20,
+  /** 富士山風の山（遠景。霧を効かせず、空の色をまぜる） */
+  bigMountain: {
+    x: -60,
+    z: -400,
+    radius: 150,
+    height: 120,
+    snowFraction: 0.3,
+    hazeTop: 0.35,
+    hazeBottom: 0.7,
+  },
+  cloudCount: 10,
+  cloudMinHeight: 50,
+  cloudMaxHeight: 70,
 } as const;
 
 /** ステージ3の飛行機（手を離すと自動で水平に戻る） */
