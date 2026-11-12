@@ -578,6 +578,50 @@ export const CLEAR = {
   buttonSize: 96,
 } as const;
 
+/** ステージ1の街をにぎやかに（NORI-61。docs/game-rules.md「街をにぎやかに」） */
+export const TRAFFIC = {
+  /** ほかの車が回る四角い道の角（道の中心線。この順に回る） */
+  loop: [
+    { x: -40, z: -40 },
+    { x: 40, z: -40 },
+    { x: 40, z: 80 },
+    { x: -40, z: 80 },
+  ],
+  laneOffset: 2.5,
+  cornerRadius: 4,
+  /** 回る順の車（モデルの名前と、1周の中のはじめの位置 m） */
+  vehicles: [
+    { model: "traffic-car", start: 0 },
+    { model: "bus", start: 100 },
+    { model: "police", start: 200 },
+    { model: "fire-truck", start: 300 },
+  ],
+  speed: 6,
+  acceleration: 3,
+  braking: 8,
+  stopAhead: 10,
+  stopSide: 3,
+  followGap: 4,
+  lampSwapSeconds: 0.5,
+  bikeOffset: 4,
+  bicycles: { count: 2, speed: 4, starts: [0, 200] },
+  motorbikes: { count: 2, speed: 6, starts: [100, 300] },
+  bikeStopRadius: 6,
+  bikeFollowGap: 3,
+  people: { count: 6, sideLength: 26, offset: 6 },
+  walkSpeed: 1.2,
+  walkStopRadius: 6,
+  personRadius: 0.4,
+  bikeRadius: 0.6,
+} as const;
+
+/** ステージ1の空（NORI-61） */
+export const CITY_SKY = {
+  clouds: { count: 8, minHeight: 60, maxHeight: 70, speed: 1, wrapX: 150 },
+  sunDistance: 300,
+  sunRadius: 12,
+} as const;
+
 export const CONFIG = {
   SIM,
   PHYSICS,
@@ -601,4 +645,6 @@ export const CONFIG = {
   PARENT,
   TITLE,
   CLEAR,
+  TRAFFIC,
+  CITY_SKY,
 } as const;
