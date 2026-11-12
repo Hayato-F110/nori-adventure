@@ -4,9 +4,9 @@
 // 並びは設定（STAGE4）と、決まった式で作る。
 import * as THREE from "three";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
-import { ASSET, SIM, STAGE4 } from "../config";
+import { ASSET, LOOK, SIM, STAGE4 } from "../config";
 import { type Creature, creaturePosition, type Hint, type Point3, type Stage4State } from "../core/stage4";
-import type { Look } from "./look";
+import { type Look, setGroundUv1, setPlaneUvMeters } from "./look";
 
 const SEABED = -STAGE4.maxDepth;
 const GROUND_SIZE = STAGE4.boundsHalfSize * 2 + 120;
@@ -174,12 +174,18 @@ export const createStage4View = (hints: readonly Hint[], treasure: Point3): Stag
   root.name = "stage4";
 
   // 海底（砂）と岩
-  const sand = new THREE.Mesh(
-    new THREE.PlaneGeometry(GROUND_SIZE, GROUND_SIZE).rotateX(-Math.PI / 2),
-    std(STAGE4.sandColor, { roughness: 1 }),
+  // 高画質では砂の素材（LOOK.surfaces.sand）と焼き付けた海底の陰（岩の足元。範囲は LOOK.seaBakeSize）。
+  // 低画質・素材が読めないときは単色の砂（STAGE4.sandColor。同じ平均の明るさ）
+  const sandPlain = std(STAGE4.sandColor, { roughness: 1 });
+  const sandGeo = setPlaneUvMeters(
+    new THREE.PlaneGeometry(GROUND_SIZE, GROUND_SIZE),
+    GROUND_SIZE,
+    GROUND_SIZE,
   );
+  const sand = new THREE.Mesh(sandGeo.rotateX(-Math.PI / 2), sandPlain);
   sand.position.y = SEABED;
   root.add(sand);
+  setGroundUv1(sand, LOOK.seaBakeSize);
   const rockMat = std(0x6b6f73, { flatShading: true, roughness: 1 });
   STAGE4.rocks.forEach((r, i) => {
     const rock = new THREE.Mesh(new THREE.IcosahedronGeometry(r.radius, 1), rockMat);
@@ -427,8 +433,8 @@ export const createStage4View = (hints: readonly Hint[], treasure: Point3): Stag
     get seaModels() {
       return seaModels;
     },
-    applyLook() {
-      // 海の素材（砂など）は、Blender で取り込んだあとに貼る。今は単色のまま
+    applyLook(look) {
+      sand.material = look === null ? sandPlain : look.material("sand");
     },
     update(state, seconds, reducedMotion) {
       const t = reducedMotion ? 0 : seconds;

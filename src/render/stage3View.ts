@@ -1,9 +1,9 @@
 // ステージ3の空の見た目（docs/game-rules.md「ステージ3」。NORI-27）。状態を読むだけ。
 // 地面（芝）・山（円すい）・気球・雲・輪・ゴールの輪。並びは設定（STAGE3）と、決まった式（雲）で作る。
 import * as THREE from "three";
-import { STAGE3 } from "../config";
+import { LOOK, STAGE3 } from "../config";
 import type { Ring, Stage3State } from "../core/stage3";
-import { type Look, setPlaneUvMeters, withoutAo } from "./look";
+import { type Look, setGroundUv1, setPlaneUvMeters } from "./look";
 
 const GROUND_SIZE = 900; // 飛べる範囲（±300 m）の外まで地面を見せる
 
@@ -42,7 +42,9 @@ export const createStage3View = (rings: readonly Ring[], goal: Ring): Stage3View
   const ground = new THREE.Mesh(groundGeo, groundPlain);
   ground.receiveShadow = true;
   root.add(ground);
-  swaps.push({ mesh: ground, plain: groundPlain, pick: (look) => withoutAo(look.material("grass")) });
+  // 焼き付けた地面の陰（ステージ3。山のすそ）を uv1 で重ねる。範囲は LOOK.skyBakeSize（外は陰なし。NORI-27）
+  setGroundUv1(ground, LOOK.skyBakeSize);
+  swaps.push({ mesh: ground, plain: groundPlain, pick: (look) => look.material("grass") });
 
   // 山（設定の場所。当たり判定と同じ円すい）
   const mountainMat = new THREE.MeshStandardMaterial({ color: 0x7c8f6a, roughness: 1, flatShading: true });

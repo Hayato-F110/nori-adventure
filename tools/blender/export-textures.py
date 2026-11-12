@@ -14,7 +14,7 @@ import bpy
 SIZE = 512  # LOOK.textureSize
 HDRI_WIDTH = 512  # LOOK.hdriWidth
 QUALITY = 80  # WebP の品質（大きさの上限に収まらなければ下げる）
-TEXTURES = ["Grass004", "Asphalt031", "Facade018A", "Facade006", "Bark001"]  # LOOK.surfaces と同じ
+TEXTURES = ["Grass004", "Asphalt031", "Facade018A", "Facade006", "Bark001", "Ground054"]  # LOOK.surfaces と同じ
 MAPS = {"Color": "color", "NormalGL": "normal", "Roughness": "roughness"}
 
 
