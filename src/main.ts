@@ -38,7 +38,9 @@ declare global {
       sub?: () => Stage4State;
       /** ステージ4の生きものの今の位置 */
       creatures?: () => { x: number; y: number; z: number }[];
-      /** ステージ4のたからばこの真ん中と、その少し上の水（E2E で明るさの比を測る） */
+      /** ステージ4で自作モデル（sea-*）に差し替えた種類の数（0〜7） */
+      seaModels?: number;
+      /** ステージ4のたからばこの真ん中と、横の海底（E2E で明るさの比を測る） */
       treasureMarker?: () => {
         treasure: { x: number; y: number; z: number };
         water: { x: number; y: number; z: number };

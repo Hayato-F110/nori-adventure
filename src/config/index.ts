@@ -193,6 +193,8 @@ export const STAGE4 = {
   /** たからばこ（ゴール）の中心 */
   treasure: { x: 0, z: -90, depth: 39.4 },
   treasureRadius: 3,
+  /** たからばこの金色の明るさ（倍。1 より大きいと、霧で薄まっても明るく残る。霧の遠い端では見えなくなる） */
+  treasureGlow: 3,
   hintCount: 8,
   hintWave: 15,
   /** いちばん遠い手がかりのあわの数。たからばこに近いほど 1 個ずつ多い */

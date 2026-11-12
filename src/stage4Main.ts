@@ -105,6 +105,18 @@ export const startStage4 = async (canvas: HTMLCanvasElement, hud: HTMLElement, s
     try {
       const base = import.meta.env.BASE_URL;
       const manifest = (await (await fetch(`${base}models/manifest.json`)).json()) as ModelManifest;
+      // 海の生きもの（7種類）：読めたものから差し替える。読めないものは簡単な形のまま
+      void Promise.allSettled(
+        ASSET.sea.variants.map(async (name) => {
+          const e = manifest.models.find((m) => m.name === name);
+          if (e === undefined) throw new Error(`${name} がない`);
+          return [name, (await gltfLoader.loadAsync(`${base}models/${e.file}`)).scene] as const;
+        }),
+      ).then((results) => {
+        const models = new Map<string, THREE.Object3D>();
+        for (const r of results) if (r.status === "fulfilled") models.set(r.value[0], r.value[1]);
+        view.useSeaModels(models);
+      });
       const entry = manifest.models.find((m) => m.name === "sub");
       if (entry === undefined) return;
       const model = (await gltfLoader.loadAsync(`${base}models/${entry.file}`)).scene;
@@ -182,6 +194,9 @@ export const startStage4 = async (canvas: HTMLCanvasElement, hud: HTMLElement, s
     stage: 4,
     sub: () => structuredClone(current),
     creatures: () => STAGE4.creatures.map((_, i) => view.creatureAt(i)),
+    get seaModels() {
+      return view.seaModels;
+    },
     treasureMarker: () => {
       const m = view.marker();
       return { treasure: v3(m.treasure), water: v3(m.water) };

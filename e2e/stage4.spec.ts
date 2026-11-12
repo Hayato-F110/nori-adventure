@@ -64,6 +64,8 @@ test("ステージ4：操縦して生きものに近づくと、上の表示の�
   expect(await page.evaluate(() => window.__nori?.stage)).toBe(4);
   await expect(page.locator("#star-count")).toHaveText("0");
   await expect(page.locator("#flags")).toBeHidden();
+  // 海の生きもの7種類（見つける6種類＋群れの魚）が自作モデルに差し替わる
+  await page.waitForFunction(() => window.__nori?.seaModels === 7, undefined, { timeout: 30_000 });
   await page.screenshot({ path: testInfo.outputPath("01-start.png") });
 
   await steerTo(page, () =>
@@ -134,7 +136,7 @@ const checkLook = async (page: Page, testInfo: TestInfo, mode: "高画質" | "�
     body: JSON.stringify({ quality, contrast, treasure, water, points }),
     contentType: "application/json",
   });
-  expect(contrast).toBeGreaterThanOrEqual(MIN_CONTRAST);
+  expect(contrast, JSON.stringify({ quality, treasure, water, points })).toBeGreaterThanOrEqual(MIN_CONTRAST);
   expect(errors).toEqual([]);
 };
 
