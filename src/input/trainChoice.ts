@@ -2,6 +2,7 @@
 // index.html の #train-choice（絵のボタン3つ）を出し、押されたら1回だけ知らせて隠す。
 // 速さ・操作は3つとも同じ（見た目だけ）。ここではモデルの名前を返すだけ。
 import { STAGE2 } from "../config";
+import { focusFirstOnKey } from "./keyFocus";
 
 export type TrainChoice = (typeof STAGE2.trainChoices)[number];
 
@@ -26,8 +27,8 @@ export const createTrainChoice = (root: HTMLElement, onChoose: (name: TrainChoic
     });
   }
   root.hidden = false;
-  // キーボードでも選べるように、最初のボタンに合わせておく（Enter・Space で押せる）
-  buttons[0]?.focus();
+  // キーボードでも選べるように、最初のキー入力で最初のボタンに合わせる（開いたときは枠を出さない。NORI-30）
+  focusFirstOnKey(window, buttons);
   return {
     get chosen() {
       return chosen;

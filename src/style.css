@@ -417,3 +417,129 @@ body {
   transform: rotate(-90deg);
   transform-origin: 50% 50%;
 }
+
+/* ---- タイトル画面とクリアの演出（NORI-30。docs/game-rules.md「タイトル画面・ステージ選び・クリアの演出」）---- */
+/* 大きさは TITLE.buttonSize・CLEAR.buttonSize と同じ値（tests/render/titleScreen.test.ts で一致を確かめる） */
+:root {
+  --title-button: 120px;
+  --clear-button: 96px;
+}
+
+/* hidden を付けた部品は、display を指定していても出さない（タイトルでゲームの部品を隠すため） */
+[hidden] {
+  display: none !important;
+}
+
+.title {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-content: center;
+  justify-content: center;
+  gap: 28px;
+  padding: 24px;
+  background: linear-gradient(#9fd8ff, #dff3ff);
+}
+
+.title-button,
+.clear-button {
+  position: relative;
+  display: block;
+  padding: 10px;
+  border: 5px solid #fff;
+  border-radius: 24px;
+  background: #fffaf0;
+  box-shadow: 0 6px 14px rgb(0 0 0 / 20%);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.title-button {
+  width: var(--title-button);
+  height: var(--title-button);
+}
+
+.clear-button {
+  width: var(--clear-button);
+  height: var(--clear-button);
+}
+
+.title-button:focus-visible,
+.clear-button:focus-visible {
+  outline: 5px solid #ffd23f;
+  outline-offset: 3px;
+}
+
+.title-button svg,
+.clear-button svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* クリアしたステージの星（右上） */
+.title-button .title-star {
+  position: absolute;
+  top: -18px;
+  right: -18px;
+  width: 48px;
+  height: 48px;
+  fill: #ffd23f;
+  stroke: #fff;
+  stroke-width: 6;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 2px 4px rgb(0 0 0 / 35%));
+}
+
+/* 画面の真ん中（列車を選ぶ画面と同じ形）。幅 360 px のスマホでも収まるよう、すき間を画面の幅に合わせて詰める */
+.clear {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  z-index: 20;
+  display: flex;
+  gap: min(24px, 3vw);
+  padding: min(18px, 2vw);
+  border-radius: 28px;
+  background: rgb(0 0 0 / 35%);
+  transform: translate(-50%, -50%);
+}
+
+/* 保護者の方への入口は、タイトルの上にも出す */
+.parent-link {
+  z-index: 30;
+}
+
+.confetti {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.confetti-piece {
+  position: absolute;
+  top: -20px;
+  width: 10px;
+  height: 16px;
+  border-radius: 2px;
+  animation-name: confetti-fall;
+  animation-timing-function: linear;
+  animation-fill-mode: both;
+}
+
+@keyframes confetti-fall {
+  from {
+    transform: translateY(0) rotate(0);
+  }
+
+  to {
+    transform: translateY(calc(100vh + 40px)) rotate(calc(var(--turns, 1) * 360deg));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .confetti {
+    display: none;
+  }
+}

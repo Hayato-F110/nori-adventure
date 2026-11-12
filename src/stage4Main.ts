@@ -16,6 +16,7 @@ import { LIGHTMAPS, loadLook, surfacesFor } from "./render/look";
 import { startQuality } from "./render/qualityControl";
 import { createStage4View } from "./render/stage4View";
 import { createStatusView } from "./render/statusView";
+import { startClearFlow } from "./render/clearFlow";
 
 /** 潜水艇の高さの半分（原点は底の中心。状態の y は機体の真ん中） */
 const HALF_HEIGHT = ASSET.vehicles.sub.size.height / 2;
@@ -164,6 +165,8 @@ export const startStage4 = async (canvas: HTMLCanvasElement, hud: HTMLElement, s
     SIM.fixedDt,
   );
 
+  // ゴールしたら紙ふぶきと「もう一回・つぎ・タイトル」（NORI-30）
+  const clearFlow = startClearFlow(4);
   const stepper = createFixedStepper(SIM.fixedDt, SIM.maxStepsPerFrame);
   let previous: Stage4State = game.initial();
   let current: Stage4State = previous;
@@ -272,6 +275,7 @@ export const startStage4 = async (canvas: HTMLCanvasElement, hud: HTMLElement, s
       nextCheckpoint: 0,
       finishTick: current.finishTick,
     });
+    clearFlow.update(current.finishTick !== null, realNow / 1000);
     placeCamera(p, 1 - Math.exp(-CAMERA.followSharpness * frameSeconds));
 
     // 水の色（霧・背景）は深さで変わる

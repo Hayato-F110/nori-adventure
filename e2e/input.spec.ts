@@ -41,7 +41,7 @@ test.describe("タブレット（1024×768・タッチ）", () => {
 
   test("ボタンが 64 px 以上で、2本の指で ▶ とハンドルを同時に使える", async ({ page }, testInfo) => {
     const errors = collectErrors(page);
-    await page.goto("./");
+    await page.goto("./?stage=1");
     await waitStarted(page);
     // タッチの画面か、最初に触ったときにボタンが出る
     await page.touchscreen.tap(512, 200);
@@ -104,7 +104,7 @@ test.describe("タブレット（1024×768・タッチ）", () => {
 
 test("PC（タッチなし）では、タッチのボタンを出さない", async ({ page }) => {
   const errors = collectErrors(page);
-  await page.goto("./");
+  await page.goto("./?stage=1");
   await waitStarted(page);
   await expect(page.locator("#go")).toBeHidden();
   await expect(page.locator("#wheel")).toBeHidden();
@@ -131,7 +131,7 @@ test("ゲームパッド（RT と左スティック）で進んで曲がる", as
     };
     Object.defineProperty(navigator, "getGamepads", { value: () => [pad, null, null, null] });
   });
-  await page.goto("./");
+  await page.goto("./?stage=1");
   await waitStarted(page);
   await waitTicks(page, 60);
   const s = await carState(page);
@@ -145,7 +145,7 @@ test.describe("スマホ（縦向き 390×844・タッチ）", () => {
 
   test("「横にする」絵を出し、重なるボタンは隠す", async ({ page }, testInfo) => {
     const errors = collectErrors(page);
-    await page.goto("./");
+    await page.goto("./?stage=1");
     await waitStarted(page);
     await page.touchscreen.tap(195, 300);
     await expect(page.locator("#rotate")).toBeVisible();
@@ -218,7 +218,7 @@ test.describe("スマホ（横向き 844×390・タッチ）", () => {
 
   test("ボタンとハンドルが重ならずに出る", async ({ page }, testInfo) => {
     const errors = collectErrors(page);
-    await page.goto("./");
+    await page.goto("./?stage=1");
     await waitStarted(page);
     await page.touchscreen.tap(422, 150);
     await expect(page.locator("#rotate")).toBeHidden();

@@ -14,7 +14,7 @@ const LOOK = {
 const skipFps = Boolean(process.env["NORI_SKIP_FPS"]);
 
 const ready = async (page: Page) => {
-  await page.goto("./");
+  await page.goto("./?stage=1");
   await page.waitForFunction(() => (window.__nori?.frames ?? 0) > 5, undefined, { timeout: 60_000 });
   await page.waitForFunction(() => window.__nori?.look !== "loading", undefined, { timeout: 60_000 });
 };
