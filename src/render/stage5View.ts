@@ -7,6 +7,7 @@ import { BOSS, LOOK, ROVER, SIM, STAGE5 } from "../config";
 import { bossAt, friendAvailable, rocksAt, type Stage5State } from "../core/stage5";
 import { friendStarPositions, jumpPads, pathPoint, starPositions } from "../core/stage5Layout";
 import { bossColor, bossMouth, bossPuff, type Mouth } from "./bossLook";
+import { type Look, setGroundUv1, setPlaneUvMeters } from "./look";
 
 const GROUND_SIZE = STAGE5.boundsHalfSize * 2 + 160;
 const C = STAGE5.arenaCenter;
@@ -26,6 +27,8 @@ export type Point3 = { x: number; y: number; z: number };
 export type Stage5View = {
   root: THREE.Group;
   /** seconds は描画の時刻（ほしが回るのに使うだけ。ゲームの状態には影響しない） */
+  /** 素材を貼る（null なら単色。画質の切り替えから呼ばれる） */
+  applyLook(look: Look | null): void;
   update(state: Stage5State, seconds: number, reducedMotion: boolean): void;
   /** E2E で明るさの比を測る点：ほし（1つめ）・道、ジャンプ台（1つめ）、なかよしの星（1つめ）・砂 */
   marker(): { star: Point3; path: Point3; pad: Point3; friend: Point3; ground: Point3 };
@@ -41,10 +44,16 @@ export const createStage5View = (): Stage5View => {
   root.name = "stage5";
 
   // ---- 地面（月の砂）と道（タイヤの跡） ----
+  // 高画質では月の砂の素材（LOOK.surfaces.moon）と焼き付けた陰（岩の足元。範囲は LOOK.moonBakeSize）。
+  // 低画質・素材が読めないときは単色（STAGE5.groundColor。素材の平均と同じ色）
+  const groundPlain = std(STAGE5.groundColor);
   const ground = new THREE.Mesh(
-    new THREE.PlaneGeometry(GROUND_SIZE, GROUND_SIZE).rotateX(-Math.PI / 2),
-    std(STAGE5.groundColor),
+    setPlaneUvMeters(new THREE.PlaneGeometry(GROUND_SIZE, GROUND_SIZE), GROUND_SIZE, GROUND_SIZE).rotateX(
+      -Math.PI / 2,
+    ),
+    groundPlain,
   );
+  setGroundUv1(ground, LOOK.moonBakeSize);
   ground.receiveShadow = true;
   root.add(ground);
 
@@ -239,6 +248,9 @@ export const createStage5View = (): Stage5View => {
     root,
     get mouth() {
       return mouth;
+    },
+    applyLook(look) {
+      ground.material = look === null ? groundPlain : look.material("moon");
     },
     update(state, seconds, reducedMotion) {
       const spin = reducedMotion ? 0 : seconds * 1.5;

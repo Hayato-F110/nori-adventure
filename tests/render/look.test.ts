@@ -97,6 +97,7 @@ describe("loadLook：読めないときは null（単色のまま続ける）", 
 describe("ステージごとに使う素材だけを読む", () => {
   it("砂はステージ4だけ。ステージ3は芝と樹皮（山のふもとの木。NORI-60）、ステージ4は砂だけ", () => {
     expect(STAGE_SURFACES.stage4).toEqual(["sand"]);
+    expect(STAGE_SURFACES.stage5).toEqual(["moon"]); // NORI-29：月の砂（Ground054 を灰色の色味で）
     expect(STAGE_SURFACES.stage3).toEqual(["grass", "bark"]);
     for (const s of ["stage1", "stage2", "stage3"] as const) expect(STAGE_SURFACES[s]).not.toContain("sand");
   });

@@ -14,6 +14,7 @@ import { createTouchInput, touchLayoutFor } from "./input/touch";
 import { type CarView, createCarView, loadCarView, type ModelManifest } from "./render/carModel";
 import { startClearFlow } from "./render/clearFlow";
 import { createFollowCamera } from "./render/followCamera";
+import { LIGHTMAPS, loadLook, surfacesFor } from "./render/look";
 import { startQuality } from "./render/qualityControl";
 import { startSound } from "./render/sound";
 import { createStage5View } from "./render/stage5View";
@@ -64,17 +65,27 @@ export const startStage5 = async (canvas: HTMLCanvasElement, hud: HTMLElement, s
   };
   window.addEventListener("resize", resize);
 
-  // 画質（ほかのステージと同じボタン）。素材と光のベイクは、Blender で月面の陰を焼いてから足す（今は単色）
+  // 見た目と画質（ほかのステージと同じ。画質はボタンで選べる）。高画質は月の砂の素材と焼き付けた陰
   const quality = startQuality({
     renderer,
     scene,
     sun,
     hemi,
-    applyLook: () => undefined,
+    applyLook: (look) => view.applyLook(look),
+    // 月には空気がないので、昼の空の HDRI は使わない（光は単色のときと同じ。「ステージ5の色」の計算の前提）
+    useEnvironment: false,
     resize: () => resize(),
   });
   resize();
-  quality.lookLoaded(null);
+  void loadLook({
+    base: import.meta.env.BASE_URL,
+    renderer,
+    surfaces: surfacesFor(LOOK.surfaces, "stage5"),
+    aoIntensity: LOOK.aoIntensity,
+    aoDirect: LOOK.aoDirect,
+    maxAnisotropy: LOOK.maxAnisotropy,
+    lightmap: LIGHTMAPS.stage5,
+  }).then((look) => quality.lookLoaded(look));
 
   // ---- ローバー：簡単な形で始め、GLB（rover）が読めたら差しかえる ----
   let roverView: CarView = createCarView();

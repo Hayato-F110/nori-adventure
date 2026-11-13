@@ -572,6 +572,8 @@ export const LOOK = {
     bark: { texture: "Bark001", tileMeters: 1, tint: [0.75, 0.55, 0.4] },
     /** 海底の砂（ステージ4）。素材の平均の色 × 色味 ＝ STAGE4.sandColor と同じ明るさ */
     sand: { texture: "Ground054", tileMeters: 3.5, tint: [0.83, 0.82, 0.72] },
+    /** 月の砂（ステージ5）。同じ素材の平均の色 × 色味 ＝ STAGE5.groundColor（色ごとに一致。NORI-29 で計算） */
+    moon: { texture: "Ground054", tileMeters: 3.5, tint: [0.308, 0.414, 0.791] },
   },
   /** 木の葉：芝の素材（芝の tint の上）にかける色。芝より少し暗い緑（新しく読む素材を増やさない）。線形の RGB */
   leafTint: [0.75, 0.85, 0.7],
@@ -592,6 +594,8 @@ export const LOOK = {
   skyAoDistance: 20,
   /** ステージ4（海）の焼き付けの範囲（1辺 m）。陰の届く距離は aoDistance（NORI-28） */
   seaBakeSize: 240,
+  /** ステージ5（月面）の焼き付けの範囲（1辺 m）。景色の岩（x ±30・z −10〜80）を含む（NORI-29） */
+  moonBakeSize: 200,
   maxLightmapBytes: 524288,
   aoDistance: 6,
   bakeSamples: 64,

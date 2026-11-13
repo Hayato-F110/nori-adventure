@@ -21,6 +21,8 @@ const watchErrors = (page: Page) => {
 const ready = async (page: Page) => {
   await page.goto("./?stage=5");
   await page.waitForFunction(() => (window.__nori?.frames ?? 0) > 5, undefined, { timeout: 60_000 });
+  // 高画質の素材（月の砂・焼き付けた陰）を読み終わってから測る
+  await page.waitForFunction(() => window.__nori?.look !== "loading", undefined, { timeout: 60_000 });
 };
 
 type Name = "star" | "path" | "pad" | "friend" | "ground";
