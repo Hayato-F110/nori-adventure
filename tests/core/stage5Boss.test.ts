@@ -111,9 +111,10 @@ describe("ボスに当たったとき", () => {
     return { ...s, rover: { ...s.rover, x: p.x, z: p.z, heading, speed: ROVER.maxForwardSpeed, y, vy: 0 } };
   };
 
-  it("ボスに当たると、半径 3 m＋ローバーの半径より内に入らず、当たった刻みで速さが 0.3 倍", () => {
+  it("ボスに当たると、半径 3 m＋ローバーの半径より内に入らず、当たり始めた刻みだけ速さが 0.3 倍", () => {
     let s = facingBoss(0.1);
     let bumped = false;
+    let touchingAfter = 0;
     for (let i = 0; i < 30; i++) {
       const before = s.rover.speed;
       s = game.step(s, GO);
@@ -121,12 +122,17 @@ describe("ボスに当たったとき", () => {
       expect(Math.hypot(s.rover.x - b.x, s.rover.z - b.z)).toBeGreaterThanOrEqual(contact - 1e-9);
       if (!bumped && s.rover.touching) {
         bumped = true;
-        expect(s.rover.speed).toBeLessThanOrEqual(
-          before * ROVER.bumpSpeedFactor + ROVER.acceleration * dt + 1e-9,
-        );
+        // 当たり始めた刻み：その刻みで加速したあとの速さ（上限 8 m/s）の 0.3 倍（NORI-69 の2回目の初見レビュー：前は上限だけ）
+        const accelerated = Math.min(before + ROVER.acceleration * dt, ROVER.maxForwardSpeed);
+        expect(s.rover.speed).toBeCloseTo(accelerated * ROVER.bumpSpeedFactor, 9);
+      } else if (bumped && s.rover.touching) {
+        // 触れ続けている間は、続けて 0.3 倍にしない（当たり始めた刻みだけ。ルールの文、レビュー 29-57）
+        expect(s.rover.speed).toBeGreaterThanOrEqual(before - 1e-9);
+        touchingAfter++;
       }
     }
     expect(bumped).toBe(true);
+    expect(touchingAfter).toBeGreaterThan(0); // 触れ続けた刻みを本当に通った
   });
 
   it("ボスの高さ 6 m より上なら当たらない（通りぬける）", () => {

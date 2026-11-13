@@ -125,12 +125,13 @@ describe("ほかの車・人にぶつかったとき（建物と同じ扱い）"
 });
 
 // NORI-63（docs/test-plans/NORI-63.md の 1〜3）：ほかの車は、次の刻みの位置で体（長さ × 幅）を
-// 「子どもの車の半径 ＋ TRAFFIC.overlapMargin」だけ広げた四角に子どもの車の中心が入るなら、その刻みは進まない
+// 「子どもの車の半径 ＋ TRAFFIC.overlapMargin」だけ広げた角の丸い四角に子どもの車の中心が入り、しかも今より近づくなら、
+// その刻みは進まない（離れていく・同じ距離のまま並んで進むときは止めない）
 describe("ほかの車は、動いて子どもの車に食いこまない（NORI-63）", () => {
   const traffic = createTraffic(TRAFFIC, ASSET.city.sizes, STAGE1.route, CAR.collisionRadius);
   const size = ASSET.city.sizes[TRAFFIC.vehicles[0]?.model ?? "traffic-car"] ?? { width: 1.8, length: 4.2 };
   const keep = CAR.collisionRadius + TRAFFIC.overlapMargin;
-  /** 車 0 の前の端から front m 先・中心線から side m（左が正）の点 */
+  /** 車 0 の前の端から front m 先・中心線から side m（進む向きの右が正。NORI-69 の2回目の初見レビューで「左」の誤りを直した）の点 */
   const pointNear = (front: number, side: number) => {
     const pose = traffic.poses(traffic.initial()).vehicles[0] as Pose2D;
     const f = { x: -Math.sin(pose.heading), z: -Math.cos(pose.heading) };
@@ -170,7 +171,7 @@ describe("ほかの車は、動いて子どもの車に食いこまない（NORI
 
   // NORI-69 の初見レビュー：前の 2 は子どもの車を「止まる範囲（前 10 m・左右 3 m）」の中に置いていて、ふだんのブレーキで止まり、
   // NORI-63 の判定を一度も通らなかった（判定を外しても通った）。ルールに足した「近づくときだけ止まる」を確かめる形に作り直した
-  it("2. 体の横 1.0 m（角の丸い四角の中）に止まっている子どもの車からは、止まらずに離れていく（近づかないので止めない）", () => {
+  it("2. 体の右横 1.0 m（角の丸い四角の中）に止まっている子どもの車からは、止まらずに離れていく（近づかないので止めない）", () => {
     // 体の真横（前の端より 1 m 後ろ）。ここは「止まる範囲」（前の端より前）の外
     const child = pointNear(-1, size.width / 2 + 1.0);
     let s = traffic.initial();
@@ -179,6 +180,8 @@ describe("ほかの車は、動いて子どもの車に食いこまない（NORI
     let minGap = first;
     for (let t = 0; t < 120; t++) {
       s = traffic.step(s, child, dt);
+      // 1刻みも止めない（最後の速さだけでは、途中で止まって 3 m/s² で戻った場合も通ってしまう）
+      expect(s.vehicles[0]?.speed).toBe(TRAFFIC.speed);
       minGap = Math.min(
         minGap,
         distanceToBox(child.x, child.z, vehicle0(s), size.width / 2, size.length / 2),
@@ -200,10 +203,12 @@ describe("ほかの車は、動いて子どもの車に食いこまない（NORI
     };
     let s = traffic.initial();
     let minGap = Infinity;
+    let touched = false;
     for (let t = 0; t < 180; t++) {
       s = traffic.step(s, { x: car.x, z: car.z }, dt);
       const poses = traffic.poses(s);
       car = carPhysics.step(car, GAS, dt, CAR, STAGE1, [poses.vehicles[0] as Pose2D, away]);
+      touched ||= car.touching;
       minGap = Math.min(
         minGap,
         distanceToBox(car.x, car.z, poses.vehicles[0] as Pose2D, size.width / 2, size.length / 2),
@@ -211,5 +216,7 @@ describe("ほかの車は、動いて子どもの車に食いこまない（NORI
     }
     // 車の体と子どもの車（半径）が重ならない（物理の皮 SKIN の分だけ近づいてよい）
     expect(minGap).toBeGreaterThanOrEqual(CAR.collisionRadius - SKIN);
+    // 本当に当たった（前を通り過ぎただけで通るテストにしない。NORI-69 の2回目の初見レビュー）
+    expect(touched).toBe(true);
   });
 });

@@ -75,6 +75,19 @@ const restRows = [...cellsByKey]
   .filter(([key]) => !singleNumberKeys.has(key))
   .map(([key, cells]) => ({ key, cells }));
 
+/** 文書に個数だけを書き、中の数（置き場所など）は書かない配列と、その理由 */
+const COUNT_ONLY: Record<string, string> = {
+  "STAGE2.trackPoints": "線路の形の制御点。ルールは長さ（約 599 m）で決め、長さは単体テストで見る",
+  "STAGE3.mountains": "景色の置き場所。ルールは個数と、輪の通り道から離す距離で決める",
+  "STAGE3.balloons": "景色の置き場所。同上",
+  "STAGE3.otherPlanes": "景色の飛行機の円。ルールは半径・高さを文に書き、個数で比べる",
+  "STAGE3.driftBalloons": "景色の置き場所。ルールは個数と高さの範囲で決める",
+  "STAGE3.birdFlocks": "景色の置き場所。同上",
+  "STAGE4.rocks": "景色の置き場所。ルールは個数と、手がかりの道から離す距離で決める",
+  "STAGE5.rocks": "景色の置き場所。ルールは個数・半径の範囲と、道すじから離す距離で決める",
+  "STAGE5.craters": "見た目だけの置き場所（地面は平ら）。ルールは個数",
+};
+
 describe("game-rules.md と src/config の一致", () => {
   it("表から十分な数のキーを読めている", () => {
     expect(rows.length).toBeGreaterThanOrEqual(20);
@@ -92,7 +105,17 @@ describe("game-rules.md と src/config の一致", () => {
       const first = actual[0] as unknown;
       const consecutive = actual.every((v, i) => typeof v === "number" && v === (first as number) + i);
       if (consecutive && cells.includes(`${String(first)}〜${String(actual.at(-1))}`)) return;
-      if (numbersIn(cells)[0] === actual.length) return;
+      // 個数を書いた行（例：「4台（ほかの車・バス…）」）：名前は文で書いてよいが、中の数は欄にあること。
+      // 数を書かない配列は COUNT_ONLY に名前と理由を挙げたものだけ（NORI-69 の2回目の初見レビュー：
+      // 前は個数が合えば中身を見ずに通し、車の始めの位置を変えても落ちなかった）
+      if (numbersIn(cells)[0] === actual.length) {
+        const missingNumbers = missing.filter((leaf) => typeof leaf === "number");
+        if (missingNumbers.length === 0 || key in COUNT_ONLY) return;
+        expect(missingNumbers, `${key} の数が文書の欄「${cells.trim().slice(0, 60)}…」にありません`).toEqual(
+          [],
+        );
+        return;
+      }
     }
     expect(missing, `${key} の値が文書の欄「${cells.trim().slice(0, 60)}…」にありません`).toEqual([]);
   });
