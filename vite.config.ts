@@ -14,5 +14,14 @@ export default defineConfig(() => ({
   test: {
     include: ["tests/**/*.test.ts"],
     environment: "node",
+    // NORI-68：単体テストのカバレッジ（命令・分岐・関数・行のうち、テストが通った割合）。npm run coverage で測る。
+    // 測るのはゲームのルール（src/core）と数値（src/config）。テストで読み込まれなかったファイルも 0% として数える
+    // （include を書かないと、読み込まれたファイルだけが出る：https://vitest.dev/config/coverage）。
+    // 最初は数値を出すだけ。下限（thresholds）はオーナーと決めてから入れる
+    coverage: {
+      provider: "v8" as const,
+      include: ["src/core/**/*.ts", "src/config/**/*.ts"],
+      reporter: ["text", "json-summary", "html"],
+    },
   },
 }));
