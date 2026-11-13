@@ -422,7 +422,7 @@ export const STAGE5 = {
 export const BOSS = {
   radius: 3,
   height: 6,
-  /** 広場の中心から、この半径の円を回る（最初は中心から −Z 側。上から見て左回り） */
+  /** 広場の中心から、この半径の円を回る（最初は中心から −Z 側。上から見て時計回り：+X から +Z へ） */
   orbitRadius: 10,
   moveSpeed: 2,
   calmPoints: 5,
