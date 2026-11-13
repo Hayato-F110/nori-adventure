@@ -20,6 +20,7 @@ export const startTitle = (): number[] => {
     a.setAttribute("aria-label", done ? `${name}（くりあ）` : name);
   }
   title.hidden = false;
+  document.body.classList.add("on-title");
   // 開いたときは枠を出さない（車へ誘導しない）。キーボードの人は最初のキーで車のボタンへ
   focusFirstOnKey(window, [...title.querySelectorAll<HTMLElement>("a[data-stage]")]);
   return cleared;

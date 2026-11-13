@@ -18,6 +18,7 @@ import { startQuality } from "./render/qualityControl";
 import { createStage2View } from "./render/stage2View";
 import { createStatusView } from "./render/statusView";
 import { startClearFlow } from "./render/clearFlow";
+import { startSound } from "./render/sound";
 import { loadTreeModels } from "./render/trees";
 import { createTrainChoice } from "./input/trainChoice";
 
@@ -172,6 +173,7 @@ export const startStage2 = async (canvas: HTMLCanvasElement, hud: HTMLElement, s
 
   // ゴールしたら紙ふぶきと「もう一回・つぎ・タイトル」（NORI-30）
   const clearFlow = startClearFlow(2);
+  const sound = startSound(2);
   const stepper = createFixedStepper(SIM.fixedDt, SIM.maxStepsPerFrame);
   let previous: Stage2State = game.initial();
   let current: Stage2State = previous;
@@ -282,6 +284,13 @@ export const startStage2 = async (canvas: HTMLCanvasElement, hud: HTMLElement, s
       finishTick: current.finishTick,
     });
     clearFlow.update(current.finishTick !== null, now / 1000);
+    sound.update({
+      tick: current.tick,
+      collected: 0,
+      checkpoints: current.nextStation,
+      finished: current.finishTick !== null,
+      touching: false,
+    });
     placeCamera(pose, 1 - Math.exp(-CAMERA.followSharpness * frameSeconds));
     sun.position.set(pose.x + 20, pose.y + 40, pose.z + 10);
     sun.target.position.set(pose.x, pose.y, pose.z);

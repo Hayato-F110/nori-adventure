@@ -622,6 +622,46 @@ export const CITY_SKY = {
   sunRadius: 12,
 } as const;
 
+/**
+ * 効果音と BGM（NORI-31。docs/game-rules.md「効果音と BGM」）。音の高さは MIDI の番号（69 = 440 Hz のラ）。
+ * メロディーはオリジナル（ド 60・レ 62・ミ 64・ソ 67・ラ 69 とそのオクターブだけ）。0 は休み
+ */
+export const SOUND = {
+  buttonSize: 72,
+  effectGain: 0.25,
+  bumpGain: 0.12,
+  /** ぶつかった音を一度鳴らしたら、この秒数は鳴らさない（刻みで数える） */
+  bumpCooldownSeconds: 0.5,
+  musicGain: 0.08,
+  attackSeconds: 0.01,
+  musicAttackSeconds: 0.02,
+  musicFadeInSeconds: 2,
+  musicFadeOutSeconds: 2,
+  /** BGM の1音を、8 分音符の長さのどれだけ鳴らすか（残りは次の音とのすき間） */
+  musicNoteRatio: 0.9,
+  /** BGM を何秒先まで予約するか・最初の音をどれだけ遅らせるか */
+  scheduleAheadSeconds: 0.3,
+  scheduleLeadSeconds: 0.05,
+  muteRampSeconds: 0.1,
+  /** 使ってよい音の高さ（MIDI の番号。110〜1319 Hz） */
+  lowestNote: 52,
+  highestNote: 88,
+  effects: {
+    collect: { wave: "sine", notes: [84, 88], noteSeconds: 0.08 },
+    checkpoint: { wave: "triangle", notes: [79, 84], noteSeconds: 0.12 },
+    // 同じ高さの「ポン、ポン」（下がる音は「しっぱい」に聞こえる。11/12 にオーナーが承認）
+    bump: { wave: "sine", notes: [60, 60], noteSeconds: 0.1 },
+    goal: { wave: "triangle", notes: [72, 76, 79, 84], noteSeconds: 0.15 },
+  },
+  /** ステージごとの BGM：1 分の拍の数と、8 分音符 16 個（三角波でくり返す） */
+  music: {
+    stage1: { bpm: 112, notes: [60, 64, 67, 64, 69, 67, 64, 62, 60, 62, 64, 67, 64, 62, 60, 0] },
+    stage2: { bpm: 100, notes: [67, 0, 64, 62, 60, 62, 64, 0, 67, 69, 67, 64, 62, 0, 60, 0] },
+    stage3: { bpm: 92, notes: [72, 0, 69, 0, 67, 64, 67, 0, 69, 0, 72, 0, 74, 72, 69, 0] },
+    stage4: { bpm: 80, notes: [57, 0, 60, 0, 64, 0, 62, 0, 60, 0, 57, 0, 55, 0, 57, 0] },
+  },
+} as const;
+
 export const CONFIG = {
   SIM,
   PHYSICS,
@@ -647,4 +687,5 @@ export const CONFIG = {
   CLEAR,
   TRAFFIC,
   CITY_SKY,
+  SOUND,
 } as const;

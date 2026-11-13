@@ -24,6 +24,7 @@ import { loadTreeModels } from "./render/trees";
 import { createParentLink } from "./input/parentLink";
 import { parseRoute } from "./core/route";
 import { startClearFlow } from "./render/clearFlow";
+import { startSound } from "./render/sound";
 
 declare global {
   interface Window {
@@ -114,6 +115,9 @@ const route = parseRoute(location.search);
 if (route.kind === "title") {
   const { startTitle } = await import("./render/titleScreen");
   window.__noriTitle = { cleared: startTitle() };
+  // タイトルでも消音できる（音は鳴らさない。NORI-31）
+  const { startSoundButton } = await import("./render/sound");
+  startSoundButton();
   await new Promise<never>(() => undefined);
 }
 
@@ -266,6 +270,8 @@ const statusView = createStatusView(
 );
 // ゴールしたら紙ふぶきと「もう一回・つぎ・タイトル」（NORI-30）
 const clearFlow = startClearFlow(1);
+// 効果音と BGM（NORI-31）
+const sound = startSound(1);
 const stepper = createFixedStepper(SIM.fixedDt, SIM.maxStepsPerFrame);
 let previous: GameState = game.initial();
 let current: GameState = previous;
@@ -342,6 +348,13 @@ const frame = (now: number) => {
   courseView.update(current.course, pose, now / 1000);
   statusView.update(current.tick, current.course);
   clearFlow.update(current.course.finishTick !== null, now / 1000);
+  sound.update({
+    tick: current.tick,
+    collected: current.course.stars.filter(Boolean).length,
+    checkpoints: current.course.nextCheckpoint,
+    finished: current.course.finishTick !== null,
+    touching: current.car.touching,
+  });
   // 復活したら、カメラもすぐ新しい位置へ（街の上を流れて、車を見失わないように）
   if (respawned) {
     lastRespawns = current.respawns;
