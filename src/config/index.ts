@@ -476,6 +476,22 @@ export const ASSET = {
     maxTriangles: 3000,
     maxGlbBytes: 262144,
   },
+  /** ステージ1の街のモデル（NORI-61。docs/game-rules.md「街をにぎやかに」）。前は −Z、原点は底の中心 */
+  city: {
+    variants: ["traffic-car", "bus", "police", "fire-truck", "person", "bicycle", "motorbike"],
+    sizes: {
+      "traffic-car": { width: 1.8, height: 1.5, length: 4.2 },
+      bus: { width: 2.5, height: 3.2, length: 10.0 },
+      police: { width: 1.8, height: 1.6, length: 4.4 },
+      "fire-truck": { width: 2.4, height: 3.0, length: 8.0 },
+      person: { width: 0.6, height: 1.6, length: 0.4 },
+      bicycle: { width: 0.6, height: 1.6, length: 1.7 },
+      motorbike: { width: 0.8, height: 1.6, length: 2.0 },
+    },
+    nodes: ["body"],
+    maxTriangles: 3000,
+    maxGlbBytes: 262144,
+  },
   allowedExtensions: [
     "KHR_materials_emissive_strength",
     "KHR_materials_ior",
