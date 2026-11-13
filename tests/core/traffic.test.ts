@@ -1,13 +1,13 @@
 // docs/game-rules.md「街をにぎやかに」（NORI-61）。一覧は docs/test-plans/NORI-61.md。
 // 数値は TRAFFIC から読む（直書きしない）。
 import { describe, expect, it } from "vitest";
-import { ASSET, SIM, STAGE1, TRAFFIC } from "../../src/config/index.ts";
+import { ASSET, CAR, SIM, STAGE1, TRAFFIC } from "../../src/config/index.ts";
 import { pointAlong, type Point } from "../../src/core/course.ts";
 import { createLoopPath } from "../../src/core/loopPath.ts";
 import { createTraffic, type TrafficState } from "../../src/core/traffic.ts";
 import { wrapDistance } from "../../src/core/track.ts";
 
-const traffic = createTraffic(TRAFFIC, ASSET.city.sizes, STAGE1.route);
+const traffic = createTraffic(TRAFFIC, ASSET.city.sizes, STAGE1.route, CAR.collisionRadius);
 const path = createLoopPath(TRAFFIC.loop, TRAFFIC.laneOffset, TRAFFIC.cornerRadius);
 const dt = SIM.fixedDt;
 const run = (state: TrafficState, child: Point, ticks: number): TrafficState => {
