@@ -356,28 +356,79 @@ export const ROVER = {
   maxTurnRate: 1.6,
   gravity: 1.62,
   jumpSpeed: 3,
+  /** ジャンプ台で跳ぶのは、前へこの速さ（m/s）以上のときだけ（台の上で止まって跳び続けない） */
+  jumpMinSpeed: 1,
   collisionRadius: 1.0,
   bumpSpeedFactor: 0.3,
 } as const;
 
-/** ステージ5の月面 */
+/** ステージ5の月面。道すじは進んだ距離 d の点 (pathWave·sin(2π·d/pathLength), start.z − d) */
 export const STAGE5 = {
   boundsHalfSize: 100,
-  starCount: 12,
+  start: { x: 0, z: 85 },
+  pathLength: 110,
+  pathWave: 12,
+  pathWidth: 6,
+  /** ジャンプ台（道すじの d、m） */
+  jumpPads: [30, 70],
+  jumpPadRadius: 2.5,
+  /** 地面のほし（道すじの d、m。高さ 0） */
+  groundStars: [6, 13, 20, 64, 102, 107],
+  /** 空中のほし（台ごと）：台の中心から、台での道すじの向きにまっすぐ ahead m 先、高さ height m */
+  airStars: [
+    { ahead: 8, height: 2.2 },
+    { ahead: 14.8, height: 2.8 },
+    { ahead: 21.6, height: 2.2 },
+  ],
+  starRadius: 2,
+  /** 景色の岩（半球。上から見た中心と半径 m）。道すじから 8 m 以上離す */
+  rocks: [
+    { x: -25, z: 70, radius: 2 },
+    { x: 30, z: 80, radius: 2 },
+    { x: 24, z: 45, radius: 2.5 },
+    { x: -28, z: 20, radius: 3 },
+    { x: 26, z: 0, radius: 1.5 },
+    { x: -22, z: -10, radius: 2 },
+  ],
+  /** クレーター（見た目だけ。当たり判定なし） */
+  craters: [
+    { x: 40, z: 60, radius: 6 },
+    { x: -45, z: 40, radius: 8 },
+    { x: 50, z: 10, radius: 5 },
+    { x: -40, z: -5, radius: 6 },
+    { x: 60, z: -50, radius: 9 },
+    { x: -60, z: -60, radius: 7 },
+    { x: -55, z: 85, radius: 5 },
+    { x: 45, z: -85, radius: 6 },
+  ],
+  arenaCenter: { x: 0, z: -55 },
   arenaRadius: 30,
 } as const;
 
 /** ステージ5のボス（倒すのではなく、なかよしの星で落ち着かせる）。回数による調整はしない */
 export const BOSS = {
+  radius: 3,
+  height: 6,
+  /** 広場の中心から、この半径の円を回る（最初は中心から −Z 側。上から見て左回り） */
+  orbitRadius: 10,
+  moveSpeed: 2,
   calmPoints: 5,
   friendStarCount: 8,
+  friendStarRing: 22,
+  friendStarHeight: 1,
   friendStarRespawnSeconds: 10,
   carryLimit: 1,
-  deliverRadius: 4,
-  moveSpeed: 2,
+  /** ボスの中心からの距離（m） */
+  deliverRadius: 7,
   rockInterval: 5,
+  rockWarnSeconds: 1,
   rockSpeed: 4,
+  rockRadius: 1,
   rockBumpSpeedFactor: 0.3,
+  rockInvincibleSeconds: 2,
+  angryColor: "#E8604C",
+  calmColor: "#7FD1FF",
+  endingDelaySeconds: 3,
 } as const;
 
 /** 入力（全ステージ共通）。キーボード・タッチ・ゲームパッドを InputFrame に直すときの数値 */
