@@ -430,7 +430,6 @@ export const BOSS = {
   friendStarRing: 22,
   friendStarHeight: 1,
   friendStarRespawnSeconds: 10,
-  carryLimit: 1,
   /** ボスの中心からの距離（m） */
   deliverRadius: 7,
   rockInterval: 5,
