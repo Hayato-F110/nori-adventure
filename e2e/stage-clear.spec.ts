@@ -11,6 +11,9 @@ import {
 
 // NORI-37：運転役（e2e/driver.ts）でステージをクリアまで走る。キーを押さず、刻みごとに入力を決めるので毎回同じ結果。
 // 完了条件（Jira）：CI で全ステージの E2E が通る。使った入力の記録は、リプレイ・自動録画（NORI-42）に使う。
+// NORI-66：CI（約 3 fps）でもゲームの時間を実時間どおりに進める早送り。60 刻み/秒 ÷ 3 fps = 20 刻み/フレーム
+const FAST = 20;
+
 const watchErrors = (page: Page) => {
   const errors: string[] = [];
   page.on("console", (m) => {
@@ -32,6 +35,7 @@ test("ステージ1：運転役が道すじどおりに走ると、チェック�
     // チェックポイントの半径（STAGE1.checkpointRadius 8 m）より手前で次へ向かうと、通らずに曲がってしまう
     turnAhead: STAGE1.checkpointRadius - 1,
     loop: false,
+    stepsPerFrame: FAST,
     steerGain: 3,
     slowAngle: 0.6,
     slowThrottle: 0.5,
@@ -66,6 +70,7 @@ test("ステージ2：運転役が駅ごとにブレーキで止まると、3つ
     brake: TRAIN.brakeDeceleration,
     closeEnough: STAGE2.stationStopLength / 4,
     slowSpeed: STAGE2.stationStopSpeed / 2,
+    stepsPerFrame: FAST,
   });
   await page.goto("./?stage=2");
   await page.waitForFunction(() => (window.__nori?.frames ?? 0) > 5, undefined, { timeout: 60_000 });
@@ -88,7 +93,7 @@ test("ステージ2：運転役が駅ごとにブレーキで止まると、3つ
 test("ステージ3：運転役が輪を順に目指すと、ゴールの輪をくぐる", async ({ page }, testInfo) => {
   test.setTimeout(300_000);
   const errors = watchErrors(page);
-  await installPlaneDriver(page, { steerGain: 2, climbGain: 0.2 });
+  await installPlaneDriver(page, { steerGain: 2, climbGain: 0.2, stepsPerFrame: FAST });
   await page.goto("./?stage=3");
   await page.waitForFunction(() => (window.__nori?.frames ?? 0) > 5, undefined, { timeout: 60_000 });
   await page.waitForFunction(() => window.__nori?.plane?.()?.finishTick !== null, undefined, {
@@ -107,7 +112,7 @@ test("ステージ3：運転役が輪を順に目指すと、ゴールの輪を�
 test("ステージ4：運転役がたからばこへ向かうと、たからばこに着く", async ({ page }, testInfo) => {
   test.setTimeout(300_000);
   const errors = watchErrors(page);
-  await installSubDriver(page, { steerGain: 2, climbGain: 0.3 });
+  await installSubDriver(page, { steerGain: 2, climbGain: 0.3, stepsPerFrame: FAST });
   await page.goto("./?stage=4");
   await page.waitForFunction(() => (window.__nori?.frames ?? 0) > 5, undefined, { timeout: 60_000 });
   await page.waitForFunction(() => window.__nori?.sub?.()?.finishTick !== null, undefined, {

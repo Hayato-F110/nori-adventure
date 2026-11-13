@@ -12,7 +12,7 @@ import type { CarState, GameState, InputFrame, Pose2D } from "./core/types";
 import { createGamepadInput } from "./input/gamepad";
 import { createKeyboardInput } from "./input/keyboard";
 import { mergeInputs } from "./input/merge";
-import { drivenInput } from "./input/testDriver";
+import { drivenInput, fastForward } from "./input/testDriver";
 import { createTouchInput } from "./input/touch";
 import { type CarView, createCarView, loadCarView, type ModelManifest } from "./render/carModel";
 import { createCity } from "./render/city";
@@ -290,7 +290,7 @@ const statusView = createStatusView(
 const clearFlow = startClearFlow(1);
 // 効果音と BGM（NORI-31）
 const sound = startSound(1);
-const stepper = createFixedStepper(SIM.fixedDt, SIM.maxStepsPerFrame);
+const stepper = createFixedStepper(SIM.fixedDt, fastForward(SIM.fixedDt)?.maxSteps ?? SIM.maxStepsPerFrame);
 let previous: GameState = game.initial();
 let current: GameState = previous;
 let input: InputFrame = { throttle: 0, steer: 0 };
@@ -339,7 +339,8 @@ followCamera.snap(lastPose);
 let lastTime = performance.now();
 
 const frame = (now: number) => {
-  const frameSeconds = Math.min(0.25, (now - lastTime) / 1000);
+  // E2E の早送り（NORI-66）のときは、実際の時間によらず決まった刻みの分だけ進める
+  const frameSeconds = fastForward(SIM.fixedDt)?.frameSeconds ?? Math.min(0.25, (now - lastTime) / 1000);
   lastTime = now;
 
   // キーボード・タッチ・ゲームパッドを足して、-1〜1 に収める（docs/game-rules.md「入力」）
