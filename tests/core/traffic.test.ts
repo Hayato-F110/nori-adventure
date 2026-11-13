@@ -113,6 +113,23 @@ describe("車の並びと速さ", () => {
     });
   });
 
+  it("はじめの 16 秒は、どの車もコースとの1つ目の交差点（x 0 の道）を横切らない（約 16.9 秒後に初めて横切る）", () => {
+    // 1辺目（z −42.5 を +x へ）で x が 0 になる所 = 距離 38.5 m。どの車もその少し手前から、車の長さの半分まで
+    const crossAt = -(c0.x - o + r);
+    let state = traffic.initial();
+    let first = Infinity;
+    for (let t = 1; t <= Math.round(20 / dt) && first === Infinity; t++) {
+      const before = state;
+      state = traffic.step(state, far, dt);
+      state.vehicles.forEach((v, i) => {
+        const front = (s: number) => wrapDistance(s - crossAt + lengthOf(i) / 2, path.length);
+        // 前の端が交差点の中心を通りすぎた刻み（輪の上の距離が小さくなった＝ 0 をまたいだ）
+        if (front(v.s) < front(before.vehicles[i]?.s ?? 0)) first = Math.min(first, t * dt);
+      });
+    }
+    expect(first).toBeGreaterThan(16);
+  });
+
   it("車の道は、createLoopPath(TRAFFIC.loop, laneOffset, cornerRadius) と同じ", () => {
     expect(traffic.path.length).toBe(path.length);
   });

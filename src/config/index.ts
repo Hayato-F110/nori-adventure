@@ -607,10 +607,11 @@ export const TRAFFIC = {
   cornerRadius: 4,
   /** 回る順の車（モデルの名前と、1周の中のはじめの位置 m） */
   vehicles: [
-    { model: "traffic-car", start: 0 },
-    { model: "bus", start: 100 },
-    { model: "police", start: 200 },
-    { model: "fire-truck", start: 300 },
+    // 50 m ずらす（11/13 オーナーが決定）：最初に1つ目の交差点（距離 38.5 m）を横切るのが約 17 秒後になる
+    { model: "traffic-car", start: 50 },
+    { model: "bus", start: 150 },
+    { model: "police", start: 250 },
+    { model: "fire-truck", start: 350 },
   ],
   speed: 6,
   acceleration: 3,
