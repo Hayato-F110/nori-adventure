@@ -11,6 +11,7 @@ import {
   STAGE2_LIGHTMAP_FILE,
   STAGE3_LIGHTMAP_FILE,
   STAGE4_LIGHTMAP_FILE,
+  STAGE5_LIGHTMAP_FILE,
   requiredTextureFiles,
   type TextureManifest,
 } from "./textures.ts";
@@ -44,6 +45,7 @@ const OWN: Record<string, Source> = {
   [STAGE2_LIGHTMAP_FILE]: ownBake("ground_ao_stage2", "ステージ2の地面の陰（AO）", "bake-stage2-ao.py"),
   [STAGE3_LIGHTMAP_FILE]: ownBake("ground_ao_stage3", "ステージ3の地面の陰（AO）", "bake-sky-sea-ao.py"),
   [STAGE4_LIGHTMAP_FILE]: ownBake("ground_ao_stage4", "ステージ4の海底の陰（AO）", "bake-sky-sea-ao.py"),
+  [STAGE5_LIGHTMAP_FILE]: ownBake("ground_ao_stage5", "ステージ5の月面の陰（AO）", "bake-sky-sea-ao.py"),
 };
 const sourceOf = (file: string): Source | undefined =>
   OWN[file] ?? sources[file === "sky.hdr" ? "sky" : (file.split("_")[0] ?? "")];

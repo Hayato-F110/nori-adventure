@@ -1,17 +1,20 @@
 // 起動とゲームループ。状態（src/core）を固定刻みで進め、描画（src/render）はその状態を読むだけ。
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
-import { CAMERA, LOOK, RESPAWN, SIM, STAGE1 } from "./config";
+import { ASSET, CAMERA, CITY_SKY, LOOK, RESPAWN, SIM, STAGE1, TRAFFIC } from "./config";
+import type { TrafficPoses } from "./core/traffic";
+import { createCityLifeView } from "./render/cityLifeView";
 import { createGame } from "./core/game";
 import { createFixedStepper } from "./core/loop";
 import type { Stage2State } from "./core/stage2";
 import type { Ring, Stage3State } from "./core/stage3";
 import type { Stage4State } from "./core/stage4";
+import type { Stage5State } from "./core/stage5";
 import type { CarState, GameState, InputFrame, Pose2D } from "./core/types";
 import { createGamepadInput } from "./input/gamepad";
 import { createKeyboardInput } from "./input/keyboard";
 import { mergeInputs } from "./input/merge";
-import { drivenInput } from "./input/testDriver";
+import { drivenInput, fastForward } from "./input/testDriver";
 import { createTouchInput } from "./input/touch";
 import { type CarView, createCarView, loadCarView, type ModelManifest } from "./render/carModel";
 import { createCity } from "./render/city";
@@ -39,8 +42,19 @@ declare global {
       frames: number;
       /** ステージ1の状態（ステージ2では使わない） */
       state: () => GameState;
+      /** ステージ1の街のほかの車・自転車・バイク・人の今の位置と、自作モデルに差しかえた種類の数（NORI-61） */
+      cityLife?: () => { poses: TrafficPoses; models: number };
       /** 遊んでいるステージ（ステージ2のときだけ 2） */
-      stage?: 2 | 3 | 4;
+      stage?: 2 | 3 | 4 | 5;
+      /** ステージ5の状態（NORI-29） */
+      rover?: () => Stage5State;
+      /** ステージ5で明るさの比を測る点（ほし・道・ジャンプ台・なかよしの星・砂） */
+      moonMarker?: () => Record<
+        "star" | "path" | "pad" | "friend" | "ground",
+        { x: number; y: number; z: number }
+      >;
+      /** ステージ5のボスの口の形（落ち着くと笑顔） */
+      bossMouth?: () => "frown" | "flat" | "smile";
       /** ステージ4の状態（NORI-28） */
       sub?: () => Stage4State;
       /** ステージ4の生きものの今の位置 */
@@ -155,6 +169,13 @@ if (stage === 4) {
   await new Promise<never>(() => undefined);
 }
 
+// ?stage=5：月面をローバーで走り、ボスを落ち着かせるステージ（NORI-29）
+if (stage === 5) {
+  const { startStage5 } = await import("./stage5Main");
+  await startStage5(canvas, hud, showDebug);
+  await new Promise<never>(() => undefined);
+}
+
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance" });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, LOOK.highPixelRatioMax));
 renderer.shadowMap.enabled = true;
@@ -182,6 +203,32 @@ const city = createCity(game.layout, {
 scene.add(city.root);
 const courseView = createCourseView(game.stars, STAGE1);
 scene.add(courseView.root);
+// 街のにぎわい（NORI-61）：箱で始め、自作モデル（ASSET.city）が読めたら差しかえる。読めないものは箱のまま
+const cityLife = createCityLifeView(
+  TRAFFIC.vehicles.map((v) => v.model),
+  game.initial().traffic.bikes.map((b) => b.kind),
+  TRAFFIC.people.count,
+);
+scene.add(cityLife.root);
+void (async () => {
+  const base = import.meta.env.BASE_URL;
+  const loader = new GLTFLoader();
+  try {
+    const manifest = (await (await fetch(`${base}models/manifest.json`)).json()) as ModelManifest;
+    const results = await Promise.allSettled(
+      ASSET.city.variants.map(async (name) => {
+        const e = manifest.models.find((m) => m.name === name);
+        if (e === undefined) throw new Error(`${name} がない`);
+        return [name, (await loader.loadAsync(`${base}models/${e.file}`)).scene] as const;
+      }),
+    );
+    const models = new Map<string, THREE.Object3D>();
+    for (const r of results) if (r.status === "fulfilled") models.set(r.value[0], r.value[1]);
+    cityLife.useModels(models);
+  } catch {
+    // 一覧が読めなければ箱のまま遊べる
+  }
+})();
 
 // ---- 見た目と画質（NORI-56）。最初は単色で始め、素材は「読めた」かつ「最初の画質の判定が済んだ」あとに貼る ----
 // 遅い端末で「単色 → 素材 → 単色」と2回変わるのを防ぐ（見た目が変わるのは多くて1回。NORI-56 のレビュー）
@@ -273,7 +320,7 @@ const statusView = createStatusView(
 const clearFlow = startClearFlow(1);
 // 効果音と BGM（NORI-31）
 const sound = startSound(1);
-const stepper = createFixedStepper(SIM.fixedDt, SIM.maxStepsPerFrame);
+const stepper = createFixedStepper(SIM.fixedDt, fastForward(SIM.fixedDt)?.maxSteps ?? SIM.maxStepsPerFrame);
 let previous: GameState = game.initial();
 let current: GameState = previous;
 let input: InputFrame = { throttle: 0, steer: 0 };
@@ -292,11 +339,14 @@ let frames = 0;
 let windowFrames = 0;
 let windowStart = performance.now();
 const projected = new THREE.Vector3();
+/** 太陽を置く基準（車の位置。毎フレーム作り直さない） */
+const focusPoint = new THREE.Vector3();
 window.__nori = {
   fpsSamples,
   carModel: "box",
   frames: 0,
   state: () => structuredClone(current),
+  cityLife: () => ({ poses: game.traffic.poses(current.traffic), models: cityLife.models }),
   get look() {
     return quality.lookState;
   },
@@ -322,7 +372,8 @@ followCamera.snap(lastPose);
 let lastTime = performance.now();
 
 const frame = (now: number) => {
-  const frameSeconds = Math.min(0.25, (now - lastTime) / 1000);
+  // E2E の早送り（NORI-66）のときは、実際の時間によらず決まった刻みの分だけ進める
+  const frameSeconds = fastForward(SIM.fixedDt)?.frameSeconds ?? Math.min(0.25, (now - lastTime) / 1000);
   lastTime = now;
 
   // キーボード・タッチ・ゲームパッドを足して、-1〜1 に収める（docs/game-rules.md「入力」）
@@ -347,6 +398,14 @@ const frame = (now: number) => {
   carView.root.visible =
     current.invincibleTicks === 0 || reducedMotion.matches || Math.floor(now / RESPAWN.blinkMs) % 2 === 0;
   courseView.update(current.course, pose, now / 1000);
+  cityLife.update(
+    game.traffic.poses(previous.traffic),
+    game.traffic.poses(current.traffic),
+    alpha,
+    current.tick,
+    reducedMotion.matches,
+    focusPoint.set(pose.x, 0, pose.z),
+  );
   statusView.update(current.tick, current.course);
   clearFlow.update(current.course.finishTick !== null, now / 1000);
   sound.update({
@@ -364,7 +423,7 @@ const frame = (now: number) => {
     followCamera.update(pose, frameSeconds);
   }
   // 影は車のまわりだけ描く（影の範囲を狭くして、くっきり・軽くする）
-  sun.position.set(pose.x + 20, 40, pose.z + 10);
+  sun.position.set(pose.x + CITY_SKY.sunOffset.x, CITY_SKY.sunOffset.y, pose.z + CITY_SKY.sunOffset.z);
   sun.target.position.set(pose.x, 0, pose.z);
 
   renderer.render(scene, camera);

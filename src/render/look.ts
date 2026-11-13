@@ -3,7 +3,7 @@
 import * as THREE from "three";
 import { HDRLoader } from "three/addons/loaders/HDRLoader.js";
 
-export type SurfaceName = "grass" | "road" | "brick" | "facade" | "bark" | "sand";
+export type SurfaceName = "grass" | "road" | "brick" | "facade" | "bark" | "sand" | "moon";
 
 export type SurfaceSpec = {
   readonly texture: string;
@@ -43,17 +43,19 @@ export const LIGHTMAPS = {
   stage2: "ground_ao_stage2.webp",
   stage3: "ground_ao_stage3.webp",
   stage4: "ground_ao_stage4.webp",
+  stage5: "ground_ao_stage5.webp",
 } as const;
 
 /**
  * ステージごとに使う素材（その分だけ読む。使わない素材を読むと、起動の直後が重くなる）。
- * 街（city.ts）：芝・道・れんが・外壁、木（trees.ts）：幹・芝、ステージ2：芝・道（土手）・れんが、ステージ3：芝、ステージ4：砂
+ * 街（city.ts）：芝・道・れんが・外壁、木（trees.ts）：幹・芝、ステージ2：芝・道（土手）・れんが、ステージ3：芝、ステージ4：砂、ステージ5：月の砂
  */
 export const STAGE_SURFACES = {
   stage1: ["grass", "road", "brick", "facade", "bark"],
   stage2: ["grass", "road", "brick", "bark"],
   stage3: ["grass", "bark"],
   stage4: ["sand"],
+  stage5: ["moon"],
 } as const satisfies Record<keyof typeof LIGHTMAPS, readonly SurfaceName[]>;
 
 /** 全部の素材（LOOK.surfaces）から、そのステージで使うものだけを取り出す */

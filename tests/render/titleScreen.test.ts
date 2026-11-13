@@ -32,12 +32,11 @@ describe("タイトル画面", () => {
     expect(title).toMatch(/^<nav\s+id="title"[^>]*\shidden[\s>]/);
   });
 
-  it("ボタンは TITLE.stages と同じ順。ステージ5はない。どれも ./?stage=N を開く", () => {
+  it("ボタンは TITLE.stages と同じ順（ステージ5のローバーまで。NORI-29）。どれも ./?stage=N を開く", () => {
     expect(buttons.map((b) => Number(/data-stage="(\d)"/.exec(b)?.[1]))).toEqual([...TITLE.stages]);
     expect(buttons.map((b) => /href="([^"]+)"/.exec(b)?.[1])).toEqual(
       TITLE.stages.map((n) => `./?stage=${n}`),
     );
-    expect(title).not.toMatch(/data-stage="5"/);
   });
 
   it("文字を出さず、絵と読み上げの名前だけ。クリアの星は最初は隠れている", () => {
