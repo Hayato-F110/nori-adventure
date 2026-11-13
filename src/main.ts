@@ -11,6 +11,7 @@ import type { CarState, GameState, InputFrame, Pose2D } from "./core/types";
 import { createGamepadInput } from "./input/gamepad";
 import { createKeyboardInput } from "./input/keyboard";
 import { mergeInputs } from "./input/merge";
+import { drivenInput } from "./input/testDriver";
 import { createTouchInput } from "./input/touch";
 import { type CarView, createCarView, loadCarView, type ModelManifest } from "./render/carModel";
 import { createCity } from "./render/city";
@@ -328,7 +329,7 @@ const frame = (now: number) => {
   input = mergeInputs([keyboard.read(), touch.read(), ...gamepads.read()]);
   const { alpha } = stepper.advance(frameSeconds, () => {
     previous = current;
-    current = game.step(current, input);
+    current = game.step(current, drivenInput(current, input));
     // 復活の刻みは、前の位置との間を補間しない（途中の位置を一瞬描かない）
     if (current.respawns !== previous.respawns) previous = current;
   });

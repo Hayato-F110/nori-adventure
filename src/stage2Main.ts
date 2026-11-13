@@ -11,6 +11,7 @@ import type { InputFrame } from "./core/types";
 import { createGamepadInput } from "./input/gamepad";
 import { createKeyboardInput } from "./input/keyboard";
 import { mergeInputs } from "./input/merge";
+import { drivenInput } from "./input/testDriver";
 import { createTouchInput } from "./input/touch";
 import { type CarView, loadCarView, type ModelManifest } from "./render/carModel";
 import { LIGHTMAPS, loadLook, surfacesFor } from "./render/look";
@@ -258,7 +259,7 @@ export const startStage2 = async (canvas: HTMLCanvasElement, hud: HTMLElement, s
         ? { alpha: 1 }
         : stepper.advance(frameSeconds, () => {
             previous = current;
-            current = game.step(current, input);
+            current = game.step(current, drivenInput(current, input));
           });
 
     // 前の刻みとの間を補間（輪の切れ目をまたぐときは、近いほうの向きで）
