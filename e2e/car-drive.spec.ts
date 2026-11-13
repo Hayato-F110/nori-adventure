@@ -1,5 +1,6 @@
 import { writeFileSync } from "node:fs";
 import { expect, test } from "@playwright/test";
+import { installCarDriver } from "./driver";
 import { maskGpu } from "./report-mask";
 
 // 完了条件（S04）：ブラウザで車が10秒以上走り、PC で 60fps 前後。コンソールエラーなし。
@@ -24,8 +25,10 @@ const WAYPOINTS = [
 // CI の遅い描画（約13fps）では、位置を読んでハンドルを切るまでに遅れが出て、8 m では角で建物の端に触れた）
 const TURN_AHEAD = 10;
 const POLL_MS = 50;
-
-const wrapAngle = (a: number) => Math.atan2(Math.sin(a), Math.cos(a));
+// 運転役（NORI-37）：向きのずれ（rad）× 3 をハンドルの量に。0.6 rad より大きくずれたら、アクセルを半分に
+const STEER_GAIN = 3;
+const SLOW_ANGLE = 0.6;
+const SLOW_THROTTLE = 0.5;
 
 type Snapshot = {
   fpsSamples: number[];
@@ -51,15 +54,20 @@ test("車が12秒走り、FPS とコンソールエラーを記録する", { tag
   });
   page.on("pageerror", (error) => consoleErrors.push(error.message));
 
+  // NORI-37：キーを押す代わりに、刻みごとに入力を決める運転役で走る（毎回同じ道すじ。たまに落ちた原因をなくす）
+  await installCarDriver(page, {
+    waypoints: WAYPOINTS,
+    turnAhead: TURN_AHEAD,
+    loop: true,
+    steerGain: STEER_GAIN,
+    slowAngle: SLOW_ANGLE,
+    slowThrottle: SLOW_THROTTLE,
+  });
   await page.goto("./?stage=1&debug");
   await page.waitForFunction(() => (window.__nori?.frames ?? 0) > 5, undefined, { timeout: 60_000 });
   await page.screenshot({ path: testInfo.outputPath("01-start.png") });
 
   const start = await snapshot(page);
-  // アクセルを踏み続け、次の交差点の方へハンドルを切る
-  await page.keyboard.down("ArrowUp");
-  let target = 0;
-  let pressed: "ArrowLeft" | "ArrowRight" | null = null;
   let pathLength = 0;
   let touchingSamples = 0;
   let last = start.car;
@@ -78,28 +86,13 @@ test("車が12秒走り、FPS とコンソールエラーを記録する", { tag
     pathLength += Math.hypot(now.car.x - last.x, now.car.z - last.z);
     if (now.car.touching) touchingSamples++;
     last = now.car;
-    const point = WAYPOINTS[target] ?? { x: 0, z: 0 };
-    if (Math.hypot(point.x - now.car.x, point.z - now.car.z) < TURN_AHEAD)
-      target = (target + 1) % WAYPOINTS.length;
-    const aim = WAYPOINTS[target] ?? point;
-    // heading 0 は −Z 向き。左へ切ると heading が増える
-    const wanted = Math.atan2(-(aim.x - now.car.x), -(aim.z - now.car.z));
-    const error = wrapAngle(wanted - now.car.heading);
-    const next = error > 0.05 ? "ArrowLeft" : error < -0.05 ? "ArrowRight" : null;
-    if (next !== pressed) {
-      if (pressed) await page.keyboard.up(pressed);
-      if (next) await page.keyboard.down(next);
-      pressed = next;
-    }
     if (!shotTaken && Date.now() - startedAt > 5000) {
       await page.screenshot({ path: testInfo.outputPath("02-driving.png") });
       shotTaken = true;
     }
     await page.waitForTimeout(POLL_MS);
   }
-  if (pressed) await page.keyboard.up(pressed);
   const end = await snapshot(page);
-  await page.keyboard.up("ArrowUp");
   await page.screenshot({ path: testInfo.outputPath("03-end.png") });
 
   const distance = pathLength + Math.hypot(end.car.x - last.x, end.car.z - last.z);
