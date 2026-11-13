@@ -1,5 +1,8 @@
 import { expect, type Page, test, type TestInfo } from "@playwright/test";
-import { luminanceAt, ratio } from "./luminance";
+import { installPlaneDriver, startDriving } from "./driver";
+import { attachShot, luminanceAt, ratio } from "./luminance";
+
+const FAST = 20; // stage-clear.spec.ts と同じ早送り
 
 // NORI-27：ステージ3（空・飛行機）。テストの一覧の 10 と、見た目の完了条件（Jira）。
 // ?stage=3 で開き、キーボードで1つ目の輪へ操縦してくぐると、上の表示の数が増える。
@@ -60,21 +63,37 @@ const flyToward = async (page: Page, index: number, stopAt = 0) => {
 test("ステージ3：操縦して輪をくぐると、上の表示の数が増える", async ({ page }, testInfo) => {
   test.setTimeout(180_000);
   const errors = watchErrors(page);
+  // NORI-69：本物の時間でキーを押す代わりに、運転役＋早送りで1つ目の輪をくぐり、くぐったら手を離す
+  await installPlaneDriver(page, {
+    steerGain: 2,
+    climbGain: 0.2,
+    stepsPerFrame: FAST,
+    waitForGo: true,
+    releaseAfterRings: 1,
+  });
   await ready(page);
   expect(await page.evaluate(() => window.__nori?.stage)).toBe(3);
   await expect(page.locator("#star-count")).toHaveText("0");
   await expect(page.locator("#flags")).toBeHidden(); // 旗は使わない
   await page.screenshot({ path: testInfo.outputPath("01-start.png") });
 
-  await flyToward(page, 0);
-  await page.waitForFunction(() => window.__nori?.plane?.()?.rings[0] === true, undefined, {
-    timeout: 10_000,
-  });
-  await expect(page.locator("#star-count")).toHaveText("1");
+  await startDriving(page);
+  // 輪をくぐった数と上の表示が同じになることを、同じ瞬間に（ブラウザの中で）比べる
+  await page.waitForFunction(
+    () => {
+      const s = window.__nori?.plane?.();
+      return s?.rings[0] === true && document.querySelector("#star-count")?.textContent === "1";
+    },
+    undefined,
+    { timeout: 150_000, polling: 100 },
+  );
   await page.screenshot({ path: testInfo.outputPath("02-ring.png") });
 
-  // 手を離すと水平に戻る（約0.6秒）
-  await page.waitForTimeout(1500);
+  // 手を離すと水平に戻る（約 0.6 秒）。ゲームの 1.5 秒（90 刻み）待つ
+  const ringTick = await page.evaluate(() => window.__nori?.plane?.()?.tick ?? 0);
+  await page.waitForFunction((t) => (window.__nori?.plane?.()?.tick ?? 0) >= t + 90, ringTick, {
+    timeout: 60_000,
+  });
   const s = await page.evaluate(() => window.__nori?.plane?.());
   expect(Math.abs(s?.plane.bank ?? 1)).toBeLessThan(1e-6);
   expect(Math.abs(s?.plane.pitch ?? 1)).toBeLessThan(1e-6);
@@ -106,7 +125,6 @@ const checkLook = async (page: Page, testInfo: TestInfo, mode: "高画質" | "�
   // 2つ目の輪へ向けて操縦し、輪まで 60 m に近づいたところで測る（輪が画面の真ん中に大きく映る）
   await flyToward(page, 1, 60);
   await page.waitForTimeout(800); // 手を離して水平に戻ってから撮る
-  await page.screenshot({ path: testInfo.outputPath(`stage3-look-${quality}.png`) });
 
   const points = await page.evaluate(() => {
     const m = window.__nori?.ringMarker?.(1);
@@ -122,7 +140,8 @@ const checkLook = async (page: Page, testInfo: TestInfo, mode: "高画質" | "�
     expect(p.y).toBeGreaterThanOrEqual(2);
     expect(p.y).toBeLessThanOrEqual(viewport.height - 3);
   }
-  const [ring = 0, sky = 0] = await luminanceAt(page, points);
+  const shot = await attachShot(page, testInfo, `stage3-look-${quality}`);
+  const [ring = 0, sky = 0] = await luminanceAt(page, points, shot);
   const contrast = ratio(ring, sky);
   await testInfo.attach("contrast", {
     body: JSON.stringify({ quality, contrast, ring, sky, points }),
