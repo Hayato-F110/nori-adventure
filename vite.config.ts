@@ -17,11 +17,14 @@ export default defineConfig(() => ({
     // NORI-68：単体テストのカバレッジ（命令・分岐・関数・行のうち、テストが通った割合）。npm run coverage で測る。
     // 測るのはゲームのルール（src/core）と数値（src/config）。テストで読み込まれなかったファイルも 0% として数える
     // （include を書かないと、読み込まれたファイルだけが出る：https://vitest.dev/config/coverage）。
-    // 最初は数値を出すだけ。下限（thresholds）はオーナーと決めてから入れる
+    // 下限（thresholds）：下回ったら npm run coverage（CI）が落ちる。2026-11-13 にオーナーが案 A に決めた
+    // （測った値 98.36・90.51・100・99.3 から約 1 点下げた値。下がったことに気づくための見張り。テストが十分かは、
+    // テストの一覧と初見レビューで見る。docs/test-plans/coverage-2026-11-13.md）
     coverage: {
       provider: "v8" as const,
       include: ["src/core/**/*.ts", "src/config/**/*.ts"],
       reporter: ["text", "json-summary", "html"],
+      thresholds: { statements: 97, branches: 89, functions: 99, lines: 98 },
     },
   },
 }));
