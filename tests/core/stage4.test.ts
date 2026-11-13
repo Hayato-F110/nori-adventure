@@ -240,3 +240,18 @@ describe("決定的（リプレイ）", () => {
     expect(s0).toEqual(copy);
   });
 });
+
+// NORI-68：カバレッジで見つかった、通っていない分岐（docs/test-plans/coverage-2026-11-13.md の C）。
+// ルール「当たったら外へ押し戻す」の特別な場合：中心がぴったり重なったら、上へ押し出す（0 で割らない）
+describe("岩の中心にぴったり重なったとき", () => {
+  it("1刻みで岩の中心（海底の高さ）に来る位置から進むと、岩の真上（半径＋潜水艇の半径）へ押し出され、当たったことになる", () => {
+    const rock = STAGE4.rocks[0];
+    if (rock === undefined) throw new Error("岩がない");
+    const start = at(rock.x, SEABED, rock.z + SUB.cruiseSpeed * dt, 0);
+    const s = game.step({ ...start, sub: { ...start.sub, speed: SUB.cruiseSpeed } }, NONE);
+    expect(s.sub.x).toBe(rock.x);
+    expect(s.sub.y).toBeCloseTo(SEABED + rock.radius + SUB.collisionRadius, 9);
+    expect(s.sub.z).toBeCloseTo(rock.z, 9);
+    expect(s.sub.touching).toBe(true);
+  });
+});

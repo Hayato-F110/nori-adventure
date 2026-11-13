@@ -2,7 +2,7 @@ import { expect, type Page, test } from "@playwright/test";
 import { BOSS, SIM, STAGE5 } from "../src/config";
 import { pathPoint } from "../src/core/stage5Layout";
 import { installRoverDriver } from "./driver";
-import { luminanceAt, peakLuminanceAt, ratio } from "./luminance";
+import { attachShot, luminanceAt, peakLuminanceAt, ratio } from "./luminance";
 
 // NORI-29：ステージ5（月面・ローバー）の見た目。ほし・ジャンプ台・なかよしの星と、まわりの明るさの比 3 以上
 // （docs/game-rules.md「ステージ5の色」。値は式で計算して決めた。ここでは1回だけ確かめる）。FPS・コンソールエラー・スクショ。
@@ -51,13 +51,13 @@ test("ステージ5の見た目：スタートで、ほし・ジャンプ台が�
   const errors = watchErrors(page);
   await ready(page);
   await page.waitForTimeout(800);
-  await page.screenshot({ path: testInfo.outputPath("stage5-start.png") });
   const points = await screenPoints(page, ["star", "path", "pad"]);
   expectOnScreen(page, points);
-  const [, path = 0] = await luminanceAt(page, points);
+  const shot = await attachShot(page, testInfo, "stage5-start");
+  const [, path = 0] = await luminanceAt(page, points, shot);
   // ほし・台は小さく見えるので、読んだ点のまわり 6 px でいちばん明るいところを測る
-  const star = await peakLuminanceAt(page, points[0] ?? { x: 0, y: 0 }, 6);
-  const pad = await peakLuminanceAt(page, points[2] ?? { x: 0, y: 0 }, 6);
+  const star = await peakLuminanceAt(page, points[0] ?? { x: 0, y: 0 }, 6, shot);
+  const pad = await peakLuminanceAt(page, points[2] ?? { x: 0, y: 0 }, 6, shot);
   const result = { star: ratio(star, path), pad: ratio(pad, path), points };
   await testInfo.attach("contrast", { body: JSON.stringify(result), contentType: "application/json" });
   expect(result.star, JSON.stringify(result)).toBeGreaterThanOrEqual(MIN_CONTRAST);
@@ -92,11 +92,11 @@ test("ステージ5の見た目：広場の入口で、なかよしの星が砂�
     { timeout: 200_000, polling: 500 },
   );
   await page.waitForTimeout(800);
-  await page.screenshot({ path: testInfo.outputPath("stage5-arena.png") });
   const points = await screenPoints(page, ["friend", "ground"]);
   expectOnScreen(page, points);
-  const [, ground = 0] = await luminanceAt(page, points);
-  const friend = await peakLuminanceAt(page, points[0] ?? { x: 0, y: 0 }, 6);
+  const shot = await attachShot(page, testInfo, "stage5-arena");
+  const [, ground = 0] = await luminanceAt(page, points, shot);
+  const friend = await peakLuminanceAt(page, points[0] ?? { x: 0, y: 0 }, 6, shot);
   const contrast = ratio(friend, ground);
   await testInfo.attach("contrast", {
     body: JSON.stringify({ friend: contrast, points }),

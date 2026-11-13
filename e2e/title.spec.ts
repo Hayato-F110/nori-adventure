@@ -1,7 +1,8 @@
 import { expect, type Page, test } from "@playwright/test";
+import { installSubDriver } from "./driver";
 
 // NORI-30：タイトル画面・ステージ選び・クリアの演出（docs/game-rules.md）。テストの一覧の 9〜11
-type P3 = { x: number; y: number; z: number };
+const FAST = 20; // stage-clear.spec.ts と同じ早送り
 
 const watchErrors = (page: Page) => {
   const errors: string[] = [];
@@ -56,37 +57,17 @@ test("クリア：たからばこに着くと紙ふぶき、3 秒後に3つの�
 }, testInfo) => {
   test.setTimeout(240_000);
   const errors = watchErrors(page);
+  await installSubDriver(page, { steerGain: 2, climbGain: 0.3, stepsPerFrame: FAST });
   await page.goto("./?stage=4");
   await page.waitForFunction(() => (window.__nori?.frames ?? 0) > 5, undefined, { timeout: 60_000 });
   await expect(page.locator("#clear")).toBeHidden();
 
-  // たからばこの真ん中へ操縦する（0.1 秒ごとに位置を読み、←→ と ↑↓ を押す）
-  const held = new Set<string>();
-  const setKeys = async (want: Set<string>) => {
-    for (const k of held) if (!want.has(k)) await page.keyboard.up(k);
-    for (const k of want) if (!held.has(k)) await page.keyboard.down(k);
-    held.clear();
-    for (const k of want) held.add(k);
-  };
-  for (let i = 0; i < 1500; i++) {
-    const info = await page.evaluate(() => {
-      const s = window.__nori?.sub?.();
-      const m = window.__nori?.treasureMarker?.();
-      return s && m ? { sub: s.sub, goal: m.treasure, done: s.finishTick !== null } : null;
-    });
-    if (info === null || info.done) break;
-    const { sub: p, goal: g } = info as { sub: P3 & { heading: number }; goal: P3; done: boolean };
-    const want = Math.atan2(-(g.x - p.x), -(g.z - p.z));
-    const diff = Math.atan2(Math.sin(want - p.heading), Math.cos(want - p.heading));
-    const keys = new Set<string>();
-    if (diff < -0.04) keys.add("ArrowRight");
-    if (diff > 0.04) keys.add("ArrowLeft");
-    if (g.y - p.y > 0.5) keys.add("ArrowUp");
-    if (g.y - p.y < -0.5) keys.add("ArrowDown");
-    await setKeys(keys);
-    await page.waitForTimeout(100);
-  }
-  await setKeys(new Set());
+  // NORI-69：本物の時間でキーを押す代わりに、運転役＋早送りでたからばこへ向かう（stage-clear.spec.ts と同じ）。
+  // ボタンが出るまでの 3 秒は実際の時間の決まり（window.setTimeout）なので、着いた瞬間から実際の時間で測る
+  await page.waitForFunction(() => window.__nori?.sub?.()?.finishTick !== null, undefined, {
+    timeout: 200_000,
+    polling: 50,
+  });
   const finishedAt = Date.now();
   expect(await page.evaluate(() => window.__nori?.sub?.()?.finishTick ?? null)).not.toBeNull();
 
