@@ -30,8 +30,7 @@ describe("Hook：Jira の課題のポイント・期限・開始日がなけれ�
     ["customfield_10034", "ポイント"],
     ["duedate", "期限"],
   ])("%s がなければ止める", (key, label) => {
-    const fields: Record<string, unknown> = { ...full };
-    delete fields[key];
+    const fields = Object.fromEntries(Object.entries(full).filter(([k]) => k !== key));
     expect(findMissingJiraFields(issue(fields)).join()).toContain(label);
   });
 
