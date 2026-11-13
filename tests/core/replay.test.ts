@@ -2,6 +2,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { createGame, type Game } from "../../src/core/game";
 import { createFixedStepper } from "../../src/core/loop";
 import { parseReplay, runReplay, serializeReplay } from "../../src/core/replay";
+import { createStage5Game } from "../../src/core/stage5";
 import type { InputFrame } from "../../src/core/types";
 
 // 10秒分の、加速・左右のハンドル・ブレーキ・後退を含む入力記録
@@ -69,5 +70,30 @@ describe("固定刻みのループ", () => {
   it("長く止まった後でも、1フレームで進める回数は上限まで", () => {
     const stepper = createFixedStepper(1 / 60, 5);
     expect(stepper.advance(3, () => {}).steps).toBe(5);
+  });
+});
+
+// NORI-29：ステージ5（ローバー・ジャンプ台・ボスの岩・なかよしの星）も、同じ入力記録 → 同じ結果
+describe("ステージ5：同じ入力記録 → 同じ結果", () => {
+  const stage5 = createStage5Game();
+  // 40 秒分：道すじを走り、左右に曲がり、ブレーキもかける（ジャンプ台・岩・ボスの時刻をまたぐ）
+  const inputs: InputFrame[] = Array.from({ length: 2400 }, (_, tick) => ({
+    throttle: tick % 600 < 500 ? 1 : -1,
+    steer: Math.sin(tick / 90) * 0.6,
+  }));
+
+  it("同じ入力を2回再生すると、最後の状態が完全に一致する。JSON の記録からも同じ", () => {
+    const first = runReplay(stage5, stage5.initial(), inputs);
+    expect(runReplay(stage5, stage5.initial(), inputs)).toStrictEqual(first);
+    const restored = parseReplay(serializeReplay({ version: 1, inputs })).inputs;
+    expect(runReplay(createStage5Game(), createStage5Game().initial(), restored)).toStrictEqual(first);
+    expect(JSON.parse(JSON.stringify(first))).toStrictEqual(first);
+  });
+
+  it("step は元の状態を書き換えない", () => {
+    const before = stage5.initial();
+    const snapshot = structuredClone(before);
+    stage5.step(before, { throttle: 1, steer: 1 });
+    expect(before).toStrictEqual(snapshot);
   });
 });
