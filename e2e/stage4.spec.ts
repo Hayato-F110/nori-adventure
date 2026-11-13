@@ -1,5 +1,9 @@
 import { expect, type Page, test, type TestInfo } from "@playwright/test";
+import { approachStopped, installSubApproachDriver } from "./driver";
 import { luminanceAt, peakLuminanceAt, ratio } from "./luminance";
+
+// NORI-66 と同じ早送り：60 刻み/秒 ÷ CI の約 3 fps = 20 刻み/フレーム
+const FAST = 20;
 
 // NORI-28：ステージ4（海・潜水艇）。?stage=4 で開き、キーボードで生きもの（1匹目）へ操縦すると、上の表示の数が増える。
 // たからばこと水の明るさの比 3 以上（高画質・低画質）。スクリーンショット・コンソールエラー・FPS。
@@ -147,22 +151,23 @@ test("ステージ4の見た目：生きもの（エイ）のきらきらがま�
   const errors = watchErrors(page);
   // きらきらの回転を止める（位置を読んでから撮るまでに、回ってずれないように）
   await page.emulateMedia({ reducedMotion: "reduce" });
+  const RAY = 1;
+  // NORI-67：エイの 6 m 上をめざし、14 m まで近づいた刻みで、運転役が時間を止める（運転役＋早送り。
+  // CLAUDE.md「E2E は2種類に分ける」）。止まる位置は毎回同じで、PC の速さによらない
+  await installSubApproachDriver(page, {
+    creature: RAY,
+    above: 6,
+    stopAt: 14,
+    steerGain: 2,
+    climbGain: 0.3,
+    stepsPerFrame: FAST,
+  });
   await ready(page);
   await page.waitForFunction(() => window.__nori?.seaModels === 7, undefined, { timeout: 30_000 });
-  const RAY = 1;
-  // エイの 6 m 上をめざし、14 m まで近づく（真後ろからだと潜水艇に隠れる。上から見下ろす）
-  await steerTo(
-    page,
-    () =>
-      page.evaluate((i) => {
-        const s = window.__nori?.sub?.();
-        const c = window.__nori?.creatures?.()[i];
-        return s && c ? { sub: s.sub, goal: { ...c, y: c.y + 6 }, done: false } : null;
-      }, RAY),
-    14,
-  );
-  // 時間を止めて、2コマ描くのを待つ（遅い CI で、位置を読んでから撮るまでにエイが泳いでずれないように）
-  await page.evaluate(() => window.__nori?.freeze?.(true));
+  // 止まってから、2コマ描くのを待つ（止めたあとも描画は続く）
+  await page.waitForFunction(approachStopped, undefined, { timeout: 120_000 });
+  const stoppedAt = await page.evaluate(() => window.__nori?.sub?.()?.sub);
+  testInfo.annotations.push({ type: "止まった潜水艇の位置", description: JSON.stringify(stoppedAt) });
   const frozenFrames = await page.evaluate(() => window.__nori?.frames ?? 0);
   await page.waitForFunction((n) => (window.__nori?.frames ?? 0) >= n + 2, frozenFrames, { timeout: 30_000 });
   // エイの横 6 m の水（きらきらの輪の外）と、きらきら 6 粒すべて。
