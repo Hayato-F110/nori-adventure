@@ -52,6 +52,63 @@ export const installTrainDriver = (page: Page, options: TrainDriverOptions) =>
     };
   }, options);
 
+export type PlaneDriverOptions = {
+  /** 向きのずれ（rad）にかけて、左右の傾きの量にする */
+  steerGain: number;
+  /** 高さの差（m）にかけて、上下の量にする */
+  climbGain: number;
+};
+
+/**
+ * ステージ3の飛行機の運転役を入れる。page.goto の前に呼ぶ。状態は Stage3State（plane・rings）。
+ * まだくぐっていない輪を順に（最後はゴール）目指す。輪の場所は window.__nori.rings()（最後がゴール）。
+ * steer は右が正（heading が減る）、throttle は上が正
+ */
+export const installPlaneDriver = (page: Page, options: PlaneDriverOptions) =>
+  page.addInitScript((o: PlaneDriverOptions) => {
+    const wrap = (a: number) => Math.atan2(Math.sin(a), Math.cos(a));
+    const clamp = (v: number) => Math.max(-1, Math.min(1, v));
+    globalThis.__noriDriver = {
+      record: [],
+      drive(raw) {
+        const s = raw as { plane: { x: number; y: number; z: number; heading: number }; rings: boolean[] };
+        const all = window.__nori?.rings?.() ?? [];
+        const next = s.rings.findIndex((done) => !done);
+        const ring = all[next === -1 ? all.length - 1 : next];
+        if (ring === undefined) return { throttle: 0, steer: 0 };
+        const p = s.plane;
+        const wanted = Math.atan2(-(ring.x - p.x), -(ring.z - p.z));
+        return {
+          throttle: clamp((ring.y - p.y) * o.climbGain),
+          steer: clamp(-wrap(wanted - p.heading) * o.steerGain),
+        };
+      },
+    };
+  }, options);
+
+/**
+ * ステージ4の潜水艇の運転役を入れる。page.goto の前に呼ぶ。状態は Stage4State（sub）。
+ * たからばこ（window.__nori.treasureMarker().treasure）へ向きを合わせ、高さの差に比例して上下する
+ */
+export const installSubDriver = (page: Page, options: PlaneDriverOptions) =>
+  page.addInitScript((o: PlaneDriverOptions) => {
+    const wrap = (a: number) => Math.atan2(Math.sin(a), Math.cos(a));
+    const clamp = (v: number) => Math.max(-1, Math.min(1, v));
+    globalThis.__noriDriver = {
+      record: [],
+      drive(raw) {
+        const p = (raw as { sub: { x: number; y: number; z: number; heading: number } }).sub;
+        const t = window.__nori?.treasureMarker?.().treasure;
+        if (t === undefined) return { throttle: 0, steer: 0 };
+        const wanted = Math.atan2(-(t.x - p.x), -(t.z - p.z));
+        return {
+          throttle: clamp((t.y - p.y) * o.climbGain),
+          steer: clamp(-wrap(wanted - p.heading) * o.steerGain),
+        };
+      },
+    };
+  }, options);
+
 /**
  * ステージ1の車の運転役を入れる。page.goto の前に呼ぶ。
  * 状態は GameState（car.x・z・heading）。heading 0 は −Z 向き、左へ切ると heading が増える。steer は −1 が左

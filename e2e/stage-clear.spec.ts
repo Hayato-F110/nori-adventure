@@ -1,6 +1,6 @@
 import { expect, type Page, test } from "@playwright/test";
 import { STAGE1, STAGE2, TRAIN } from "../src/config";
-import { installCarDriver, installTrainDriver } from "./driver";
+import { installCarDriver, installPlaneDriver, installSubDriver, installTrainDriver } from "./driver";
 
 // NORI-37：運転役（e2e/driver.ts）でステージをクリアまで走る。キーを押さず、刻みごとに入力を決めるので毎回同じ結果。
 // 完了条件（Jira）：CI で全ステージの E2E が通る。使った入力の記録は、リプレイ・自動録画（NORI-42）に使う。
@@ -75,5 +75,43 @@ test("ステージ2：運転役が駅ごとにブレーキで止まると、3つ
     description: `ゴール ${((state?.finishTick ?? 0) / 60).toFixed(1)} 秒`,
   });
   await page.screenshot({ path: testInfo.outputPath("stage2-clear.png") });
+  expect(errors).toEqual([]);
+});
+
+test("ステージ3：運転役が輪を順に目指すと、ゴールの輪をくぐる", async ({ page }, testInfo) => {
+  test.setTimeout(300_000);
+  const errors = watchErrors(page);
+  await installPlaneDriver(page, { steerGain: 2, climbGain: 0.2 });
+  await page.goto("./?stage=3");
+  await page.waitForFunction(() => (window.__nori?.frames ?? 0) > 5, undefined, { timeout: 60_000 });
+  await page.waitForFunction(() => window.__nori?.plane?.()?.finishTick !== null, undefined, {
+    timeout: 240_000,
+    polling: 500,
+  });
+  const state = await page.evaluate(() => window.__nori?.plane?.());
+  testInfo.annotations.push({
+    type: "ステージ3のクリア",
+    description: `ゴール ${((state?.finishTick ?? 0) / 60).toFixed(1)} 秒、輪 ${state?.rings.filter(Boolean).length ?? 0} / ${state?.rings.length ?? 0}`,
+  });
+  await page.screenshot({ path: testInfo.outputPath("stage3-clear.png") });
+  expect(errors).toEqual([]);
+});
+
+test("ステージ4：運転役がたからばこへ向かうと、たからばこに着く", async ({ page }, testInfo) => {
+  test.setTimeout(300_000);
+  const errors = watchErrors(page);
+  await installSubDriver(page, { steerGain: 2, climbGain: 0.3 });
+  await page.goto("./?stage=4");
+  await page.waitForFunction(() => (window.__nori?.frames ?? 0) > 5, undefined, { timeout: 60_000 });
+  await page.waitForFunction(() => window.__nori?.sub?.()?.finishTick !== null, undefined, {
+    timeout: 240_000,
+    polling: 500,
+  });
+  const state = await page.evaluate(() => window.__nori?.sub?.());
+  testInfo.annotations.push({
+    type: "ステージ4のクリア",
+    description: `ゴール ${((state?.finishTick ?? 0) / 60).toFixed(1)} 秒、生きもの ${state?.found.filter(Boolean).length ?? 0} / ${state?.found.length ?? 0}`,
+  });
+  await page.screenshot({ path: testInfo.outputPath("stage4-clear.png") });
   expect(errors).toEqual([]);
 });
