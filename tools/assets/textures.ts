@@ -42,17 +42,20 @@ export const STAGE2_LIGHTMAP_FILE = "ground_ao_stage2.webp";
 /** ステージ3・4の地面・海底の陰（NORI-27・28。tools/blender/bake-sky-sea-ao.py） */
 export const STAGE3_LIGHTMAP_FILE = "ground_ao_stage3.webp";
 export const STAGE4_LIGHTMAP_FILE = "ground_ao_stage4.webp";
+/** ステージ5の月面の陰（NORI-29。tools/blender/bake-sky-sea-ao.py） */
+export const STAGE5_LIGHTMAP_FILE = "ground_ao_stage5.webp";
 export const LIGHTMAP_FILES: readonly string[] = [
   LIGHTMAP_FILE,
   STAGE2_LIGHTMAP_FILE,
   STAGE3_LIGHTMAP_FILE,
   STAGE4_LIGHTMAP_FILE,
+  STAGE5_LIGHTMAP_FILE,
 ];
 export const OWN_LICENSE = "CC-BY-4.0";
 
-/** ファイル名の決まり：<素材>_<color|normal|roughness>.webp、sky.hdr、ground_ao.webp・ground_ao_stage[2-4].webp だけ（フォルダをまたぐ文字は許さない） */
+/** ファイル名の決まり：<素材>_<color|normal|roughness>.webp、sky.hdr、ground_ao.webp・ground_ao_stage[2-5].webp だけ（フォルダをまたぐ文字は許さない） */
 export const FILE_PATTERN =
-  /^(?:[A-Za-z0-9]+_(?:color|normal|roughness)\.webp|sky\.hdr|ground_ao\.webp|ground_ao_stage[2-4]\.webp)$/;
+  /^(?:[A-Za-z0-9]+_(?:color|normal|roughness)\.webp|sky\.hdr|ground_ao\.webp|ground_ao_stage[2-5]\.webp)$/;
 
 /** 決まりに合わない点を、日本語の文の一覧で返す（空なら合格） */
 export const checkTextureFiles = (
@@ -89,11 +92,13 @@ export const checkTextureFiles = (
   return problems;
 };
 
-/** LOOK.surfaces が使う素材のファイルの一覧（3枚ずつ）と sky.hdr、地面の陰 */
+/** LOOK.surfaces が使う素材のファイルの一覧（3枚ずつ）と sky.hdr、地面の陰。同じ素材を色味を変えて使う（砂と月の砂）ので、重ねない */
 export const requiredTextureFiles = (): string[] => [
-  ...Object.values(LOOK.surfaces).flatMap((s) =>
-    ["color", "normal", "roughness"].map((m) => `${s.texture}_${m}.webp`),
-  ),
-  "sky.hdr",
-  ...LIGHTMAP_FILES,
+  ...new Set([
+    ...Object.values(LOOK.surfaces).flatMap((s) =>
+      ["color", "normal", "roughness"].map((m) => `${s.texture}_${m}.webp`),
+    ),
+    "sky.hdr",
+    ...LIGHTMAP_FILES,
+  ]),
 ];

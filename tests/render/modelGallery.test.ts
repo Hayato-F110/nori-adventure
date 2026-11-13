@@ -34,6 +34,7 @@ describe("galleryLayout", () => {
       "tree-b",
       ...ASSET.sea.variants,
       ...ASSET.landmark.variants,
+      ...ASSET.city.variants,
     ]);
   });
 

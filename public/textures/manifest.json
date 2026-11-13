@@ -275,6 +275,18 @@
       "license": "CC-BY-4.0",
       "createdWith": "Blender 5.3.0（noriblender の隔離環境）の Cycles で焼き付け（tools/blender/bake-sky-sea-ao.py）",
       "importedAt": "2026-11-12"
+    },
+    {
+      "file": "ground_ao_stage5.webp",
+      "sha256": "18a04eb2f0f5df9b7a77d4faaaf06e6e473e2e3bed413196dc382a077f916f9e",
+      "bytes": 3764,
+      "sourceId": "ground_ao_stage5",
+      "sourceName": "ステージ5の月面の陰（AO）",
+      "sourceUrl": "https://github.com/Hayato-F110/nori-adventure/blob/main/tools/blender/bake-sky-sea-ao.py",
+      "provider": "自作（のりものアドベンチャー）",
+      "license": "CC-BY-4.0",
+      "createdWith": "Blender 5.3.0（noriblender の隔離環境）の Cycles で焼き付け（tools/blender/bake-sky-sea-ao.py）",
+      "importedAt": "2026-11-13"
     }
   ]
 }
