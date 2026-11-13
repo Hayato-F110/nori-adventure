@@ -619,6 +619,12 @@ export const TRAFFIC = {
   stopSide: 3,
   followGap: 4,
   lampSwapSeconds: 0.5,
+  /** ついているランプは、自分の色の何倍で自ら光るか（光に左右されない色） */
+  lampGlow: 1,
+  /** 人の服（素材 shirt）の色。k 人目は k 番目、自転車・バイクの i 台目は (i + 2) 番目 */
+  shirtColors: ["#3B82F6", "#22C55E", "#F59E0B", "#A855F7", "#14B8A6", "#EC4899"],
+  /** 自作モデルを読みこむ前の箱の色（人・乗る人は服の色） */
+  placeholderColor: "#9AA3AD",
   bikeOffset: 4,
   bicycles: { count: 2, speed: 4, starts: [0, 200] },
   motorbikes: { count: 2, speed: 6, starts: [100, 300] },
@@ -637,6 +643,9 @@ export const CITY_SKY = {
   clouds: { count: 8, minHeight: 60, maxHeight: 70, speed: 1, wrapX: 150 },
   sunDistance: 300,
   sunRadius: 12,
+  sunColor: "#FFF1A8",
+  /** 雲の半径（hash01 で min〜max）と、つぶす倍率（横・高さ・奥。ステージ2と同じ形） */
+  cloudSize: { minRadius: 6, maxRadius: 12, scale: [1.8, 0.6, 1.2] },
 } as const;
 
 /**
