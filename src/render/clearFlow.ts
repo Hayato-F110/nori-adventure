@@ -61,6 +61,19 @@ export const createClearFlow = (deps: ClearFlowDeps) => {
   return flow;
 };
 
+/** 選べる最後のステージ（5）のクリアはエンディング（NORI-29）：5つの乗り物の絵を出し、「つぎ」は出さない */
+export const isEnding = (stage: StageNumber): boolean => nextAfter(stage) === "title";
+
+/** エンディングの絵：タイトルの乗り物の絵（ボタンの中の1つめの svg）を写して並べる。同じ絵を2回書かない */
+const showEnding = () => {
+  const ending = document.getElementById("ending");
+  if (ending === null) return;
+  const pictures = [...document.querySelectorAll("#title a[data-stage] > svg:first-child")];
+  ending.replaceChildren(...pictures.map((svg) => svg.cloneNode(true)));
+  ending.hidden = false;
+  document.getElementById("clear-next")?.setAttribute("hidden", "");
+};
+
 /** 各ステージの起動で使う：index.html の #clear・#confetti につないだクリアの演出を作る */
 export const startClearFlow = (stage: StageNumber) => {
   const panel = document.getElementById("clear");
@@ -100,6 +113,7 @@ export const startClearFlow = (stage: StageNumber) => {
       // タッチの操作ボタン（ハンドル・◀）とゴールの星を隠す：狭い画面でボタンが重なり、
       // 操作しようとした指がクリアのボタンに当たるのを防ぐ（kids-ui-reviewer の指摘）。ゴールのあとは操作を受け付けない
       for (const id of ["touch", "goal"]) document.getElementById(id)?.setAttribute("hidden", "");
+      if (isEnding(stage)) showEnding();
       panel.hidden = false;
       focusFirstOnKey(window, [...panel.querySelectorAll<HTMLElement>("a")]);
     },

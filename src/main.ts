@@ -9,6 +9,7 @@ import { createFixedStepper } from "./core/loop";
 import type { Stage2State } from "./core/stage2";
 import type { Ring, Stage3State } from "./core/stage3";
 import type { Stage4State } from "./core/stage4";
+import type { Stage5State } from "./core/stage5";
 import type { CarState, GameState, InputFrame, Pose2D } from "./core/types";
 import { createGamepadInput } from "./input/gamepad";
 import { createKeyboardInput } from "./input/keyboard";
@@ -44,7 +45,16 @@ declare global {
       /** ステージ1の街のほかの車・自転車・バイク・人の今の位置と、自作モデルに差しかえた種類の数（NORI-61） */
       cityLife?: () => { poses: TrafficPoses; models: number };
       /** 遊んでいるステージ（ステージ2のときだけ 2） */
-      stage?: 2 | 3 | 4;
+      stage?: 2 | 3 | 4 | 5;
+      /** ステージ5の状態（NORI-29） */
+      rover?: () => Stage5State;
+      /** ステージ5で明るさの比を測る点（ほし・道・ジャンプ台・なかよしの星・砂） */
+      moonMarker?: () => Record<
+        "star" | "path" | "pad" | "friend" | "ground",
+        { x: number; y: number; z: number }
+      >;
+      /** ステージ5のボスの口の形（落ち着くと笑顔） */
+      bossMouth?: () => "frown" | "flat" | "smile";
       /** ステージ4の状態（NORI-28） */
       sub?: () => Stage4State;
       /** ステージ4の生きものの今の位置 */
@@ -156,6 +166,13 @@ if (stage === 3) {
 if (stage === 4) {
   const { startStage4 } = await import("./stage4Main");
   await startStage4(canvas, hud, showDebug);
+  await new Promise<never>(() => undefined);
+}
+
+// ?stage=5：月面をローバーで走り、ボスを落ち着かせるステージ（NORI-29）
+if (stage === 5) {
+  const { startStage5 } = await import("./stage5Main");
+  await startStage5(canvas, hud, showDebug);
   await new Promise<never>(() => undefined);
 }
 

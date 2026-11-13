@@ -144,3 +144,70 @@ export const installCarDriver = (page: Page, options: CarDriverOptions) =>
       },
     };
   }, options);
+
+export type RoverDriverOptions = FastForwardOption & {
+  /** 道すじの点（スタート → 広場の入口） */
+  path: readonly Waypoint[];
+  /** この距離（m）まで近づいたら、道すじの次の点へ */
+  turnAhead: number;
+  /** なかよしの星の場所（friendStarPositions の順） */
+  friends: readonly Waypoint[];
+  /** 星が出直すまでの刻み */
+  respawnTicks: number;
+  /** ボスの円：中心・半径・1 刻みに進む角度（rad）。最初は −Z 側（角度 −π/2） */
+  boss: { x: number; z: number; radius: number; perTick: number };
+  /** 目標がこの距離（m）より近いと、slowSpeed まで落とす */
+  slowNear: number;
+  slowSpeed: number;
+  maxSpeed: number;
+  steerGain: number;
+};
+
+/**
+ * ステージ5のローバーの運転役を入れる。page.goto の前に呼ぶ。状態は Stage5State（rover・carrying・friendTakenTick）。
+ * 道すじを進み、終わったら「取れるいちばん近いなかよしの星 → ボス」をくり返す。
+ * 目標が近いと遅くして、曲がりきれずに回り続けないようにする
+ */
+export const installRoverDriver = (page: Page, options: RoverDriverOptions) =>
+  page.addInitScript((o: RoverDriverOptions) => {
+    let next = 0;
+    const wrap = (a: number) => Math.atan2(Math.sin(a), Math.cos(a));
+    const clamp = (v: number) => Math.max(-1, Math.min(1, v));
+    globalThis.__noriDriver = {
+      record: [],
+      ...(o.stepsPerFrame === undefined ? {} : { stepsPerFrame: o.stepsPerFrame }),
+      drive(raw) {
+        const s = raw as {
+          tick: number;
+          rover: { x: number; z: number; heading: number; speed: number };
+          carrying: boolean;
+          friendTakenTick: (number | null)[];
+        };
+        const r = s.rover;
+        const dist = (p: Waypoint) => Math.hypot(p.x - r.x, p.z - r.z);
+        let aim: Waypoint | undefined;
+        if (next < o.path.length) {
+          const here = o.path[next];
+          if (here !== undefined && dist(here) < o.turnAhead) next++;
+          aim = o.path[Math.min(next, o.path.length - 1)];
+        } else if (s.carrying) {
+          const a = -Math.PI / 2 + o.boss.perTick * (s.tick + 1);
+          aim = { x: o.boss.x + Math.cos(a) * o.boss.radius, z: o.boss.z + Math.sin(a) * o.boss.radius };
+        } else {
+          const ready = o.friends.filter((_, i) => {
+            const t = s.friendTakenTick[i];
+            return t === null || t === undefined || s.tick - t >= o.respawnTicks;
+          });
+          aim = ready.sort((p, q) => dist(p) - dist(q))[0];
+        }
+        if (aim === undefined) return { throttle: 0, steer: 0 };
+        const wanted = Math.atan2(-(aim.x - r.x), -(aim.z - r.z));
+        const error = wrap(wanted - r.heading);
+        const target = dist(aim) < o.slowNear || Math.abs(error) > 0.6 ? o.slowSpeed : o.maxSpeed;
+        return {
+          throttle: r.speed > target + 0.2 ? -0.5 : r.speed < target ? 1 : 0,
+          steer: clamp(-error * o.steerGain),
+        };
+      },
+    };
+  }, options);

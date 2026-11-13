@@ -21,7 +21,7 @@ describe("クリアしたステージを覚える", () => {
     expect(loadCleared(memory())).toEqual([]);
     expect(loadCleared(memory("{oops"))).toEqual([]);
     expect(loadCleared(memory('"3"'))).toEqual([]);
-    expect(loadCleared(memory('[0, 5, 9, 2.5, "1", 3]'))).toEqual([3]);
+    expect(loadCleared(memory('[0, 6, 9, 2.5, "1", 3]'))).toEqual([3]);
     expect(loadCleared(null)).toEqual([]);
   });
 
