@@ -1,7 +1,9 @@
 // 起動とゲームループ。状態（src/core）を固定刻みで進め、描画（src/render）はその状態を読むだけ。
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
-import { CAMERA, LOOK, RESPAWN, SIM, STAGE1 } from "./config";
+import { ASSET, CAMERA, CITY_SKY, LOOK, RESPAWN, SIM, STAGE1, TRAFFIC } from "./config";
+import type { TrafficPoses } from "./core/traffic";
+import { createCityLifeView } from "./render/cityLifeView";
 import { createGame } from "./core/game";
 import { createFixedStepper } from "./core/loop";
 import type { Stage2State } from "./core/stage2";
@@ -40,6 +42,8 @@ declare global {
       frames: number;
       /** ステージ1の状態（ステージ2では使わない） */
       state: () => GameState;
+      /** ステージ1の街のほかの車・自転車・バイク・人の今の位置と、自作モデルに差しかえた種類の数（NORI-61） */
+      cityLife?: () => { poses: TrafficPoses; models: number };
       /** 遊んでいるステージ（ステージ2のときだけ 2） */
       stage?: 2 | 3 | 4 | 5;
       /** ステージ5の状態（NORI-29） */
@@ -199,6 +203,32 @@ const city = createCity(game.layout, {
 scene.add(city.root);
 const courseView = createCourseView(game.stars, STAGE1);
 scene.add(courseView.root);
+// 街のにぎわい（NORI-61）：箱で始め、自作モデル（ASSET.city）が読めたら差しかえる。読めないものは箱のまま
+const cityLife = createCityLifeView(
+  TRAFFIC.vehicles.map((v) => v.model),
+  game.initial().traffic.bikes.map((b) => b.kind),
+  TRAFFIC.people.count,
+);
+scene.add(cityLife.root);
+void (async () => {
+  const base = import.meta.env.BASE_URL;
+  const loader = new GLTFLoader();
+  try {
+    const manifest = (await (await fetch(`${base}models/manifest.json`)).json()) as ModelManifest;
+    const results = await Promise.allSettled(
+      ASSET.city.variants.map(async (name) => {
+        const e = manifest.models.find((m) => m.name === name);
+        if (e === undefined) throw new Error(`${name} がない`);
+        return [name, (await loader.loadAsync(`${base}models/${e.file}`)).scene] as const;
+      }),
+    );
+    const models = new Map<string, THREE.Object3D>();
+    for (const r of results) if (r.status === "fulfilled") models.set(r.value[0], r.value[1]);
+    cityLife.useModels(models);
+  } catch {
+    // 一覧が読めなければ箱のまま遊べる
+  }
+})();
 
 // ---- 見た目と画質（NORI-56）。最初は単色で始め、素材は「読めた」かつ「最初の画質の判定が済んだ」あとに貼る ----
 // 遅い端末で「単色 → 素材 → 単色」と2回変わるのを防ぐ（見た目が変わるのは多くて1回。NORI-56 のレビュー）
@@ -309,11 +339,14 @@ let frames = 0;
 let windowFrames = 0;
 let windowStart = performance.now();
 const projected = new THREE.Vector3();
+/** 太陽を置く基準（車の位置。毎フレーム作り直さない） */
+const focusPoint = new THREE.Vector3();
 window.__nori = {
   fpsSamples,
   carModel: "box",
   frames: 0,
   state: () => structuredClone(current),
+  cityLife: () => ({ poses: game.traffic.poses(current.traffic), models: cityLife.models }),
   get look() {
     return quality.lookState;
   },
@@ -365,6 +398,14 @@ const frame = (now: number) => {
   carView.root.visible =
     current.invincibleTicks === 0 || reducedMotion.matches || Math.floor(now / RESPAWN.blinkMs) % 2 === 0;
   courseView.update(current.course, pose, now / 1000);
+  cityLife.update(
+    game.traffic.poses(previous.traffic),
+    game.traffic.poses(current.traffic),
+    alpha,
+    current.tick,
+    reducedMotion.matches,
+    focusPoint.set(pose.x, 0, pose.z),
+  );
   statusView.update(current.tick, current.course);
   clearFlow.update(current.course.finishTick !== null, now / 1000);
   sound.update({
@@ -382,7 +423,7 @@ const frame = (now: number) => {
     followCamera.update(pose, frameSeconds);
   }
   // 影は車のまわりだけ描く（影の範囲を狭くして、くっきり・軽くする）
-  sun.position.set(pose.x + 20, 40, pose.z + 10);
+  sun.position.set(pose.x + CITY_SKY.sunOffset.x, CITY_SKY.sunOffset.y, pose.z + CITY_SKY.sunOffset.z);
   sun.target.position.set(pose.x, 0, pose.z);
 
   renderer.render(scene, camera);

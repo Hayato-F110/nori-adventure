@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { ASSET, STAGE4 } from "../../src/config/index.ts";
+import { ASSET, STAGE4, TRAFFIC } from "../../src/config/index.ts";
 import { type AssetKind, checkGlb, inspectGlb, kindOf, validateGlb } from "../../tools/assets/inspect.ts";
 import {
   makeCarGlb,
+  makeCityGlb,
   makeSeaGlb,
   makeTreeGlb,
   makeVehicleGlb,
@@ -275,5 +276,50 @@ describe("海の生きもの（ASSET.sea）", () => {
 
   it("見つける生きもの（STAGE4.creatures）は、みな sea- の名前のモデルがある", () => {
     for (const c of STAGE4.creatures) expect(ASSET.sea.variants).toContain(`sea-${c.kind}`);
+  });
+});
+
+// docs/game-rules.md「街をにぎやかに」のモデルの表（NORI-61）
+describe("街のモデル（ASSET.city）", () => {
+  it.each(ASSET.city.variants)("%s は、自分の大きさの決まりで検査し、正しい形なら問題0", async (name) => {
+    expect(kindOf(name)).toBe(name);
+    const glb = await makeCityGlb(name);
+    expect((await validateGlb(glb)).errors).toBe(0);
+    expect(await problemsOf(glb, name)).toEqual([]);
+  });
+
+  it("大きさが ±10% の外だと止まる", async () => {
+    expect((await problemsOf(await makeCityGlb("bus", { scale: 1.2 }), "bus")).join("\n")).toMatch(/長さ/);
+  });
+
+  it("原点が底にないと止まる", async () => {
+    expect((await problemsOf(await makeCityGlb("person", { liftY: 0.5 }), "person")).join("\n")).toMatch(
+      /原点/,
+    );
+  });
+
+  it(`大きさが ASSET.city.maxGlbBytes（${ASSET.city.maxGlbBytes} B）を超えると止まる`, async () => {
+    const report = await inspectGlb(await makeCityGlb("police"));
+    expect(checkGlb({ ...report, bytes: ASSET.city.maxGlbBytes + 1 }, "police").join("\n")).toMatch(
+      /大きさが/,
+    );
+  });
+
+  it(`三角形が ASSET.city.maxTriangles（${ASSET.city.maxTriangles}）を超えると止まる`, async () => {
+    const report = await inspectGlb(await makeCityGlb("fire-truck"));
+    expect(checkGlb({ ...report, triangles: ASSET.city.maxTriangles + 1 }, "fire-truck").join("\n")).toMatch(
+      /三角形/,
+    );
+  });
+
+  it("部品 body がないと止まる", async () => {
+    expect(await problemsOf(await makeCityGlb("bicycle", { omitNodes: ["body"] }), "bicycle")).toContain(
+      "ノード body がない",
+    );
+  });
+
+  it("回る車（TRAFFIC.vehicles）と自転車・バイク・人は、みな ASSET.city のモデルがある", () => {
+    const used = [...TRAFFIC.vehicles.map((v) => v.model), "bicycle", "motorbike", "person"];
+    for (const m of used) expect(ASSET.city.variants).toContain(m);
   });
 });

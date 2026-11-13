@@ -540,6 +540,22 @@ export const ASSET = {
     maxTriangles: 3000,
     maxGlbBytes: 262144,
   },
+  /** ステージ1の街のモデル（NORI-61。docs/game-rules.md「街をにぎやかに」）。前は −Z、原点は底の中心 */
+  city: {
+    variants: ["traffic-car", "bus", "police", "fire-truck", "person", "bicycle", "motorbike"],
+    sizes: {
+      "traffic-car": { width: 1.8, height: 1.5, length: 4.2 },
+      bus: { width: 2.5, height: 3.2, length: 10.0 },
+      police: { width: 1.8, height: 1.6, length: 4.4 },
+      "fire-truck": { width: 2.4, height: 3.0, length: 8.0 },
+      person: { width: 0.6, height: 1.6, length: 0.4 },
+      bicycle: { width: 0.6, height: 1.6, length: 1.7 },
+      motorbike: { width: 0.8, height: 1.6, length: 2.0 },
+    },
+    nodes: ["body"],
+    maxTriangles: 3000,
+    maxGlbBytes: 262144,
+  },
   allowedExtensions: [
     "KHR_materials_emissive_strength",
     "KHR_materials_ior",
@@ -646,6 +662,67 @@ export const CLEAR = {
   buttonSize: 96,
 } as const;
 
+/** ステージ1の街をにぎやかに（NORI-61。docs/game-rules.md「街をにぎやかに」） */
+export const TRAFFIC = {
+  /** ほかの車が回る四角い道の角（道の中心線。この順に回る） */
+  loop: [
+    { x: -40, z: -40 },
+    { x: 40, z: -40 },
+    { x: 40, z: 80 },
+    { x: -40, z: 80 },
+  ],
+  laneOffset: 2.5,
+  cornerRadius: 4,
+  /** 回る順の車（モデルの名前と、1周の中のはじめの位置 m） */
+  vehicles: [
+    // 50 m ずらす（11/13 オーナーが決定）：最初に1つ目の交差点（距離 38.5 m）を横切るのが約 17 秒後になる
+    { model: "traffic-car", start: 50 },
+    { model: "bus", start: 150 },
+    { model: "police", start: 250 },
+    { model: "fire-truck", start: 350 },
+  ],
+  speed: 6,
+  acceleration: 3,
+  braking: 8,
+  stopAhead: 10,
+  stopSide: 3,
+  followGap: 4,
+  lampSwapSeconds: 0.5,
+  /** ついているランプは、自分の色の何倍で自ら光るか（光に左右されない色） */
+  lampGlow: 1,
+  /** 人の服（素材 shirt）の色。k 人目は k 番目、自転車・バイクの i 台目は (i + 2) 番目 */
+  shirtColors: ["#3B82F6", "#22C55E", "#64748B", "#A855F7", "#14B8A6", "#EC4899"],
+  /** 服の色は、ほしと子どもの車から色相がこの角度（度）以上はなれる */
+  shirtMinHueGap: 40,
+  /** 子どもの車の体の色（tools/blender/build-car.py の car_body。服の色の検査に使う） */
+  childCarColor: "#FF8A1F",
+  /** 自作モデルを読みこむ前の箱の色（人・自転車・バイクも同じ1色） */
+  placeholderColor: "#9AA3AD",
+  bikeOffset: 4,
+  bicycles: { count: 2, speed: 4, starts: [0, 200] },
+  motorbikes: { count: 2, speed: 6, starts: [100, 300] },
+  bikeStopRadius: 6,
+  bikeFollowGap: 3,
+  /** 歩行者：コースを交差点で 40 m ずつ分けた辺の番号（blockSides）に1人ずつ。左・右と交互の歩道 */
+  people: { count: 6, sideLength: 26, offset: 6, blockLength: 40, blockSides: [1, 2, 4, 5, 7, 9] },
+  walkSpeed: 1.2,
+  walkStopRadius: 6,
+  personRadius: 0.4,
+  bikeRadius: 0.6,
+} as const;
+
+/** ステージ1の空（NORI-61） */
+export const CITY_SKY = {
+  clouds: { count: 8, minHeight: 60, maxHeight: 70, speed: 1, wrapX: 150 },
+  sunDistance: 300,
+  sunRadius: 12,
+  sunColor: "#FFF1A8",
+  /** 太陽の光を置く所（子どもの車からのずれ m）。光の向きと、空の太陽の向きの両方に使う */
+  sunOffset: { x: 20, y: 40, z: 10 },
+  /** 雲の半径（hash01 で min〜max）と、つぶす倍率（横・高さ・奥。ステージ2と同じ形） */
+  cloudSize: { minRadius: 6, maxRadius: 12, scale: [1.8, 0.6, 1.2] },
+} as const;
+
 /**
  * 効果音と BGM（NORI-31。docs/game-rules.md「効果音と BGM」）。音の高さは MIDI の番号（69 = 440 Hz のラ）。
  * メロディーはオリジナル（ド 60・レ 62・ミ 64・ソ 67・ラ 69 とそのオクターブだけ）。0 は休み
@@ -710,5 +787,7 @@ export const CONFIG = {
   PARENT,
   TITLE,
   CLEAR,
+  TRAFFIC,
+  CITY_SKY,
   SOUND,
 } as const;
