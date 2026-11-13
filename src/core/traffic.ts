@@ -35,6 +35,8 @@ export type TrafficConfig = {
   readonly stopAhead: number;
   readonly stopSide: number;
   readonly followGap: number;
+  /** NORI-63：すぐ止まるときの余白（m） */
+  readonly overlapMargin: number;
   readonly bikeOffset: number;
   readonly bicycles: BikeGroup;
   readonly motorbikes: BikeGroup;
@@ -84,14 +86,17 @@ const checkStarts = (starts: readonly number[], what: string): void => {
 
 export const createTraffic = (
   config: TrafficConfig,
-  sizes: Readonly<Record<string, { readonly length: number }>>,
+  sizes: Readonly<Record<string, { readonly length: number; readonly width: number }>>,
   courseRoute: readonly Point[],
+  /** 子どもの車の当たりの半径（m。CAR.collisionRadius）。NORI-63 のすぐ止まる判定に使う */
+  childRadius: number,
 ): Traffic => {
-  const lengthOfModel = (model: string): number => {
+  const sizeOfModel = (model: string) => {
     const size = sizes[model];
     if (!size) throw new Error(`モデル ${model} の大きさがない`);
-    return size.length;
+    return size;
   };
+  const lengthOfModel = (model: string): number => sizeOfModel(model).length;
 
   // ---- 車 ----
   const path = createLoopPath(config.loop, config.laneOffset, config.cornerRadius);
@@ -114,6 +119,32 @@ export const createTraffic = (
     const ahead = dx * fx + dz * fz - lengthOf(i) / 2; // 前の端からの距離
     const side = dx * fz - dz * fx; // 中心線からの左右（左が正）
     return ahead >= 0 && ahead <= config.stopAhead && Math.abs(side) <= config.stopSide;
+  };
+
+  const widths = config.vehicles.map((v) => sizeOfModel(v.model).width);
+  /**
+   * NORI-63：車 i が道の s にいるとき、体（長さ × 幅）を「子どもの車の半径 ＋ 余白」だけ広げた四角に、
+   * 子どもの車の中心が入るか。入るなら、その位置へは進まない（ブレーキで止まりきれない近さに急に入られても食いこまない）
+   */
+  /** 車 i が道の s にいるときの、体（長さ × 幅の四角）から子どもの車の中心までの距離（中なら 0） */
+  const gapToChild = (s: number, i: number, child: Point): number => {
+    const p = path.pointAt(s);
+    const h = path.headingAt(s);
+    const fx = -Math.sin(h);
+    const fz = -Math.cos(h);
+    const dx = child.x - p.x;
+    const dz = child.z - p.z;
+    const along = dx * fx + dz * fz;
+    const side = dx * fz - dz * fx;
+    return Math.hypot(
+      Math.max(Math.abs(along) - lengthOf(i) / 2, 0),
+      Math.max(Math.abs(side) - (widths[i] as number) / 2, 0),
+    );
+  };
+  /** 次の位置で、広げた四角に入り、しかも今より近づくなら true（離れる・横に並んで進むときは止めない） */
+  const overlapsChild = (now: number, next: number, i: number, child: Point): boolean => {
+    const after = gapToChild(next, i, child);
+    return after <= childRadius + config.overlapMargin && after < gapToChild(now, i, child);
   };
 
   /** 輪の上で、i の前の端から i+1 の後ろの端まで */
@@ -188,7 +219,10 @@ export const createTraffic = (
         const blocked = n > 1 && gapOnLoop(state.vehicles, i, path.length, lengthOf) < config.followGap;
         const stop = childAhead(v, i, child) || blocked;
         const speed = approach(v.speed, stop ? 0 : config.speed, config.acceleration, config.braking, dt);
-        return { s: wrapDistance(v.s + speed * dt, path.length), speed };
+        const next = wrapDistance(v.s + speed * dt, path.length);
+        // 次の位置で子どもの車に重なるなら、その刻みは進まずに止まる（NORI-63）
+        if (speed > 0 && overlapsChild(v.s, next, i, child)) return { s: v.s, speed: 0 };
+        return { s: next, speed };
       }),
       bikes: state.bikes.map((b, i) => {
         const blocked =

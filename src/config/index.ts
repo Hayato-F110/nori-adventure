@@ -687,6 +687,8 @@ export const TRAFFIC = {
   stopAhead: 10,
   stopSide: 3,
   followGap: 4,
+  /** NORI-63：次の刻みで、体を「子どもの車の半径 ＋ この余白（m）」だけ広げた四角に子どもの車が入るなら、その刻みは進まない */
+  overlapMargin: 0.3,
   lampSwapSeconds: 0.5,
   /** ついているランプは、自分の色の何倍で自ら光るか（光に左右されない色） */
   lampGlow: 1,
