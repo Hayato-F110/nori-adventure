@@ -100,7 +100,7 @@ export const friendAvailable = (state: Stage5State, i: number): boolean => {
 
 type Circle = { x: number; z: number; radius: number; height: number };
 
-/** 動かない物（景色の岩・ボス）から外へ押し出す。空中でものの高さより上なら当たらない */
+/** 動かない物（景色の岩・ボス）から外へ押し出す。空中でものの高さ以上なら当たらない */
 const pushOut = (rover: RoverState, circles: readonly Circle[]) => {
   let { x, z } = rover;
   let hit = false;

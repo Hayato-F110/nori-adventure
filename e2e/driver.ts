@@ -6,7 +6,20 @@ import type { Page } from "@playwright/test";
 export type Waypoint = { x: number; z: number };
 
 /** E2E の早送り（NORI-66）：1フレームに進める刻みの数。クリアの E2E だけで使う（FPS を測るテストでは使わない） */
-export type FastForwardOption = { stepsPerFrame?: number };
+export type FastForwardOption = {
+  stepsPerFrame?: number;
+  /**
+   * NORI-69：true なら、startDriving(page) を呼ぶまで入力 0（止まったまま）。始めの画面（表示が 0 など）を
+   * 確かめてから走り出すため。早送りでも、確かめる前に進んでしまわない
+   */
+  waitForGo?: boolean;
+};
+
+/** waitForGo の運転役を走り出させる */
+export const startDriving = (page: Page) =>
+  page.evaluate(() => {
+    (globalThis as { __noriGo?: boolean }).__noriGo = true;
+  });
 
 export type CarDriverOptions = FastForwardOption & {
   /** 順に目指す点（最後まで行ったら、loop なら最初へ戻る。そうでなければ最後の点を目指し続ける） */
@@ -57,6 +70,8 @@ export const installTrainDriver = (page: Page, options: TrainDriverOptions) =>
   }, options);
 
 export type PlaneDriverOptions = FastForwardOption & {
+  /** NORI-69：ステージ3で、輪をこの数くぐったら手を離す（入力 0。水平に戻るのを確かめる） */
+  releaseAfterRings?: number;
   /** 向きのずれ（rad）にかけて、左右の傾きの量にする */
   steerGain: number;
   /** 高さの差（m）にかけて、上下の量にする */
@@ -76,7 +91,13 @@ export const installPlaneDriver = (page: Page, options: PlaneDriverOptions) =>
       record: [],
       ...(o.stepsPerFrame === undefined ? {} : { stepsPerFrame: o.stepsPerFrame }),
       drive(raw) {
+        if (o.waitForGo === true && (globalThis as { __noriGo?: boolean }).__noriGo !== true) {
+          return { throttle: 0, steer: 0 };
+        }
         const s = raw as { plane: { x: number; y: number; z: number; heading: number }; rings: boolean[] };
+        if (o.releaseAfterRings !== undefined && s.rings.filter(Boolean).length >= o.releaseAfterRings) {
+          return { throttle: 0, steer: 0 };
+        }
         const all = window.__nori?.rings?.() ?? [];
         const next = s.rings.findIndex((done) => !done);
         const ring = all[next === -1 ? all.length - 1 : next];
@@ -140,6 +161,9 @@ export const installSubApproachDriver = (page: Page, options: SubApproachOptions
       ...(o.stepsPerFrame === undefined ? {} : { stepsPerFrame: o.stepsPerFrame }),
       drive(raw) {
         if (stopped) return { throttle: 0, steer: 0 };
+        if (o.waitForGo === true && (globalThis as { __noriGo?: boolean }).__noriGo !== true) {
+          return { throttle: 0, steer: 0 };
+        }
         const p = (raw as { sub: { x: number; y: number; z: number; heading: number } }).sub;
         const c = window.__nori?.creatures?.()[o.creature];
         if (c === undefined) return { throttle: 0, steer: 0 };
@@ -176,6 +200,9 @@ export const installCarDriver = (page: Page, options: CarDriverOptions) =>
       record: [],
       ...(o.stepsPerFrame === undefined ? {} : { stepsPerFrame: o.stepsPerFrame }),
       drive(raw) {
+        if (o.waitForGo === true && (globalThis as { __noriGo?: boolean }).__noriGo !== true) {
+          return { throttle: 0, steer: 0 };
+        }
         const car = (raw as { car: { x: number; z: number; heading: number } }).car;
         const last = o.waypoints.length - 1;
         const here = o.waypoints[target] ?? { x: 0, z: 0 };
