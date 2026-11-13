@@ -122,10 +122,6 @@ export const createTraffic = (
   };
 
   const widths = config.vehicles.map((v) => sizeOfModel(v.model).width);
-  /**
-   * NORI-63：車 i が道の s にいるとき、体（長さ × 幅）を「子どもの車の半径 ＋ 余白」だけ広げた四角に、
-   * 子どもの車の中心が入るか。入るなら、その位置へは進まない（ブレーキで止まりきれない近さに急に入られても食いこまない）
-   */
   /** 車 i が道の s にいるときの、体（長さ × 幅の四角）から子どもの車の中心までの距離（中なら 0） */
   const gapToChild = (s: number, i: number, child: Point): number => {
     const p = path.pointAt(s);
@@ -141,10 +137,16 @@ export const createTraffic = (
       Math.max(Math.abs(side) - (widths[i] as number) / 2, 0),
     );
   };
-  /** 次の位置で、広げた四角に入り、しかも今より近づくなら true（離れる・横に並んで進むときは止めない） */
+  /**
+   * NORI-63：次の位置で、体を「子どもの車の半径 ＋ 余白」だけ広げた角の丸い四角に入り、しかも今より近づくなら true
+   * （その位置へは進まない。離れる・横に並んで進むときは止めない。docs/game-rules.md「すぐ止まる」）。
+   * 「近づく」は NEARER_EPS より多く縮むこと。横に並んで進むと距離は変わらないが、小数の誤差で縮んで見え、
+   * そのたびに止まっていた（NORI-69 で見つけた。ほかの車がガクッと止まる）
+   */
+  const NEARER_EPS = 1e-9; // m。計算の誤差を区別する幅（ゲームの数値ではない）
   const overlapsChild = (now: number, next: number, i: number, child: Point): boolean => {
     const after = gapToChild(next, i, child);
-    return after <= childRadius + config.overlapMargin && after < gapToChild(now, i, child);
+    return after <= childRadius + config.overlapMargin && after < gapToChild(now, i, child) - NEARER_EPS;
   };
 
   /** 輪の上で、i の前の端から i+1 の後ろの端まで */

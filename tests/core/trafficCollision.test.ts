@@ -151,6 +151,32 @@ describe("ほかの車は、動いて子どもの車に食いこまない（NORI
     const child = pointNear(1.5, 0);
     let s = traffic.initial();
     let minGap = Infinity;
+    let biggestDrop = 0; // 1刻みで落ちた速さのいちばん大きいもの
+    for (let t = 0; t < 120; t++) {
+      const before = s.vehicles[0]?.speed ?? 0;
+      s = traffic.step(s, child, dt);
+      biggestDrop = Math.max(biggestDrop, before - (s.vehicles[0]?.speed ?? 0));
+      minGap = Math.min(
+        minGap,
+        distanceToBox(child.x, child.z, vehicle0(s), size.width / 2, size.length / 2),
+      );
+    }
+    // 角の丸い四角（体から keep）の中へは、1刻みも入らない（NORI-69 の初見レビュー：前は 0.1 m ゆるめていた）
+    expect(minGap).toBeGreaterThan(keep);
+    expect(s.vehicles[0]?.speed).toBe(0);
+    // ブレーキ（8 m/s² × 1/60 秒 ≈ 0.13 m/s）を待たず、その刻みで速さを 0 にした
+    expect(biggestDrop).toBeGreaterThan(TRAFFIC.braking * dt * 2);
+  });
+
+  // NORI-69 の初見レビュー：前の 2 は子どもの車を「止まる範囲（前 10 m・左右 3 m）」の中に置いていて、ふだんのブレーキで止まり、
+  // NORI-63 の判定を一度も通らなかった（判定を外しても通った）。ルールに足した「近づくときだけ止まる」を確かめる形に作り直した
+  it("2. 体の横 1.0 m（角の丸い四角の中）に止まっている子どもの車からは、止まらずに離れていく（近づかないので止めない）", () => {
+    // 体の真横（前の端より 1 m 後ろ）。ここは「止まる範囲」（前の端より前）の外
+    const child = pointNear(-1, size.width / 2 + 1.0);
+    let s = traffic.initial();
+    const first = distanceToBox(child.x, child.z, vehicle0(s), size.width / 2, size.length / 2);
+    expect(first).toBeLessThanOrEqual(keep); // はじめから中にいる
+    let minGap = first;
     for (let t = 0; t < 120; t++) {
       s = traffic.step(s, child, dt);
       minGap = Math.min(
@@ -158,23 +184,10 @@ describe("ほかの車は、動いて子どもの車に食いこまない（NORI
         distanceToBox(child.x, child.z, vehicle0(s), size.width / 2, size.length / 2),
       );
     }
-    // 広げた四角の外（体から keep 以上）には、まだ届いていない位置で止まる：1 刻みの手前（0.1 m）より近くには来ない
-    expect(minGap).toBeGreaterThan(keep - TRAFFIC.speed * dt - 1e-9);
-    expect(s.vehicles[0]?.speed).toBe(0);
-  });
-
-  it("2. 道の横に止まっている子どもの車（車の横から 1.0 m）には、1.3 m より近くへは来ない（その手前で待つ）", () => {
-    const child = pointNear(6, size.width / 2 + 1.0);
-    let s = traffic.initial();
-    let minGap = Infinity;
-    for (let t = 0; t < 240; t++) {
-      s = traffic.step(s, child, dt);
-      minGap = Math.min(
-        minGap,
-        distanceToBox(child.x, child.z, vehicle0(s), size.width / 2, size.length / 2),
-      );
-    }
-    expect(minGap).toBeGreaterThan(keep - TRAFFIC.speed * dt - 1e-9);
+    expect(minGap).toBeGreaterThanOrEqual(first - 1e-9); // 近づかない
+    expect(s.vehicles[0]?.speed).toBe(TRAFFIC.speed); // 止まったままにならない
+    const last = distanceToBox(child.x, child.z, vehicle0(s), size.width / 2, size.length / 2);
+    expect(last).toBeGreaterThan(keep); // 2 秒で離れた
   });
 
   it("3. 走っている子どもの車が、動いている車へ横から入っても、すり抜けない（重ならない）", () => {
