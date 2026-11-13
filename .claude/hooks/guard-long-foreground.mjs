@@ -15,14 +15,19 @@ const PREFIX = String.raw`(?:[A-Za-z_][A-Za-z0-9_]*=\S*\s+)*`;
 const LONG_COMMANDS = [
   [new RegExp(AT_COMMAND + PREFIX + String.raw`npm\s+run\s+(?:check|e2e)\b`), "npm run check / e2e"],
   [new RegExp(AT_COMMAND + PREFIX + String.raw`npx\s+playwright\s+test\b`), "playwright test"],
-  [new RegExp(AT_COMMAND + PREFIX + String.raw`gh\s+(?:pr\s+checks\b[^\n;&|]*--watch|run\s+watch)\b`), "CI の見張り"],
+  [
+    new RegExp(AT_COMMAND + PREFIX + String.raw`gh\s+(?:pr\s+checks\b[^\n;&|]*--watch|run\s+watch)\b`),
+    "CI の見張り",
+  ],
 ];
 
 /** 止める理由（文字列）か、止めないなら null */
 export const findLongForeground = (command, background) => {
   if (background === true || typeof command !== "string") return null;
+  // heredoc（<<'EOF' 〜 EOF）の中身はコミットの文などの文章なので、見る前に取り除く
+  const code = command.replace(/<<-?\s*['"]?(\w+)['"]?[^\n]*\n[\s\S]*?\n\s*\1(?=\n|$)/g, "<<heredoc");
   for (const [pattern, label] of LONG_COMMANDS) {
-    if (pattern.test(command)) return label;
+    if (pattern.test(code)) return label;
   }
   return null;
 };
