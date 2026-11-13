@@ -32,6 +32,9 @@
 - NORI-71（ステージ3・4の見た目の E2E を運転役に。2 ポイント、11/16 → 11/17）を NORI-69 から分けた
 - `BOSS.carryLimit` は設定から消す
 
+- **devlog・引き継ぎ・ふりかえりの課題は NORI-72**（11/13 にオーナーが案 A に決定。Jira 進行中、1 ポイント、期限 11/17。スプリントへの追加はオーナー）。これまでの NORI-10 はスプリント1で完了した課題なので、11/14 からは使わない
+- **NORI-71**（Jira 進行中。ブランチ `feature/NORI-71-look-e2e-driver`、worktree `.claude/worktrees/NORI-71`）：テストの一覧の案 `docs/test-plans/NORI-71.md`（7 行）を push ずみ。初見レビューを 11/13 夜に回した。結果を仕分けて一覧に書き、オーナーの承認をもらってから実装する
+
 **次にやること**
 
 1. PR #60 のマージを確かめる → 本体の main を `pull --ff-only` → NORI-69 の worktree とブランチを片付ける（`git worktree remove`・`git branch -d`）
