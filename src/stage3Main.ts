@@ -10,6 +10,7 @@ import type { InputFrame } from "./core/types";
 import { createGamepadInput } from "./input/gamepad";
 import { createKeyboardInput } from "./input/keyboard";
 import { mergeInputs } from "./input/merge";
+import { drivenInput } from "./input/testDriver";
 import { createTouchInput, touchLayoutFor } from "./input/touch";
 import type { ModelManifest } from "./render/carModel";
 import { LIGHTMAPS, loadLook, surfacesFor } from "./render/look";
@@ -246,7 +247,7 @@ export const startStage3 = async (canvas: HTMLCanvasElement, hud: HTMLElement, s
     input = mergeInputs([keyboard.read(), touch.read(), ...gamepads.read()]);
     const { alpha } = stepper.advance(frameSeconds, () => {
       previous = current;
-      current = game.step(current, input);
+      current = game.step(current, drivenInput(current, input));
     });
 
     // 前の刻みとの間を補間して描く（状態は変えない）
