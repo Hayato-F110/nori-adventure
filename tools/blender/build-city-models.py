@@ -14,6 +14,7 @@ import os
 from pathlib import Path
 
 import bpy
+from mathutils import Vector
 
 # ASSET.city.sizes.<名前>（幅・高さ・長さ）
 SIZE = {
@@ -130,14 +131,29 @@ def lamps(z, y, gap, size=(0.34, 0.26, 0.16)):
     ]
 
 
-def arm(m, shoulder, hand):
-    """肩（y, z）から手（y, z）までの、左右2本の腕を1つの横長の箱で作る（傾けて結ぶ）"""
+ARM_WIDTH = 0.1  # 腕の太さ（人の腕と同じ。乗る人は RIDER_SCALE 倍）
+
+
+def arms(m, shoulder, hand, hand_x):
+    """肩（y, z）から手（y, z）までの左右2本の腕。肩は胴の幅の内側、手はハンドルの左右（±hand_x）。
+    箱を Y 向きに作り、肩 → 手の向きに回す（11/13：1枚の板に見えたので2本に分けた）"""
+    s = RIDER_SCALE
+    w = ARM_WIDTH * s
+    shoulder_x = 0.21 * s - w / 2  # 胴の幅 0.42 の半分から腕の半分を引く
     (y0, z0), (y1, z1) = shoulder, hand
-    length = math.hypot(y1 - y0, z1 - z0)
-    obj = box((0.42 * RIDER_SCALE, length, 0.09), ((0, (y0 + y1) / 2, (z0 + z1) / 2)), m["shirt"], bevel=0.03)
-    obj.rotation_euler = (math.atan2(z1 - z0, y1 - y0), 0, 0)
-    bpy.ops.object.transform_apply(location=False, rotation=True, scale=False)
-    return obj
+    objs = []
+    for sx in (-1, 1):
+        a = Vector((sx * shoulder_x, y0, z0))
+        b = Vector((sx * hand_x, y1, z1))
+        d = b - a
+        obj = box((w, d.length, w), tuple((a + b) / 2), m["shirt"], bevel=0.03)
+        obj.rotation_euler = Vector((0, 1, 0)).rotation_difference(d.normalized()).to_euler()
+        bpy.ops.object.select_all(action="DESELECT")
+        obj.select_set(True)
+        bpy.context.view_layer.objects.active = obj
+        bpy.ops.object.transform_apply(location=False, rotation=True, scale=False)
+        objs.append(obj)
+    return objs
 
 
 def fork(axle, handle, mat, width=0.05):
@@ -153,9 +169,9 @@ def fork(axle, handle, mat, width=0.05):
 RIDER_SCALE = 0.85  # 乗る人は少し小さく（自転車・バイクの高さ 1.6 m に収める。人の高さ 1.6 m の 0.85 倍で座る）
 
 
-def rider(m, seat_z, seat_y, lean, handle, helmet=False):
+def rider(m, seat_z, seat_y, lean, handle, hand_x, helmet=False):
     """自転車・バイクに乗る人（座った形）。seat_z は座る面の高さ。大きさと位置は RIDER_SCALE 倍。
-    腕は肩からハンドル（handle = (y, z)）まで伸ばす"""
+    腕は肩からハンドル（handle = (y, z)、左右は ±hand_x）まで伸ばす"""
     s = RIDER_SCALE
     shirt = m["shirt"]
 
@@ -172,7 +188,7 @@ def rider(m, seat_z, seat_y, lean, handle, helmet=False):
         # 胴（少し前へ傾ける）
         box(sz(0.42, 0.24, 0.5), at(lean, 0.37), shirt, bevel=0.05),
         # 腕（肩からハンドルまで）。肩は胴の前の上
-        arm(m, (seat_y + (lean + 0.12) * s, seat_z + 0.55 * s), handle),
+        *arms(m, (seat_y + (lean + 0.12) * s, seat_z + 0.55 * s), handle, hand_x),
         # 頭
         sphere(0.14 * s, at(lean + 0.02, 0.78), m["skin"]),
     ]
@@ -296,7 +312,7 @@ def build_bicycle(m):
         fork((0.5, R), (0.45, 0.88), frame),  # 前の車輪からハンドルまで
         box((0.6, 0.06, 0.05), (0, 0.45, 0.88), m["dark"]),  # ハンドル（幅 0.6 m）
         box((0.16, 0.26, 0.05), (0, -0.12, 0.725), m["dark"]),  # サドル（上の面 0.75 m に人が座る）
-        *rider(m, 0.75, -0.12, 0.08, (0.45, 0.88)),
+        *rider(m, 0.75, -0.12, 0.08, (0.45, 0.88), hand_x=0.25),  # 手はハンドル（幅 0.6）の端から 0.05 内側
     ]
     return join(parts, "body")
 
@@ -314,7 +330,7 @@ def build_motorbike(m):
         box((0.8, 0.06, 0.06), (0, 0.55, 0.98), m["dark"]),  # ハンドル
         box((0.16, 0.08, 0.14), (0, 0.66, 0.8), m["light"]),  # ライト（フォークの前）
         box((0.3, 0.5, 0.08), (0, -0.2, 0.8), m["dark"]),  # 座席（上の面 0.84 m に人が座る）
-        *rider(m, 0.84, -0.2, 0.12, (0.55, 0.98), helmet=True),
+        *rider(m, 0.84, -0.2, 0.12, (0.55, 0.98), hand_x=0.33, helmet=True),  # 手はハンドル（幅 0.8）の端から 0.07 内側
     ]
     return join(parts, "body")
 
