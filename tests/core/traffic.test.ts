@@ -1,13 +1,13 @@
 // docs/game-rules.md「街をにぎやかに」（NORI-61）。一覧は docs/test-plans/NORI-61.md。
 // 数値は TRAFFIC から読む（直書きしない）。
 import { describe, expect, it } from "vitest";
-import { ASSET, SIM, TRAFFIC } from "../../src/config/index.ts";
-import type { Point } from "../../src/core/course.ts";
+import { ASSET, SIM, STAGE1, TRAFFIC } from "../../src/config/index.ts";
+import { pointAlong, type Point } from "../../src/core/course.ts";
 import { createLoopPath } from "../../src/core/loopPath.ts";
 import { createTraffic, type TrafficState } from "../../src/core/traffic.ts";
 import { wrapDistance } from "../../src/core/track.ts";
 
-const traffic = createTraffic(TRAFFIC, ASSET.city.sizes);
+const traffic = createTraffic(TRAFFIC, ASSET.city.sizes, STAGE1.route);
 const path = createLoopPath(TRAFFIC.loop, TRAFFIC.laneOffset, TRAFFIC.cornerRadius);
 const dt = SIM.fixedDt;
 const run = (state: TrafficState, child: Point, ticks: number): TrafficState => {
@@ -209,5 +209,130 @@ describe("前の車との間", () => {
       }
     }
     for (const v of state.vehicles) expect(v.speed).toBe(0);
+  });
+});
+
+// 一覧 5：自転車2台（4 m/s）・バイク2台（6 m/s）がコースの左 4 m を同じ向きに回る。子どもが 6 m 以内なら止まる。前との間 3 m で待つ
+describe("自転車・バイク", () => {
+  const bikePath = traffic.bikePath;
+  const kinds = (state: TrafficState) => state.bikes.map((b) => b.kind);
+  const bikeLength = (kind: "bicycle" | "motorbike"): number => ASSET.city.sizes[kind].length;
+
+  it("道の1周は 425.13 m（式 2×(88+128) − 8×4 + 2π×4）。距離 0 はスタートの左 4 m で、コースと同じ向き（−z）", () => {
+    const [p0, p1, p2] = [STAGE1.route[0], STAGE1.route[1], STAGE1.route[2]];
+    const w = (p2?.x ?? 0) - (p1?.x ?? 0) + 2 * TRAFFIC.bikeOffset;
+    const h = 120 + 2 * TRAFFIC.bikeOffset; // z −80〜40
+    expect(bikePath.length).toBeCloseTo(2 * (w + h) - 8 * r + 2 * Math.PI * r, 6);
+    expect(bikePath.length).toBeCloseTo(425.13, 2);
+    const start = bikePath.pointAt(0);
+    expect(start.x).toBeCloseTo((p0?.x ?? 0) - TRAFFIC.bikeOffset, 9);
+    expect(start.z).toBeCloseTo(p0?.z ?? 0, 9);
+    expect(angleDiff(bikePath.headingAt(0), 0)).toBeCloseTo(0, 9);
+  });
+
+  it("はじめは道の上に、自転車（0・200 m）とバイク（100・300 m）が交互に並ぶ", () => {
+    const state = traffic.initial();
+    expect(kinds(state)).toEqual(["bicycle", "motorbike", "bicycle", "motorbike"]);
+    expect(state.bikes.map((b) => b.s)).toEqual([0, 100, 200, 300]);
+  });
+
+  it("子どもの車が遠ければ、自転車は 4 m/s、バイクは 6 m/s で進む（10 秒）", () => {
+    const start = traffic.initial();
+    const state = run(start, far, Math.round(10 / dt));
+    state.bikes.forEach((b, i) => {
+      const speed = b.kind === "bicycle" ? TRAFFIC.bicycles.speed : TRAFFIC.motorbikes.speed;
+      expect(wrapDistance(b.s - (start.bikes[i]?.s ?? 0), bikePath.length)).toBeCloseTo(speed * 10, 6);
+    });
+  });
+
+  it(`子どもの車の中心が ${TRAFFIC.bikeStopRadius} m 以内ならすぐ止まり、離れればすぐ元の速さで動く`, () => {
+    const start = traffic.initial();
+    const p = traffic.poses(start).bikes[1] as Point;
+    const near = { x: p.x + TRAFFIC.bikeStopRadius - 0.01, z: p.z };
+    const away = { x: p.x + TRAFFIC.bikeStopRadius + 0.5, z: p.z };
+    const stopped = traffic.step(start, near, dt);
+    expect(stopped.bikes[1]?.speed).toBe(0);
+    expect(stopped.bikes[1]?.s).toBe(start.bikes[1]?.s);
+    expect(traffic.step(stopped, away, dt).bikes[1]?.speed).toBe(TRAFFIC.motorbikes.speed);
+  });
+
+  it(`バイクが自転車に追いついたら、後ろの端まで ${TRAFFIC.bikeFollowGap} m の所で待ち、重ならない（120 秒）`, () => {
+    let state = traffic.initial();
+    let minGap = Infinity;
+    for (let t = 0; t < Math.round(120 / dt); t++) {
+      state = traffic.step(state, far, dt);
+      state.bikes.forEach((b, i) => {
+        const ahead = state.bikes[(i + 1) % state.bikes.length];
+        if (!ahead) return;
+        const gap =
+          wrapDistance(ahead.s - b.s, bikePath.length) - bikeLength(b.kind) / 2 - bikeLength(ahead.kind) / 2;
+        minGap = Math.min(minGap, gap);
+      });
+    }
+    expect(minGap).toBeGreaterThan(TRAFFIC.bikeFollowGap - TRAFFIC.motorbikes.speed * dt - 1e-9);
+  });
+
+  it("まっすぐな所では、コースの中心線から進む向きの左へ 4 m（1辺目の真ん中）", () => {
+    const p = bikePath.pointAt(40);
+    expect(p.x).toBeCloseTo(-TRAFFIC.bikeOffset, 9);
+    expect(p.z).toBeCloseTo(-40, 9);
+  });
+});
+
+// 一覧 6：歩行者6人は区画の1辺 26 m の中を 1.2 m/s で行き来し、交差点を渡らない。子どもが 6 m 以内なら止まる
+describe("歩行者", () => {
+  const people = TRAFFIC.people;
+  const margin = (people.blockLength - people.sideLength) / 2;
+
+  it("人数と辺の数がそろい、辺の長さは道の間（STAGE1.roadSpacing）と同じ。0 番目の辺（スタート）にはいない", () => {
+    expect(people.blockSides.length).toBe(people.count);
+    expect(people.blockLength).toBe(STAGE1.roadSpacing);
+    expect(people.blockSides).not.toContain(0);
+  });
+
+  it(`交差点を渡らない：歩く所は交差点の中心から ${margin} m あく（道の幅の半分 ${STAGE1.roadWidth / 2} m より外）`, () => {
+    expect(margin).toBeGreaterThan(STAGE1.roadWidth / 2);
+  });
+
+  it(`道の中心から ${people.offset} m（左・右・左…と交互）の、辺の中の ${people.sideLength} m を行き来し、1刻みに 1.2 m/s × 1/60 秒より多くは動かない（120 秒）`, () => {
+    const route = [...STAGE1.route, STAGE1.route[0] as Point];
+    let state = traffic.initial();
+    let prev = traffic.poses(state).people;
+    const turned = new Array<number>(people.count).fill(0);
+    for (let t = 0; t < Math.round(120 / dt); t++) {
+      state = traffic.step(state, far, dt);
+      const now = traffic.poses(state).people;
+      now.forEach((p, k) => {
+        const before = prev[k] as Point;
+        expect(Math.hypot(p.x - before.x, p.z - before.z)).toBeLessThanOrEqual(TRAFFIC.walkSpeed * dt + 1e-9);
+        // 辺の上の位置（コースの道すじへ下ろした点）と、道の中心からの距離
+        const side = people.blockSides[k] ?? 0;
+        const from = side * people.blockLength;
+        const a = pointAlong(route, from);
+        const b = pointAlong(route, from + people.blockLength);
+        const len = Math.hypot(b.x - a.x, b.z - a.z);
+        const dir = { x: (b.x - a.x) / len, z: (b.z - a.z) / len };
+        const along = (p.x - a.x) * dir.x + (p.z - a.z) * dir.z;
+        const left = (p.x - a.x) * dir.z - (p.z - a.z) * dir.x;
+        expect(along).toBeGreaterThanOrEqual(margin - 1e-9);
+        expect(along).toBeLessThanOrEqual(margin + people.sideLength + 1e-9);
+        expect(left).toBeCloseTo(k % 2 === 0 ? people.offset : -people.offset, 9);
+      });
+      state.people.forEach((p, k) => {
+        if (p.dir < 0) turned[k] = 1;
+      });
+      prev = now;
+    }
+    // 120 秒で 144 m 歩くので、どの人も端で向きを変えている
+    expect(turned).toEqual(new Array<number>(people.count).fill(1));
+  });
+
+  it(`子どもの車の中心が ${TRAFFIC.walkStopRadius} m 以内なら止まり、離れれば歩き出す`, () => {
+    const start = traffic.initial();
+    const p = traffic.poses(start).people[0] as Point;
+    const stopped = traffic.step(start, { x: p.x, z: p.z + TRAFFIC.walkStopRadius - 0.01 }, dt);
+    expect(stopped.people[0]).toEqual(start.people[0]);
+    const moved = traffic.step(stopped, { x: p.x, z: p.z + TRAFFIC.walkStopRadius + 0.5 }, dt);
+    expect(moved.people[0]).not.toEqual(start.people[0]);
   });
 });

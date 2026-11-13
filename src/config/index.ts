@@ -624,7 +624,8 @@ export const TRAFFIC = {
   motorbikes: { count: 2, speed: 6, starts: [100, 300] },
   bikeStopRadius: 6,
   bikeFollowGap: 3,
-  people: { count: 6, sideLength: 26, offset: 6 },
+  /** 歩行者：コースを交差点で 40 m ずつ分けた辺の番号（blockSides）に1人ずつ。左・右と交互の歩道 */
+  people: { count: 6, sideLength: 26, offset: 6, blockLength: 40, blockSides: [1, 2, 4, 5, 7, 9] },
   walkSpeed: 1.2,
   walkStopRadius: 6,
   personRadius: 0.4,
