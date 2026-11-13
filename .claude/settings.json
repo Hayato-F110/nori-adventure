@@ -33,6 +33,17 @@
         ]
       },
       {
+        "matcher": "mcp__.*__createJiraIssue",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node",
+            "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/guard-jira-fields.mjs"],
+            "timeout": 10
+          }
+        ]
+      },
+      {
         "matcher": "*",
         "hooks": [
           {

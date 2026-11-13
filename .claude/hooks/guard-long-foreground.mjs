@@ -45,7 +45,7 @@ const main = async () => {
   if (reason === null) return;
   process.stderr.write(
     `止めました：${reason} は長い処理です。run_in_background: true で裏で動かし、記録はファイルに残してください。` +
-      "待つ間に、オーナーへ「何を・いつまでに」を1行で伝え、ほかの作業を進めます（CLAUDE.md「応答を遅くしない」）。" +
+      "待つ間に、オーナーへ「何を・いつまでに」と「待つ間に進める課題」を1行で伝え、その課題を進めます（CLAUDE.md「応答を遅くしない」）。" +
       "コミットの前の確かめは、型の検査と関係するテストだけ（npm run typecheck・npm test -- <ファイル>）で表でよい。\n",
   );
   process.exit(BLOCK);
