@@ -1,7 +1,8 @@
 // ステージ2の景色の配置（山・木・駅のホーム。NORI-26）。描画（stage2View）と光のベイク（Blender）で同じものを使う。
 // 純粋な計算だけ（Three.js・乱数・時刻を使わない）。同じ線路・駅 → 同じ配置。
 // 見た目だけの配置で、ゲームの状態（列車・駅に着いたか）には影響しない。
-import { SIM, STAGE2 } from "../config";
+// node で直接動かす配置の書き出し（tools/assets/export-layout.ts）からも読むので、ファイル名まで書く（フォルダの import は node で読めない）
+import { SIM, STAGE2 } from "../config/index.ts";
 import type { Track } from "./track";
 
 /** 線路の断面とホームの寸法（m。見た目だけ） */

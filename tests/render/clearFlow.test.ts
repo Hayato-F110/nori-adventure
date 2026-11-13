@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { CLEAR } from "../../src/config/index.ts";
-import { confettiLayout, createClearFlow } from "../../src/render/clearFlow.ts";
+import { BOSS, CLEAR, TITLE } from "../../src/config/index.ts";
+import { confettiLayout, createClearFlow, isEnding } from "../../src/render/clearFlow.ts";
 
 // docs/game-rules.md「タイトル画面・ステージ選び・クリアの演出」（NORI-30）。テストの一覧の 6・7
 describe("紙ふぶきの並び", () => {
@@ -64,5 +64,16 @@ describe("クリアの流れ", () => {
     expect(log).toEqual(["record:2"]);
     flow.update(true, CLEAR.buttonsDelaySeconds);
     expect(log).toEqual(["record:2", "buttons"]);
+  });
+});
+
+// NORI-29：最後のステージ（5）のクリアはエンディング。docs/game-rules.md「ボスの見た目とエンディング」
+describe("エンディング", () => {
+  it("エンディングは選べる最後のステージ（5）だけ", () => {
+    expect(TITLE.stages.map(isEnding)).toEqual([false, false, false, false, true]);
+  });
+
+  it("エンディングの絵が出るまで（ボスが笑ってはねる間）は、ボタンが出るまでと同じ 3 秒", () => {
+    expect(BOSS.endingDelaySeconds).toBe(CLEAR.buttonsDelaySeconds);
   });
 });

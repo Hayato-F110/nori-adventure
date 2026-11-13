@@ -1,5 +1,6 @@
 // ゲーム状態の型。Three.js や DOM に依存しない。JSON にそのまま保存できる形だけを使う。
 import type { CourseState } from "./course";
+import type { TrafficState } from "./traffic";
 
 /** 1刻み（1/60秒）分の入力。キーボード・タッチ・ゲームパッドは、すべてこの形に変換する */
 export type InputFrame = {
@@ -37,4 +38,6 @@ export type GameState = {
   invincibleTicks: number;
   /** 復活した回数（記録・テスト用。罰には使わない） */
   respawns: number;
+  /** 街のほかの車・自転車・バイク・人（NORI-61） */
+  traffic: TrafficState;
 };

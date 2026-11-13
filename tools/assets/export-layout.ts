@@ -4,7 +4,7 @@
 // 手で作らない：ゲームと Blender の配置が必ず一致するように、同じ関数を使う。
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { LOOK, STAGE1, STAGE2, STAGE3, STAGE4 } from "../../src/config/index.ts";
+import { LOOK, STAGE1, STAGE2, STAGE3, STAGE4, STAGE5 } from "../../src/config/index.ts";
 import { createStage1Layout, roadLines } from "../../src/core/stage1Layout.ts";
 import { createStage2Scenery, STAGE2_SCENERY } from "../../src/core/stage2Layout.ts";
 import { createTrack } from "../../src/core/track.ts";
@@ -97,3 +97,19 @@ const data4 = {
 };
 writeFileSync(out4, `${JSON.stringify(data4, null, 1)}\n`);
 console.info(`書き出しました：${path.relative(root, out4)}（岩 ${data4.spheres.length}・たからばこ 1）`);
+
+// ステージ5（月面。NORI-29）：景色の岩（中心は地面。半分うまった球＝半球）。ボスと転がる岩は動くので焼かない
+const out5 = process.env.NORI_LAYOUT5_PATH ?? path.join(root, "blender-work/assets/stage5-layout.json");
+const data5 = {
+  look: {
+    lightmapSize: LOOK.lightmapSize,
+    aoDistance: LOOK.aoDistance,
+    bakeSamples: LOOK.bakeSamples,
+    bakeSize: LOOK.moonBakeSize,
+  },
+  cones: [],
+  spheres: STAGE5.rocks.map((r) => ({ x: r.x, y: 0, z: r.z, radius: r.radius })),
+  boxes: [],
+};
+writeFileSync(out5, `${JSON.stringify(data5, null, 1)}\n`);
+console.info(`書き出しました：${path.relative(root, out5)}（岩 ${data5.spheres.length}）`);

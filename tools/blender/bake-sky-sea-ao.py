@@ -1,7 +1,7 @@
-# NORI-27・28：光のベイク（ステージ3の地面・ステージ4の海底）。山・気球・岩・たからばこの足元に落ちる柔らかい陰（AO）を、
+# NORI-27・28・29：光のベイク（ステージ3の地面・ステージ4の海底・ステージ5の月面）。山・気球・岩・たからばこの足元に落ちる柔らかい陰（AO）を、
 # Cycles で1枚の画像に焼き付ける。専用ユーザー（noriblender）の Blender の中で実行する。
-# 入力：blender-work/assets/stage<3|4>-layout.json（オーナーのユーザーで `npm run layout:export`。値は設定 STAGE3・STAGE4 のまま）
-# 出力：blender-work/export/textures/ground_ao_stage<3|4>.webp、blender-work/stage<3|4>-bake.blend
+# 入力：blender-work/assets/stage<3|4|5>-layout.json（オーナーのユーザーで `npm run layout:export`。値は設定 STAGE3・STAGE4・STAGE5 のまま）
+# 出力：blender-work/export/textures/ground_ao_stage<3|4|5>.webp、blender-work/stage<3|4|5>-bake.blend
 # 取り込み：`npm run textures:import`（ほかの素材と一緒に検査して public/textures/ へ）
 #
 # 形：cones（円すい。x・z は底の中心、radius・height・sides・rotation）、spheres（球。y は地面からの中心の高さ）、
@@ -26,7 +26,7 @@ def _work_dir() -> Path:
 def _clear_scene():
     # 消してよいのは、まだ保存していないファイルか、乗り物・ベイクのファイルだけ（bake-stage2-ao.py と同じ考え方）
     current = Path(bpy.data.filepath).name if bpy.data.filepath else ""
-    allowed = {"", "stage1-bake.blend", "stage2-bake.blend", "stage3-bake.blend", "stage4-bake.blend"}
+    allowed = {"", "stage1-bake.blend", "stage2-bake.blend", "stage3-bake.blend", "stage4-bake.blend", "stage5-bake.blend"}
     if current not in allowed:
         raise RuntimeError(f"開いているファイル {current!r} は消さない。新しいファイルにしてから実行する")
     for o in list(bpy.data.objects):
@@ -37,8 +37,8 @@ def _clear_scene():
 
 
 def bake(stage: int) -> dict:
-    if stage not in (3, 4):
-        raise ValueError("STAGE は 3 か 4")
+    if stage not in (3, 4, 5):
+        raise ValueError("STAGE は 3・4・5 のどれか")
     work = _work_dir()
     data = json.loads((work / "assets" / f"stage{stage}-layout.json").read_text(encoding="utf-8"))
     look = data["look"]

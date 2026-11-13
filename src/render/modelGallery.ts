@@ -19,6 +19,7 @@ export const GALLERY_ORDER = [
   "tree-b",
   ...ASSET.sea.variants,
   ...ASSET.landmark.variants,
+  ...ASSET.city.variants,
 ] as const;
 /** 隣との間（m） */
 export const GALLERY_GAP = 1.5;

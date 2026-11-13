@@ -1,6 +1,42 @@
 {
   "models": [
     {
+      "name": "bicycle",
+      "file": "bicycle.glb",
+      "sha256": "c1bb7302897f79aa46c10c50b07013f44e030aae840d22da592ca956672181c2",
+      "bytes": 34772,
+      "triangles": 1088,
+      "size": {
+        "width": 0.6,
+        "height": 1.579,
+        "length": 1.68
+      },
+      "createdWith": "Blender 5.3.0（noriblender の隔離環境。Blender MCP で Claude が作成を補助）",
+      "source": "blender-work/bicycle.blend",
+      "author": "Hayato-F110",
+      "license": "CC-BY-4.0",
+      "externalAssets": "なし",
+      "importedAt": "2026-11-13"
+    },
+    {
+      "name": "bus",
+      "file": "bus.glb",
+      "sha256": "1e7cd1977e980b8ded3e1c7054b4c3b6ca037dea90e548e5f522fd650738f8a5",
+      "bytes": 21328,
+      "triangles": 516,
+      "size": {
+        "width": 2.54,
+        "height": 3.2,
+        "length": 10.08
+      },
+      "createdWith": "Blender 5.3.0（noriblender の隔離環境。Blender MCP で Claude が作成を補助）",
+      "source": "blender-work/bus.blend",
+      "author": "Hayato-F110",
+      "license": "CC-BY-4.0",
+      "externalAssets": "なし",
+      "importedAt": "2026-11-13"
+    },
+    {
       "name": "car",
       "file": "car.glb",
       "sha256": "f31714e6993ff942486a9c4fc381a9a607b66eedd4d665cffc2178cf9646a385",
@@ -17,6 +53,42 @@
       "license": "CC-BY-4.0",
       "externalAssets": "なし",
       "importedAt": "2026-11-07"
+    },
+    {
+      "name": "fire-truck",
+      "file": "fire-truck.glb",
+      "sha256": "649ddd58d9a0c3693efd3bcf2a3cd77dd12e2ad1dcb52b8c4eaa18a2a5ffed42",
+      "bytes": 37492,
+      "triangles": 948,
+      "size": {
+        "width": 2.42,
+        "height": 2.97,
+        "length": 8.04
+      },
+      "createdWith": "Blender 5.3.0（noriblender の隔離環境。Blender MCP で Claude が作成を補助）",
+      "source": "blender-work/fire-truck.blend",
+      "author": "Hayato-F110",
+      "license": "CC-BY-4.0",
+      "externalAssets": "なし",
+      "importedAt": "2026-11-13"
+    },
+    {
+      "name": "motorbike",
+      "file": "motorbike.glb",
+      "sha256": "ccaf84253d858f2f1f0f29670a9af81810d95b9a5fdcf82851820f7d917259c0",
+      "bytes": 39516,
+      "triangles": 1292,
+      "size": {
+        "width": 0.8,
+        "height": 1.681,
+        "length": 1.9
+      },
+      "createdWith": "Blender 5.3.0（noriblender の隔離環境。Blender MCP で Claude が作成を補助）",
+      "source": "blender-work/motorbike.blend",
+      "author": "Hayato-F110",
+      "license": "CC-BY-4.0",
+      "externalAssets": "なし",
+      "importedAt": "2026-11-13"
     },
     {
       "name": "mountain-a",
@@ -73,6 +145,24 @@
       "importedAt": "2026-11-12"
     },
     {
+      "name": "person",
+      "file": "person.glb",
+      "sha256": "5e762754c761b736aa17ef0081e18b33f8d5dca4e77539dc7cc45568b9cb9def",
+      "bytes": 29712,
+      "triangles": 1092,
+      "size": {
+        "width": 0.6,
+        "height": 1.615,
+        "length": 0.385
+      },
+      "createdWith": "Blender 5.3.0（noriblender の隔離環境。Blender MCP で Claude が作成を補助）",
+      "source": "blender-work/person.blend",
+      "author": "Hayato-F110",
+      "license": "CC-BY-4.0",
+      "externalAssets": "なし",
+      "importedAt": "2026-11-13"
+    },
+    {
       "name": "plane",
       "file": "plane.glb",
       "sha256": "48f970021fe57c3c74f44b4349ecd01546631db81fa58ae6dd8a476189df2e9f",
@@ -89,6 +179,24 @@
       "license": "CC-BY-4.0",
       "externalAssets": "なし",
       "importedAt": "2026-11-11"
+    },
+    {
+      "name": "police",
+      "file": "police.glb",
+      "sha256": "b7b641367013dfd663cfd709902a92927ce9805df32dfc67982d259fe3373672",
+      "bytes": 32132,
+      "triangles": 924,
+      "size": {
+        "width": 1.8,
+        "height": 1.6,
+        "length": 4.4
+      },
+      "createdWith": "Blender 5.3.0（noriblender の隔離環境。Blender MCP で Claude が作成を補助）",
+      "source": "blender-work/police.blend",
+      "author": "Hayato-F110",
+      "license": "CC-BY-4.0",
+      "externalAssets": "なし",
+      "importedAt": "2026-11-13"
     },
     {
       "name": "rover",
@@ -269,6 +377,24 @@
       "license": "CC-BY-4.0",
       "externalAssets": "なし",
       "importedAt": "2026-11-11"
+    },
+    {
+      "name": "traffic-car",
+      "file": "traffic-car.glb",
+      "sha256": "5e56f178517f9f0556423a8ed0879e2a577f5ac68518908b81c0834826fbf912",
+      "bytes": 21912,
+      "triangles": 588,
+      "size": {
+        "width": 1.8,
+        "height": 1.5,
+        "length": 4.2
+      },
+      "createdWith": "Blender 5.3.0（noriblender の隔離環境。Blender MCP で Claude が作成を補助）",
+      "source": "blender-work/traffic-car.blend",
+      "author": "Hayato-F110",
+      "license": "CC-BY-4.0",
+      "externalAssets": "なし",
+      "importedAt": "2026-11-13"
     },
     {
       "name": "train",

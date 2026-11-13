@@ -119,6 +119,11 @@ describe("public/textures/manifest.json（取り込んだ素材の出所の記�
     expect(files.reduce((sum, t) => sum + t.bytes, 0)).toBeLessThanOrEqual(LOOK.maxTreeTextureBytes);
   });
 
+  it("同じ素材を色味を変えて使っても（砂と月の砂。NORI-29）、必要なファイルの一覧は重ならない", () => {
+    const files = requiredTextureFiles();
+    expect(new Set(files).size).toBe(files.length);
+  });
+
   it("ゲームが読む地面の陰（LIGHTMAPS）は、取り込みの決まり（LIGHTMAP_FILES）と同じで、manifest にある", () => {
     expect(Object.values(LIGHTMAPS)).toEqual([...LIGHTMAP_FILES]);
     for (const f of LIGHTMAP_FILES) expect(manifest.textures.map((t) => t.file)).toContain(f);

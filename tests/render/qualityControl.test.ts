@@ -118,3 +118,43 @@ describe("自動に戻す", () => {
     expect(renderer.shadowMap.enabled).toBe(false);
   });
 });
+
+// NORI-29：月には空気がないので、ステージ5の高画質は昼の空の HDRI（まわりの光）を使わない。
+// 光は単色のときと同じ（空の光 LOOK.hemiPlain）にして、「ステージ5の色」の計算の前提を保つ
+describe("まわりの光（HDRI）を使わないステージ", () => {
+  const make = (useEnvironment?: boolean) => {
+    const scene = new THREE.Scene();
+    const hemi = new THREE.HemisphereLight();
+    const control = createQualityControl({
+      renderer: {
+        setPixelRatio: () => undefined,
+        shadowMap: { enabled: true },
+      } as unknown as THREE.WebGLRenderer,
+      scene,
+      sun: new THREE.DirectionalLight(),
+      hemi,
+      highPixelRatio: 2,
+      applyLook: () => undefined,
+      resize: () => undefined,
+      initial: "high",
+      ...(useEnvironment === undefined ? {} : { useEnvironment }),
+    });
+    const env = new THREE.Texture();
+    control.lookLoaded({ environment: env } as unknown as Look);
+    return { control, scene, hemi, env };
+  };
+
+  it("ふだん（指定なし）は、高画質で HDRI を入れ、空の光を弱める", () => {
+    const { control, scene, hemi, env } = make();
+    expect(control.lookState).toBe("textured");
+    expect(scene.environment).toBe(env);
+    expect(hemi.intensity).toBe(LOOK.hemiTextured);
+  });
+
+  it("useEnvironment: false なら、素材は貼るが HDRI は入れず、空の光は単色のときと同じ", () => {
+    const { control, scene, hemi } = make(false);
+    expect(control.lookState).toBe("textured");
+    expect(scene.environment).toBeNull();
+    expect(hemi.intensity).toBe(LOOK.hemiPlain);
+  });
+});

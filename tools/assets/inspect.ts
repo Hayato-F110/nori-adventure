@@ -125,7 +125,8 @@ export const inspectGlb = async (glb: Uint8Array): Promise<GlbReport> => {
 export type VehicleKind = keyof typeof ASSET.vehicles;
 export type SeaName = (typeof ASSET.sea.variants)[number];
 export type LandmarkName = (typeof ASSET.landmark.variants)[number];
-export type AssetKind = "car" | VehicleKind | "tree" | SeaName | LandmarkName | "generic";
+export type CityName = (typeof ASSET.city.variants)[number];
+export type AssetKind = "car" | VehicleKind | "tree" | SeaName | LandmarkName | CityName | "generic";
 
 /** 名前（npm run assets:import <名前>）から、使う決まりを選ぶ。乗り物・木でなければ generic */
 export const kindOf = (name: string): AssetKind => {
@@ -135,11 +136,15 @@ export const kindOf = (name: string): AssetKind => {
   if ((ASSET.sea.variants as readonly string[]).includes(name)) return name as SeaName;
   // ステージ2の景色のモデル（NORI-59）も、名前ごとに大きさが違う
   if (isLandmark(name)) return name;
+  // ステージ1の街のモデル（NORI-61）も、名前ごとに大きさが違う
+  if (isCity(name)) return name;
   return "generic";
 };
 
 const isLandmark = (kind: string): kind is LandmarkName =>
   (ASSET.landmark.variants as readonly string[]).includes(kind);
+
+const isCity = (kind: string): kind is CityName => (ASSET.city.variants as readonly string[]).includes(kind);
 
 type ShapeSpec = {
   size: { width: number; height: number; length: number };
@@ -152,6 +157,7 @@ const specOf = (kind: Exclude<AssetKind, "generic">): ShapeSpec => {
   if (kind === "tree") return ASSET.tree;
   if (isSea(kind)) return { size: ASSET.sea.sizes[kind], nodes: ASSET.sea.nodes };
   if (isLandmark(kind)) return { size: ASSET.landmark.sizes[kind], nodes: ASSET.landmark.nodes };
+  if (isCity(kind)) return { size: ASSET.city.sizes[kind], nodes: ASSET.city.nodes };
   return ASSET.vehicles[kind];
 };
 
@@ -165,7 +171,9 @@ const limitsOf = (kind: AssetKind) =>
       ? { bytes: ASSET.sea.maxGlbBytes, triangles: ASSET.sea.maxTriangles }
       : isLandmark(kind)
         ? { bytes: ASSET.landmark.maxGlbBytes, triangles: ASSET.landmark.maxTriangles }
-        : { bytes: ASSET.maxGlbBytes, triangles: ASSET.maxTriangles };
+        : isCity(kind)
+          ? { bytes: ASSET.city.maxGlbBytes, triangles: ASSET.city.maxTriangles }
+          : { bytes: ASSET.maxGlbBytes, triangles: ASSET.maxTriangles };
 
 const pct = (v: number) => `${Math.round(v * 100)}%`;
 

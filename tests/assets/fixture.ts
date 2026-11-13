@@ -268,10 +268,22 @@ export const makeTreeGlb = async (options: TreeFixtureOptions = {}): Promise<Uin
 export const makeSeaGlb = async (
   name: (typeof ASSET.sea.variants)[number],
   options: FixtureOptions = {},
+): Promise<Uint8Array> => makeBodyBoxGlb(name, ASSET.sea.sizes[name], options);
+
+/** 街のモデル（ASSET.city。NORI-61）の、正しい形の仮の GLB：外形いっぱいの箱1つ（body）。原点は底の中心 */
+export const makeCityGlb = async (
+  name: (typeof ASSET.city.variants)[number],
+  options: FixtureOptions = {},
+): Promise<Uint8Array> => makeBodyBoxGlb(name, ASSET.city.sizes[name], options);
+
+const makeBodyBoxGlb = async (
+  name: string,
+  size: { width: number; height: number; length: number },
+  options: FixtureOptions,
 ): Promise<Uint8Array> => {
   const s = options.scale ?? 1;
   const lift = options.liftY ?? 0;
-  const { width, height, length } = ASSET.sea.sizes[name];
+  const { width, height, length } = size;
   const doc = new Document();
   doc.createBuffer();
   const scene = doc.createScene(name);

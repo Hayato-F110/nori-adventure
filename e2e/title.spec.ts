@@ -16,18 +16,17 @@ const titleReady = async (page: Page) => {
   await page.waitForFunction(() => window.__noriTitle !== undefined, undefined, { timeout: 30_000 });
 };
 
-test("タイトル：./ で乗り物の絵のボタンが4つ出て、ゲームは始まらない", async ({ page }, testInfo) => {
+test("タイトル：./ で乗り物の絵のボタンが5つ出て、ゲームは始まらない", async ({ page }, testInfo) => {
   const errors = watchErrors(page);
   await page.goto("./");
   await titleReady(page);
   const buttons = page.locator("#title a.title-button");
-  await expect(buttons).toHaveCount(4);
+  await expect(buttons).toHaveCount(5);
   for (const b of await buttons.all()) {
     await expect(b).toBeVisible();
     const box = await b.boundingBox();
     expect(box?.width ?? 0).toBeGreaterThanOrEqual(120);
   }
-  await expect(page.locator('#title [data-stage="5"]')).toHaveCount(0);
   await expect(page.locator("#game")).toBeHidden();
   await expect(page.locator(".title-star:visible")).toHaveCount(0);
   expect(await page.evaluate(() => window.__nori)).toBeUndefined();
@@ -52,7 +51,7 @@ test("タイトル：車のボタンを押すと ?stage=1 が開き、車のス�
   expect(errors).toEqual([]);
 });
 
-test("クリア：たからばこに着くと紙ふぶき、3 秒後に3つのボタン。つぎ → タイトルで潜水艇に星", async ({
+test("クリア：たからばこに着くと紙ふぶき、3 秒後に3つのボタン。つぎはステージ5。はじめのがめん → タイトルで潜水艇に星", async ({
   page,
 }, testInfo) => {
   test.setTimeout(240_000);
@@ -108,8 +107,9 @@ test("クリア：たからばこに着くと紙ふぶき、3 秒後に3つの�
   await expect(page.locator("#goal")).toBeHidden();
   await page.screenshot({ path: testInfo.outputPath("clear-buttons.png") });
 
-  // ステージ4のあとの「つぎ」はタイトル（ステージ5はまだない）
-  await page.locator("#clear-next").click();
+  // ステージ4のあとの「つぎ」はステージ5（NORI-29）。タイトルへは「はじめのがめん」で戻る
+  await expect(page.locator("#clear-next")).toHaveAttribute("href", "./?stage=5");
+  await page.locator("#clear-home").click();
   await titleReady(page);
   expect(await page.evaluate(() => window.__noriTitle?.cleared)).toEqual([4]);
   await expect(page.locator('#title [data-stage="4"] .title-star')).toBeVisible();

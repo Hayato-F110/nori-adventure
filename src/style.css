@@ -505,6 +505,25 @@ body {
   transform: translate(-50%, -50%);
 }
 
+/* エンディング（NORI-29）：5つの乗り物の絵を、クリアのボタンの上に並べる */
+.ending {
+  position: fixed;
+  left: 50%;
+  top: 8%;
+  z-index: 20;
+  display: flex;
+  gap: min(16px, 2vw);
+  padding: min(14px, 2vw);
+  border-radius: 28px;
+  background: rgb(255 250 240 / 85%);
+  transform: translateX(-50%);
+}
+
+.ending svg {
+  width: min(110px, 16vw);
+  height: auto;
+}
+
 /* 保護者の方への入口は、タイトルの上にも出す */
 .parent-link {
   z-index: 30;
