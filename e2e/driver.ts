@@ -145,7 +145,7 @@ export const installCarDriver = (page: Page, options: CarDriverOptions) =>
     };
   }, options);
 
-export type RoverDriverOptions = {
+export type RoverDriverOptions = FastForwardOption & {
   /** 道すじの点（スタート → 広場の入口） */
   path: readonly Waypoint[];
   /** この距離（m）まで近づいたら、道すじの次の点へ */
@@ -175,6 +175,7 @@ export const installRoverDriver = (page: Page, options: RoverDriverOptions) =>
     const clamp = (v: number) => Math.max(-1, Math.min(1, v));
     globalThis.__noriDriver = {
       record: [],
+      ...(o.stepsPerFrame === undefined ? {} : { stepsPerFrame: o.stepsPerFrame }),
       drive(raw) {
         const s = raw as {
           tick: number;

@@ -9,7 +9,7 @@ import type { InputFrame } from "./core/types";
 import { createGamepadInput } from "./input/gamepad";
 import { createKeyboardInput } from "./input/keyboard";
 import { mergeInputs } from "./input/merge";
-import { drivenInput } from "./input/testDriver";
+import { drivenInput, fastForward } from "./input/testDriver";
 import { createTouchInput, touchLayoutFor } from "./input/touch";
 import { type CarView, createCarView, loadCarView, type ModelManifest } from "./render/carModel";
 import { startClearFlow } from "./render/clearFlow";
@@ -129,7 +129,7 @@ export const startStage5 = async (canvas: HTMLCanvasElement, hud: HTMLElement, s
   // 落ち着いたらクリアの演出（紙ふぶき）と、エンディングの絵（5つの乗り物）とボタン
   const clearFlow = startClearFlow(5);
   const sound = startSound(5);
-  const stepper = createFixedStepper(SIM.fixedDt, SIM.maxStepsPerFrame);
+  const stepper = createFixedStepper(SIM.fixedDt, fastForward(SIM.fixedDt)?.maxSteps ?? SIM.maxStepsPerFrame);
   let previous: Stage5State = game.initial();
   let current: Stage5State = previous;
   let input: InputFrame = { throttle: 0, steer: 0 };
@@ -177,7 +177,8 @@ export const startStage5 = async (canvas: HTMLCanvasElement, hud: HTMLElement, s
   let lastTime = performance.now();
 
   const frame = (now: number) => {
-    const frameSeconds = Math.min(0.25, (now - lastTime) / 1000);
+    // E2E の早送り（NORI-66）のときは、実際の時間によらず決まった刻みの分だけ進める
+    const frameSeconds = fastForward(SIM.fixedDt)?.frameSeconds ?? Math.min(0.25, (now - lastTime) / 1000);
     lastTime = now;
     input = mergeInputs([keyboard.read(), touch.read(), ...gamepads.read()]);
     const { alpha } = stepper.advance(frameSeconds, () => {

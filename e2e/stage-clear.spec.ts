@@ -148,6 +148,7 @@ test("ステージ5：運転役が道すじを走り、なかよしの星をボ�
     slowNear: 8,
     slowSpeed: 4,
     maxSpeed: ROVER.maxForwardSpeed,
+    stepsPerFrame: FAST,
     steerGain: 3,
   });
   await page.goto("./?stage=5");
