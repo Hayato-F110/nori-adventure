@@ -259,8 +259,8 @@ export const createStage5View = (): Stage5View => {
       const calmNow = state.finishTick !== null;
       const hop = calmNow && !reducedMotion ? Math.abs(Math.sin(seconds * 4)) * 0.8 : 0;
       boss.position.set(b.x, hop, b.z);
-      // 体の前（目のある −Z）を、広場の中心の外向きではなく、中心へ向ける（子どもが近づく側）
-      boss.rotation.y = Math.atan2(-(C.x - b.x), -(C.z - b.z));
+      // 体の前（目のある −Z）を、ローバー（子ども）へ向ける。どこから近づいても顔が見える（見た目だけ）
+      boss.rotation.y = Math.atan2(-(state.rover.x - b.x), -(state.rover.z - b.z));
       const puff = calmNow ? 0 : bossPuff(state.tick, SIM.fixedDt);
       body.scale.setScalar(1 + 0.12 * puff);
       bodyMat.color.set(bossColor(state.calm));
@@ -281,15 +281,20 @@ export const createStage5View = (): Stage5View => {
     marker() {
       const s = starPositions()[0] ?? { x: 0, y: 0, z: 0 };
       const p = pathPoint(STAGE5.groundStars[0] ?? 0);
-      const pad = pads[0] ?? { x: 0, z: 0 };
-      const f = friendStarPositions()[0] ?? { x: 0, y: 0, z: 0 };
+      const pad = pads[0] ?? { x: 0, z: 0, heading: 0 };
+      // 広場の入口にいちばん近いなかよしの星（道すじの終わりから見える）
+      const end = pathPoint(STAGE5.pathLength);
+      const f = [...friendStarPositions()].sort(
+        (a, b) => Math.hypot(a.x - end.x, a.z - end.z) - Math.hypot(b.x - end.x, b.z - end.z),
+      )[0] ?? { x: 0, y: 0, z: 0 };
       return {
         star: { x: s.x, y: 0.8, z: s.z },
         // ほしの横の道（ほしと重ならない、道の端寄り）
         path: { x: p.x + STAGE5.pathWidth / 2 - 1, y: 0.02, z: p.z },
-        pad: { x: pad.x, y: 0.04, z: pad.z },
+        // 台の真ん中の矢印を避けて、右へ 1.8 m（台の半径 2.5 m の中）
+        pad: { x: pad.x + Math.cos(pad.heading) * 1.8, y: 0.04, z: pad.z - Math.sin(pad.heading) * 1.8 },
         friend: { x: f.x, y: f.y, z: f.z },
-        // なかよしの星の外側の砂（広場の中心から遠い側）
+        // なかよしの星の横の砂（3 m 横。道や広場のふちの線にかからない）
         ground: { x: f.x + 3, y: 0, z: f.z },
       };
     },

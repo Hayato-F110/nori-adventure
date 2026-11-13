@@ -51,7 +51,7 @@ test("タイトル：車のボタンを押すと ?stage=1 が開き、車のス�
   expect(errors).toEqual([]);
 });
 
-test("クリア：たからばこに着くと紙ふぶき、3 秒後に3つのボタン。つぎ → タイトルで潜水艇に星", async ({
+test("クリア：たからばこに着くと紙ふぶき、3 秒後に3つのボタン。つぎはステージ5。はじめのがめん → タイトルで潜水艇に星", async ({
   page,
 }, testInfo) => {
   test.setTimeout(240_000);
@@ -107,8 +107,9 @@ test("クリア：たからばこに着くと紙ふぶき、3 秒後に3つの�
   await expect(page.locator("#goal")).toBeHidden();
   await page.screenshot({ path: testInfo.outputPath("clear-buttons.png") });
 
-  // ステージ4のあとの「つぎ」はタイトル（ステージ5はまだない）
-  await page.locator("#clear-next").click();
+  // ステージ4のあとの「つぎ」はステージ5（NORI-29）。タイトルへは「はじめのがめん」で戻る
+  await expect(page.locator("#clear-next")).toHaveAttribute("href", "./?stage=5");
+  await page.locator("#clear-home").click();
   await titleReady(page);
   expect(await page.evaluate(() => window.__noriTitle?.cleared)).toEqual([4]);
   await expect(page.locator('#title [data-stage="4"] .title-star')).toBeVisible();
