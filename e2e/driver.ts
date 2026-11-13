@@ -115,6 +115,54 @@ export const installSubDriver = (page: Page, options: PlaneDriverOptions) =>
     };
   }, options);
 
+export type SubApproachOptions = PlaneDriverOptions & {
+  /** 近づく生きもの（STAGE4.creatures の番号） */
+  creature: number;
+  /** 生きもののこの高さ（m）上を目指す（真後ろからだと潜水艇に隠れるので、上から見下ろす） */
+  above: number;
+  /** 目指す点まで、この距離（m）に近づいた刻みで時間を止める */
+  stopAt: number;
+};
+
+/**
+ * NORI-67：ステージ4で、生きものの上へ近づいて止まる運転役。page.goto の前に呼ぶ。
+ * 近づいた刻みで window.__nori.freeze(true) を呼ぶ。早送り（stepsPerFrame）の刻みの区切りは毎回同じなので、
+ * 止まる刻み・潜水艇・生きもの・カメラの位置は、PC の速さによらず毎回同じになる
+ * （前は本物の時間でキーを押し、止まる位置が CI の遅さで変わって、測るきらきらが潜水艇の陰に入った）
+ */
+export const installSubApproachDriver = (page: Page, options: SubApproachOptions) =>
+  page.addInitScript((o: SubApproachOptions) => {
+    const wrap = (a: number) => Math.atan2(Math.sin(a), Math.cos(a));
+    const clamp = (v: number) => Math.max(-1, Math.min(1, v));
+    let stopped = false;
+    globalThis.__noriDriver = {
+      record: [],
+      ...(o.stepsPerFrame === undefined ? {} : { stepsPerFrame: o.stepsPerFrame }),
+      drive(raw) {
+        if (stopped) return { throttle: 0, steer: 0 };
+        const p = (raw as { sub: { x: number; y: number; z: number; heading: number } }).sub;
+        const c = window.__nori?.creatures?.()[o.creature];
+        if (c === undefined) return { throttle: 0, steer: 0 };
+        const g = { x: c.x, y: c.y + o.above, z: c.z };
+        if (Math.hypot(g.x - p.x, g.y - p.y, g.z - p.z) <= o.stopAt) {
+          stopped = true;
+          window.__nori?.freeze?.(true);
+          (globalThis as { __noriApproachStopped?: boolean }).__noriApproachStopped = true;
+          return { throttle: 0, steer: 0 };
+        }
+        const wanted = Math.atan2(-(g.x - p.x), -(g.z - p.z));
+        return {
+          throttle: clamp((g.y - p.y) * o.climbGain),
+          steer: clamp(-wrap(wanted - p.heading) * o.steerGain),
+        };
+      },
+    };
+  }, options);
+
+/** installSubApproachDriver が止まったか（page.waitForFunction の中で呼ぶ） */
+export const approachStopped = (): boolean =>
+  (globalThis as { __noriApproachStopped?: boolean }).__noriApproachStopped === true;
+
 /**
  * ステージ1の車の運転役を入れる。page.goto の前に呼ぶ。
  * 状態は GameState（car.x・z・heading）。heading 0 は −Z 向き、左へ切ると heading が増える。steer は −1 が左

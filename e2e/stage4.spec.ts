@@ -1,5 +1,9 @@
 import { expect, type Page, test, type TestInfo } from "@playwright/test";
+import { approachStopped, installSubApproachDriver } from "./driver";
 import { luminanceAt, peakLuminanceAt, ratio } from "./luminance";
+
+// NORI-66 と同じ早送り：60 刻み/秒 ÷ CI の約 3 fps = 20 刻み/フレーム
+const FAST = 20;
 
 // NORI-28：ステージ4（海・潜水艇）。?stage=4 で開き、キーボードで生きもの（1匹目）へ操縦すると、上の表示の数が増える。
 // たからばこと水の明るさの比 3 以上（高画質・低画質）。スクリーンショット・コンソールエラー・FPS。
@@ -147,46 +151,69 @@ test("ステージ4の見た目：生きもの（エイ）のきらきらがま�
   const errors = watchErrors(page);
   // きらきらの回転を止める（位置を読んでから撮るまでに、回ってずれないように）
   await page.emulateMedia({ reducedMotion: "reduce" });
+  const RAY = 1;
+  // NORI-67：エイの 6 m 上をめざし、14 m まで近づいた刻みで、運転役が時間を止める（運転役＋早送り。
+  // CLAUDE.md「E2E は2種類に分ける」）。止まる位置は毎回同じで、PC の速さによらない
+  await installSubApproachDriver(page, {
+    creature: RAY,
+    above: 6,
+    stopAt: 14,
+    steerGain: 2,
+    climbGain: 0.3,
+    stepsPerFrame: FAST,
+  });
   await ready(page);
   await page.waitForFunction(() => window.__nori?.seaModels === 7, undefined, { timeout: 30_000 });
-  const RAY = 1;
-  // エイの 6 m 上をめざし、14 m まで近づく（真後ろからだと潜水艇に隠れる。上から見下ろす）
-  await steerTo(
-    page,
-    () =>
-      page.evaluate((i) => {
-        const s = window.__nori?.sub?.();
-        const c = window.__nori?.creatures?.()[i];
-        return s && c ? { sub: s.sub, goal: { ...c, y: c.y + 6 }, done: false } : null;
-      }, RAY),
-    14,
-  );
-  // 時間を止めて、2コマ描くのを待つ（遅い CI で、位置を読んでから撮るまでにエイが泳いでずれないように）
-  await page.evaluate(() => window.__nori?.freeze?.(true));
+  // 止まってから、2コマ描くのを待つ（止めたあとも描画は続く）
+  await page.waitForFunction(approachStopped, undefined, { timeout: 120_000 });
+  const stoppedAt = await page.evaluate(() => window.__nori?.sub?.()?.sub);
+  testInfo.annotations.push({ type: "止まった潜水艇の位置", description: JSON.stringify(stoppedAt) });
   const frozenFrames = await page.evaluate(() => window.__nori?.frames ?? 0);
   await page.waitForFunction((n) => (window.__nori?.frames ?? 0) >= n + 2, frozenFrames, { timeout: 30_000 });
-  // きらきら（1つめ）と、エイの横 6 m の水（きらきらの輪の外）
-  const points = await page.evaluate((i) => {
-    const c = window.__nori?.creatures?.()[i];
-    const k = window.__nori?.sparkles?.()[i];
-    const s = (x: number, y: number, z: number) => window.__nori?.screenOf(x, y, z) ?? { x: 0, y: 0 };
-    return c && k ? [s(k.x, k.y, k.z), s(c.x + 6, c.y, c.z)] : [];
-  }, RAY);
-  expect(points).toHaveLength(2);
+  // エイの横 6 m の水（きらきらの輪の外）と、きらきら 6 粒すべて。
+  // 1粒だけを測ると、潜水艇の止まる位置しだいで、その粒が潜水艇の陰に入る（NORI-67。CI で比 2.27・1.37）。
+  // 生きものの印が目立つかを見るので、いちばん明るく見える粒で確かめる。
+  // 動きを減らす設定では輪が止まっているので、粒 k の角度は 2πk/6。半径は1粒目とエイの中心の距離
+  const SPARKLES = 6; // STAGE4.sparkleCount と同じ
+  const points = await page.evaluate(
+    ({ i, n }) => {
+      const c = window.__nori?.creatures?.()[i];
+      const k = window.__nori?.sparkles?.()[i];
+      if (!c || !k) return [];
+      const s = (x: number, y: number, z: number) => window.__nori?.screenOf(x, y, z) ?? { x: 0, y: 0 };
+      const r = Math.hypot(k.x - c.x, k.z - c.z);
+      const a0 = Math.atan2(k.z - c.z, k.x - c.x);
+      const ring = Array.from({ length: n }, (_, j) => {
+        const a = a0 + (2 * Math.PI * j) / n;
+        return s(c.x + Math.cos(a) * r, k.y, c.z + Math.sin(a) * r);
+      });
+      return [s(c.x + 6, c.y, c.z), ...ring];
+    },
+    { i: RAY, n: SPARKLES },
+  );
+  expect(points).toHaveLength(1 + SPARKLES);
   const viewport = page.viewportSize() ?? { width: 0, height: 0 };
-  for (const p of points) {
-    expect(p.x).toBeGreaterThanOrEqual(2);
-    expect(p.x).toBeLessThanOrEqual(viewport.width - 3);
-    expect(p.y).toBeGreaterThanOrEqual(2);
-    expect(p.y).toBeLessThanOrEqual(viewport.height - 3);
-  }
-  await page.screenshot({ path: testInfo.outputPath("stage4-ray.png") });
-  const [, water = 0] = await luminanceAt(page, points);
-  // きらきらは小さい（約 20 px）ので、読んだ点のまわり 10 px でいちばん明るいところを測る
-  const sparkle = await peakLuminanceAt(page, points[0] ?? { x: 0, y: 0 }, 10);
+  const onScreen = (p: { x: number; y: number }) =>
+    p.x >= 12 && p.x <= viewport.width - 13 && p.y >= 12 && p.y <= viewport.height - 13;
+  const [waterPoint = { x: 0, y: 0 }, ...ringPoints] = points;
+  expect(onScreen(waterPoint)).toBe(true);
+  const visible = ringPoints.filter(onScreen);
+  expect(visible.length).toBeGreaterThan(0);
+  const shot = await page.screenshot({ path: testInfo.outputPath("stage4-ray.png") });
+  // 落ちたときに CI の報告で画面を見られるようにする（NORI-67。前は文書しか残らなかった）
+  await testInfo.attach("stage4-ray", { body: shot, contentType: "image/png" });
+  const [water = 0] = await luminanceAt(page, [waterPoint]);
+  // きらきらは小さい（約 20 px）ので、各粒のまわり 10 px でいちばん明るいところを測り、いちばん明るい粒を使う
+  const peaks: number[] = [];
+  for (const p of visible) peaks.push(await peakLuminanceAt(page, p, 10));
+  const sparkle = Math.max(...peaks);
+  testInfo.annotations.push({
+    type: "きらきらの明るさ（粒ごと）",
+    description: JSON.stringify({ peaks, water }),
+  });
   await page.evaluate(() => window.__nori?.freeze?.(false));
   const contrast = ratio(sparkle, water);
-  expect(contrast, JSON.stringify({ sparkle, water, points })).toBeGreaterThanOrEqual(MIN_CONTRAST);
+  expect(contrast, JSON.stringify({ sparkle, water, peaks, points })).toBeGreaterThanOrEqual(MIN_CONTRAST);
   expect(errors).toEqual([]);
 });
 
