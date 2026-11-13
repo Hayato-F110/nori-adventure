@@ -5,7 +5,10 @@ import type { Page } from "@playwright/test";
 
 export type Waypoint = { x: number; z: number };
 
-export type CarDriverOptions = {
+/** E2E の早送り（NORI-66）：1フレームに進める刻みの数。クリアの E2E だけで使う（FPS を測るテストでは使わない） */
+export type FastForwardOption = { stepsPerFrame?: number };
+
+export type CarDriverOptions = FastForwardOption & {
   /** 順に目指す点（最後まで行ったら、loop なら最初へ戻る。そうでなければ最後の点を目指し続ける） */
   waypoints: readonly Waypoint[];
   /** この距離（m）まで近づいたら、次の点へ */
@@ -18,7 +21,7 @@ export type CarDriverOptions = {
   slowThrottle: number;
 };
 
-export type TrainDriverOptions = {
+export type TrainDriverOptions = FastForwardOption & {
   /** 駅の場所（線路の上の距離 m。STAGE2.stations） */
   stations: readonly number[];
   /** ブレーキの減速（m/s²。TRAIN.brakeDeceleration）。止まれる距離 v² / 2a を求める */
@@ -37,6 +40,7 @@ export const installTrainDriver = (page: Page, options: TrainDriverOptions) =>
   page.addInitScript((o: TrainDriverOptions) => {
     globalThis.__noriDriver = {
       record: [],
+      ...(o.stepsPerFrame === undefined ? {} : { stepsPerFrame: o.stepsPerFrame }),
       drive(raw) {
         const s = raw as { train: { distance: number; speed: number }; nextStation: number };
         const target = o.stations[s.nextStation];
@@ -52,7 +56,7 @@ export const installTrainDriver = (page: Page, options: TrainDriverOptions) =>
     };
   }, options);
 
-export type PlaneDriverOptions = {
+export type PlaneDriverOptions = FastForwardOption & {
   /** 向きのずれ（rad）にかけて、左右の傾きの量にする */
   steerGain: number;
   /** 高さの差（m）にかけて、上下の量にする */
@@ -70,6 +74,7 @@ export const installPlaneDriver = (page: Page, options: PlaneDriverOptions) =>
     const clamp = (v: number) => Math.max(-1, Math.min(1, v));
     globalThis.__noriDriver = {
       record: [],
+      ...(o.stepsPerFrame === undefined ? {} : { stepsPerFrame: o.stepsPerFrame }),
       drive(raw) {
         const s = raw as { plane: { x: number; y: number; z: number; heading: number }; rings: boolean[] };
         const all = window.__nori?.rings?.() ?? [];
@@ -96,6 +101,7 @@ export const installSubDriver = (page: Page, options: PlaneDriverOptions) =>
     const clamp = (v: number) => Math.max(-1, Math.min(1, v));
     globalThis.__noriDriver = {
       record: [],
+      ...(o.stepsPerFrame === undefined ? {} : { stepsPerFrame: o.stepsPerFrame }),
       drive(raw) {
         const p = (raw as { sub: { x: number; y: number; z: number; heading: number } }).sub;
         const t = window.__nori?.treasureMarker?.().treasure;
@@ -120,6 +126,7 @@ export const installCarDriver = (page: Page, options: CarDriverOptions) =>
     const clamp = (v: number) => Math.max(-1, Math.min(1, v));
     globalThis.__noriDriver = {
       record: [],
+      ...(o.stepsPerFrame === undefined ? {} : { stepsPerFrame: o.stepsPerFrame }),
       drive(raw) {
         const car = (raw as { car: { x: number; z: number; heading: number } }).car;
         const last = o.waypoints.length - 1;
