@@ -71,3 +71,14 @@ describe("固定刻みのループ", () => {
     expect(stepper.advance(3, () => {}).steps).toBe(5);
   });
 });
+
+// NORI-61 一覧 8（docs/test-plans/NORI-61.md）：ほかの車・自転車・バイク・人もゲームの状態に入り、同じ記録 → 同じ位置
+describe("街のほかの車・人もリプレイでずれない（NORI-61）", () => {
+  it("ほかの車などは状態に入っていて、10 秒で動き、2回の再生で一致する", () => {
+    const inputs = recordedInputs();
+    const first = runReplay(game, game.initial(), inputs);
+    const second = runReplay(game, game.initial(), inputs);
+    expect(first.traffic).toStrictEqual(second.traffic);
+    expect(first.traffic).not.toStrictEqual(game.initial().traffic);
+  });
+});
