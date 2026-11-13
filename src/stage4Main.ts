@@ -10,7 +10,7 @@ import type { InputFrame } from "./core/types";
 import { createGamepadInput } from "./input/gamepad";
 import { createKeyboardInput } from "./input/keyboard";
 import { mergeInputs } from "./input/merge";
-import { drivenInput } from "./input/testDriver";
+import { drivenInput, fastForward } from "./input/testDriver";
 import { createTouchInput, touchLayoutFor } from "./input/touch";
 import type { ModelManifest } from "./render/carModel";
 import { LIGHTMAPS, loadLook, surfacesFor } from "./render/look";
@@ -170,7 +170,7 @@ export const startStage4 = async (canvas: HTMLCanvasElement, hud: HTMLElement, s
   // ゴールしたら紙ふぶきと「もう一回・つぎ・タイトル」（NORI-30）
   const clearFlow = startClearFlow(4);
   const sound = startSound(4);
-  const stepper = createFixedStepper(SIM.fixedDt, SIM.maxStepsPerFrame);
+  const stepper = createFixedStepper(SIM.fixedDt, fastForward(SIM.fixedDt)?.maxSteps ?? SIM.maxStepsPerFrame);
   let previous: Stage4State = game.initial();
   let current: Stage4State = previous;
   let input: InputFrame = { throttle: 0, steer: 0 };
@@ -250,7 +250,11 @@ export const startStage4 = async (canvas: HTMLCanvasElement, hud: HTMLElement, s
 
   const frame = (realNow: number) => {
     const now = frozenAt ?? realNow;
-    const frameSeconds = frozenAt === null ? Math.min(0.25, (realNow - lastTime) / 1000) : 0;
+    // E2E の早送り（NORI-66）のときは、実際の時間によらず決まった刻みの分だけ進める
+    const frameSeconds =
+      frozenAt === null
+        ? (fastForward(SIM.fixedDt)?.frameSeconds ?? Math.min(0.25, (realNow - lastTime) / 1000))
+        : 0;
     if (frozenAt === null) lastTime = realNow;
     input = mergeInputs([keyboard.read(), touch.read(), ...gamepads.read()]);
     const { alpha } = stepper.advance(frameSeconds, () => {
