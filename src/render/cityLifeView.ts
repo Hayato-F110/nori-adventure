@@ -80,7 +80,8 @@ export const createCityLifeView = (
   const makeSlot = (model: CityName, shirt: THREE.Color | null): Slot => {
     const holder = new THREE.Group();
     holder.name = model;
-    holder.add(placeholder(model, shirt ?? TRAFFIC.placeholderColor));
+    // 読みこむ前の箱は1色（服の色で塗ると、自転車の箱が丸ごと色の箱になって目立つ。kids-ui-reviewer の指摘）
+    holder.add(placeholder(model, TRAFFIC.placeholderColor));
     root.add(holder);
     return { holder, model, shirt, lamps: { red: [], blue: [] } };
   };
@@ -112,8 +113,12 @@ export const createCityLifeView = (
   sun.name = "sun";
   sun.scale.setScalar(CITY_SKY.sunRadius * 2);
   root.add(sun);
-  /** 光の向き（main.ts の太陽の光：車から (20, 40, 10) の向き） */
-  const sunDir = new THREE.Vector3(20, 40, 10).normalize();
+  /** 光の向き（main.ts の太陽の光と同じ CITY_SKY.sunOffset の向き） */
+  const sunDir = new THREE.Vector3(
+    CITY_SKY.sunOffset.x,
+    CITY_SKY.sunOffset.y,
+    CITY_SKY.sunOffset.z,
+  ).normalize();
 
   let models = 0;
 

@@ -622,8 +622,12 @@ export const TRAFFIC = {
   /** ついているランプは、自分の色の何倍で自ら光るか（光に左右されない色） */
   lampGlow: 1,
   /** 人の服（素材 shirt）の色。k 人目は k 番目、自転車・バイクの i 台目は (i + 2) 番目 */
-  shirtColors: ["#3B82F6", "#22C55E", "#F59E0B", "#A855F7", "#14B8A6", "#EC4899"],
-  /** 自作モデルを読みこむ前の箱の色（人・乗る人は服の色） */
+  shirtColors: ["#3B82F6", "#22C55E", "#64748B", "#A855F7", "#14B8A6", "#EC4899"],
+  /** 服の色は、ほしと子どもの車から色相がこの角度（度）以上はなれる */
+  shirtMinHueGap: 40,
+  /** 子どもの車の体の色（tools/blender/build-car.py の car_body。服の色の検査に使う） */
+  childCarColor: "#FF8A1F",
+  /** 自作モデルを読みこむ前の箱の色（人・自転車・バイクも同じ1色） */
   placeholderColor: "#9AA3AD",
   bikeOffset: 4,
   bicycles: { count: 2, speed: 4, starts: [0, 200] },
@@ -644,6 +648,8 @@ export const CITY_SKY = {
   sunDistance: 300,
   sunRadius: 12,
   sunColor: "#FFF1A8",
+  /** 太陽の光を置く所（子どもの車からのずれ m）。光の向きと、空の太陽の向きの両方に使う */
+  sunOffset: { x: 20, y: 40, z: 10 },
   /** 雲の半径（hash01 で min〜max）と、つぶす倍率（横・高さ・奥。ステージ2と同じ形） */
   cloudSize: { minRadius: 6, maxRadius: 12, scale: [1.8, 0.6, 1.2] },
 } as const;

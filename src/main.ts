@@ -1,7 +1,7 @@
 // 起動とゲームループ。状態（src/core）を固定刻みで進め、描画（src/render）はその状態を読むだけ。
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
-import { ASSET, CAMERA, LOOK, RESPAWN, SIM, STAGE1, TRAFFIC } from "./config";
+import { ASSET, CAMERA, CITY_SKY, LOOK, RESPAWN, SIM, STAGE1, TRAFFIC } from "./config";
 import type { TrafficPoses } from "./core/traffic";
 import { createCityLifeView } from "./render/cityLifeView";
 import { createGame } from "./core/game";
@@ -404,7 +404,7 @@ const frame = (now: number) => {
     followCamera.update(pose, frameSeconds);
   }
   // 影は車のまわりだけ描く（影の範囲を狭くして、くっきり・軽くする）
-  sun.position.set(pose.x + 20, 40, pose.z + 10);
+  sun.position.set(pose.x + CITY_SKY.sunOffset.x, CITY_SKY.sunOffset.y, pose.z + CITY_SKY.sunOffset.z);
   sun.target.position.set(pose.x, 0, pose.z);
 
   renderer.render(scene, camera);
