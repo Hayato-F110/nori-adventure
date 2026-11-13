@@ -261,3 +261,19 @@ describe("同じ入力記録 → 同じ結果（リプレイ）", () => {
     expect(s).toStrictEqual(copy);
   });
 });
+
+// NORI-68：カバレッジで見つかった、通っていない分岐（docs/test-plans/coverage-2026-11-13.md の C）。
+// ルール「当たったら外へ押し戻す」の特別な場合：中心がぴったり重なったら、上へ押し出す（0 で割らない）
+describe("気球の中心にぴったり重なったとき", () => {
+  it("1刻みで気球の中心に来る位置から飛ぶと、気球の真上（半径＋飛行機の半径）へ押し出され、当たったことになる", () => {
+    const b = STAGE3.balloons[0];
+    if (b === undefined) throw new Error("気球がない");
+    // −Z 向きに巡航の速さで 1 刻み進むと、ちょうど気球の中心に来る
+    const start = at(b.x, b.y, b.z + PLANE.cruiseSpeed * dt, 0);
+    const s = game.step({ ...start, plane: { ...start.plane, speed: PLANE.cruiseSpeed } }, NONE);
+    expect(s.plane.x).toBe(b.x);
+    expect(s.plane.y).toBeCloseTo(b.y + b.radius + PLANE.collisionRadius, 9);
+    expect(s.plane.z).toBeCloseTo(b.z, 9);
+    expect(s.plane.touching).toBe(true);
+  });
+});

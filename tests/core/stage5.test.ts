@@ -189,3 +189,16 @@ describe("ほし", () => {
     expect(again.stars.filter(Boolean)).toHaveLength(1);
   });
 });
+
+// NORI-68：カバレッジで見つかった、通っていない分岐（docs/test-plans/coverage-2026-11-13.md の C）。
+// ルール「当たったら外へ押し戻す」の特別な場合：中心がぴったり重なったら、+Z へ押し出す（0 で割らない）
+describe("岩の中心にぴったり重なったとき", () => {
+  it("止まったまま岩の中心にいると、+Z の側（半径＋ローバーの半径）へ押し出され、当たったことになる", () => {
+    const rock = STAGE5.rocks[0];
+    if (rock === undefined) throw new Error("岩がない");
+    const s = game.step(at(rock.x, rock.z), NONE);
+    expect(s.rover.x).toBe(rock.x);
+    expect(s.rover.z).toBeCloseTo(rock.z + rock.radius + ROVER.collisionRadius, 9);
+    expect(s.rover.touching).toBe(true);
+  });
+});
