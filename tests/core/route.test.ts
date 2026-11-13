@@ -4,13 +4,13 @@ import { nextAfter, parseRoute, stageUrl } from "../../src/core/route.ts";
 
 // docs/game-rules.md「タイトル画面・ステージ選び・クリアの演出」（NORI-30）。テストの一覧の 1・2
 describe("URL から開く画面を決める", () => {
-  it("?stage=1〜4 はそのステージ", () => {
+  it("?stage=1〜5 はそのステージ", () => {
     for (const n of TITLE.stages) expect(parseRoute(`?stage=${n}`)).toEqual({ kind: "stage", stage: n });
     expect(parseRoute("?stage=2&debug")).toEqual({ kind: "stage", stage: 2 });
   });
 
   it("何もない・?debug だけ・知らない値はタイトル（白い画面にしない）", () => {
-    for (const search of ["", "?", "?debug", "?stage=5", "?stage=0", "?stage=x", "?stage=", "?stage=1.5"]) {
+    for (const search of ["", "?", "?debug", "?stage=6", "?stage=0", "?stage=x", "?stage=", "?stage=1.5"]) {
       expect(parseRoute(search), search).toEqual({ kind: "title" });
     }
   });
@@ -26,7 +26,8 @@ describe("「つぎ」のステージ", () => {
     expect(nextAfter(1)).toBe(2);
     expect(nextAfter(2)).toBe(3);
     expect(nextAfter(3)).toBe(4);
-    expect(nextAfter(4)).toBe("title");
+    expect(nextAfter(4)).toBe(5);
+    expect(nextAfter(5)).toBe("title");
   });
 
   it("ステージを開く URL は相対（GitHub Pages の /nori-adventure/ の下で開く）。タイトルは ./", () => {
