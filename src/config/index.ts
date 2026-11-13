@@ -356,28 +356,92 @@ export const ROVER = {
   maxTurnRate: 1.6,
   gravity: 1.62,
   jumpSpeed: 3,
+  /** ジャンプ台で跳ぶのは、前へこの速さ（m/s）以上のときだけ（台の上で止まって跳び続けない） */
+  jumpMinSpeed: 1,
   collisionRadius: 1.0,
   bumpSpeedFactor: 0.3,
 } as const;
 
-/** ステージ5の月面 */
+/** ステージ5の月面。道すじは進んだ距離 d の点 (pathWave·sin(2π·d/pathLength), start.z − d) */
 export const STAGE5 = {
   boundsHalfSize: 100,
-  starCount: 12,
+  start: { x: 0, z: 85 },
+  pathLength: 110,
+  pathWave: 12,
+  pathWidth: 6,
+  /** ジャンプ台（道すじの d、m） */
+  jumpPads: [30, 70],
+  jumpPadRadius: 2.5,
+  /** 地面のほし（道すじの d、m。高さ 0） */
+  groundStars: [6, 13, 20, 64, 102, 107],
+  /** 空中のほし（台ごと）：台の中心から、台での道すじの向きにまっすぐ ahead m 先、高さ height m */
+  airStars: [
+    { ahead: 8, height: 2.2 },
+    { ahead: 14.8, height: 2.8 },
+    { ahead: 21.6, height: 2.2 },
+  ],
+  starRadius: 2,
+  /** 景色の岩（半球。上から見た中心と半径 m）。道すじから 8 m 以上離す */
+  rocks: [
+    { x: -25, z: 70, radius: 2 },
+    { x: 30, z: 80, radius: 2 },
+    { x: 24, z: 45, radius: 2.5 },
+    { x: -28, z: 20, radius: 3 },
+    { x: 26, z: 0, radius: 1.5 },
+    { x: -22, z: -10, radius: 2 },
+  ],
+  /** クレーター（見た目だけ。当たり判定なし） */
+  craters: [
+    { x: 40, z: 60, radius: 6 },
+    { x: -45, z: 40, radius: 8 },
+    { x: 50, z: 10, radius: 5 },
+    { x: -40, z: -5, radius: 6 },
+    { x: 60, z: -50, radius: 9 },
+    { x: -60, z: -60, radius: 7 },
+    { x: -55, z: 85, radius: 5 },
+    { x: 45, z: -85, radius: 6 },
+  ],
+  arenaCenter: { x: 0, z: -55 },
   arenaRadius: 30,
+  /** 色（docs/game-rules.md「ステージ5の色」。明るさの比は式で計算した） */
+  groundColor: "#5a5c62",
+  pathColor: "#3e4046",
+  jumpPadColor: "#3fe0ff",
+  friendStarColor: "#ffb8e6",
+  rockColor: "#76716b",
+  craterColor: "#4c4e54",
+  arenaLineColor: "#d8dce4",
+  skyColor: "#05060f",
+  earthColor: "#4f8fe0",
+  hemiSkyColor: "#9aa4b8",
+  hemiGroundColor: "#3a3a40",
+  sunIntensity: 2.2,
 } as const;
 
 /** ステージ5のボス（倒すのではなく、なかよしの星で落ち着かせる）。回数による調整はしない */
 export const BOSS = {
+  radius: 3,
+  height: 6,
+  /** 広場の中心から、この半径の円を回る（最初は中心から −Z 側。上から見て左回り） */
+  orbitRadius: 10,
+  moveSpeed: 2,
   calmPoints: 5,
   friendStarCount: 8,
+  friendStarRing: 22,
+  friendStarHeight: 1,
   friendStarRespawnSeconds: 10,
   carryLimit: 1,
-  deliverRadius: 4,
-  moveSpeed: 2,
+  /** ボスの中心からの距離（m） */
+  deliverRadius: 7,
   rockInterval: 5,
+  rockWarnSeconds: 1,
   rockSpeed: 4,
+  rockRadius: 1,
   rockBumpSpeedFactor: 0.3,
+  rockInvincibleSeconds: 2,
+  angryColor: "#E8604C",
+  calmColor: "#7FD1FF",
+  endingDelaySeconds: 3,
 } as const;
 
 /** 入力（全ステージ共通）。キーボード・タッチ・ゲームパッドを InputFrame に直すときの数値 */
@@ -476,6 +540,22 @@ export const ASSET = {
     maxTriangles: 3000,
     maxGlbBytes: 262144,
   },
+  /** ステージ1の街のモデル（NORI-61。docs/game-rules.md「街をにぎやかに」）。前は −Z、原点は底の中心 */
+  city: {
+    variants: ["traffic-car", "bus", "police", "fire-truck", "person", "bicycle", "motorbike"],
+    sizes: {
+      "traffic-car": { width: 1.8, height: 1.5, length: 4.2 },
+      bus: { width: 2.5, height: 3.2, length: 10.0 },
+      police: { width: 1.8, height: 1.6, length: 4.4 },
+      "fire-truck": { width: 2.4, height: 3.0, length: 8.0 },
+      person: { width: 0.6, height: 1.6, length: 0.4 },
+      bicycle: { width: 0.6, height: 1.6, length: 1.7 },
+      motorbike: { width: 0.8, height: 1.6, length: 2.0 },
+    },
+    nodes: ["body"],
+    maxTriangles: 3000,
+    maxGlbBytes: 262144,
+  },
   allowedExtensions: [
     "KHR_materials_emissive_strength",
     "KHR_materials_ior",
@@ -508,6 +588,8 @@ export const LOOK = {
     bark: { texture: "Bark001", tileMeters: 1, tint: [0.75, 0.55, 0.4] },
     /** 海底の砂（ステージ4）。素材の平均の色 × 色味 ＝ STAGE4.sandColor と同じ明るさ */
     sand: { texture: "Ground054", tileMeters: 3.5, tint: [0.83, 0.82, 0.72] },
+    /** 月の砂（ステージ5）。同じ素材の平均の色 × 色味 ＝ STAGE5.groundColor（色ごとに一致。NORI-29 で計算） */
+    moon: { texture: "Ground054", tileMeters: 3.5, tint: [0.308, 0.414, 0.791] },
   },
   /** 木の葉：芝の素材（芝の tint の上）にかける色。芝より少し暗い緑（新しく読む素材を増やさない）。線形の RGB */
   leafTint: [0.75, 0.85, 0.7],
@@ -528,6 +610,8 @@ export const LOOK = {
   skyAoDistance: 20,
   /** ステージ4（海）の焼き付けの範囲（1辺 m）。陰の届く距離は aoDistance（NORI-28） */
   seaBakeSize: 240,
+  /** ステージ5（月面）の焼き付けの範囲（1辺 m）。景色の岩（x ±30・z −10〜80）を含む（NORI-29） */
+  moonBakeSize: 200,
   maxLightmapBytes: 524288,
   aoDistance: 6,
   bakeSamples: 64,
@@ -563,8 +647,8 @@ export const PARENT = {
 
 /** タイトル画面とステージ選び（NORI-30。docs/game-rules.md「タイトル画面・ステージ選び・クリアの演出」） */
 export const TITLE = {
-  /** 選べるステージ（ステージ5は NORI-29 でできるまで出さない） */
-  stages: [1, 2, 3, 4],
+  /** 選べるステージ（1〜5。ステージ5は NORI-29） */
+  stages: [1, 2, 3, 4, 5],
   /** 乗り物の絵のボタン（px） */
   buttonSize: 120,
 } as const;
@@ -576,6 +660,67 @@ export const CLEAR = {
   buttonsDelaySeconds: 3,
   /** もう一回・つぎ・タイトルのボタン（px） */
   buttonSize: 96,
+} as const;
+
+/** ステージ1の街をにぎやかに（NORI-61。docs/game-rules.md「街をにぎやかに」） */
+export const TRAFFIC = {
+  /** ほかの車が回る四角い道の角（道の中心線。この順に回る） */
+  loop: [
+    { x: -40, z: -40 },
+    { x: 40, z: -40 },
+    { x: 40, z: 80 },
+    { x: -40, z: 80 },
+  ],
+  laneOffset: 2.5,
+  cornerRadius: 4,
+  /** 回る順の車（モデルの名前と、1周の中のはじめの位置 m） */
+  vehicles: [
+    // 50 m ずらす（11/13 オーナーが決定）：最初に1つ目の交差点（距離 38.5 m）を横切るのが約 17 秒後になる
+    { model: "traffic-car", start: 50 },
+    { model: "bus", start: 150 },
+    { model: "police", start: 250 },
+    { model: "fire-truck", start: 350 },
+  ],
+  speed: 6,
+  acceleration: 3,
+  braking: 8,
+  stopAhead: 10,
+  stopSide: 3,
+  followGap: 4,
+  lampSwapSeconds: 0.5,
+  /** ついているランプは、自分の色の何倍で自ら光るか（光に左右されない色） */
+  lampGlow: 1,
+  /** 人の服（素材 shirt）の色。k 人目は k 番目、自転車・バイクの i 台目は (i + 2) 番目 */
+  shirtColors: ["#3B82F6", "#22C55E", "#64748B", "#A855F7", "#14B8A6", "#EC4899"],
+  /** 服の色は、ほしと子どもの車から色相がこの角度（度）以上はなれる */
+  shirtMinHueGap: 40,
+  /** 子どもの車の体の色（tools/blender/build-car.py の car_body。服の色の検査に使う） */
+  childCarColor: "#FF8A1F",
+  /** 自作モデルを読みこむ前の箱の色（人・自転車・バイクも同じ1色） */
+  placeholderColor: "#9AA3AD",
+  bikeOffset: 4,
+  bicycles: { count: 2, speed: 4, starts: [0, 200] },
+  motorbikes: { count: 2, speed: 6, starts: [100, 300] },
+  bikeStopRadius: 6,
+  bikeFollowGap: 3,
+  /** 歩行者：コースを交差点で 40 m ずつ分けた辺の番号（blockSides）に1人ずつ。左・右と交互の歩道 */
+  people: { count: 6, sideLength: 26, offset: 6, blockLength: 40, blockSides: [1, 2, 4, 5, 7, 9] },
+  walkSpeed: 1.2,
+  walkStopRadius: 6,
+  personRadius: 0.4,
+  bikeRadius: 0.6,
+} as const;
+
+/** ステージ1の空（NORI-61） */
+export const CITY_SKY = {
+  clouds: { count: 8, minHeight: 60, maxHeight: 70, speed: 1, wrapX: 150 },
+  sunDistance: 300,
+  sunRadius: 12,
+  sunColor: "#FFF1A8",
+  /** 太陽の光を置く所（子どもの車からのずれ m）。光の向きと、空の太陽の向きの両方に使う */
+  sunOffset: { x: 20, y: 40, z: 10 },
+  /** 雲の半径（hash01 で min〜max）と、つぶす倍率（横・高さ・奥。ステージ2と同じ形） */
+  cloudSize: { minRadius: 6, maxRadius: 12, scale: [1.8, 0.6, 1.2] },
 } as const;
 
 /**
@@ -615,6 +760,7 @@ export const SOUND = {
     stage2: { bpm: 100, notes: [67, 0, 64, 62, 60, 62, 64, 0, 67, 69, 67, 64, 62, 0, 60, 0] },
     stage3: { bpm: 92, notes: [72, 0, 69, 0, 67, 64, 67, 0, 69, 0, 72, 0, 74, 72, 69, 0] },
     stage4: { bpm: 80, notes: [57, 0, 60, 0, 64, 0, 62, 0, 60, 0, 57, 0, 55, 0, 57, 0] },
+    stage5: { bpm: 96, notes: [64, 0, 67, 72, 0, 71, 67, 0, 64, 0, 67, 69, 67, 0, 64, 0] },
   },
 } as const;
 
@@ -641,5 +787,7 @@ export const CONFIG = {
   PARENT,
   TITLE,
   CLEAR,
+  TRAFFIC,
+  CITY_SKY,
   SOUND,
 } as const;

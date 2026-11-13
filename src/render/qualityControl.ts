@@ -28,6 +28,11 @@ export type QualityControlDeps = {
   resize(): void;
   /** 前に選んだ画質（覚えていなければ "auto"） */
   initial: QualityChoice;
+  /**
+   * 高画質で、まわりの光（昼の空の HDRI）を使うか（既定は使う）。月面（ステージ5）は空の光がないので false：
+   * 素材は貼るが、光は単色のときと同じ（空の光 LOOK.hemiPlain）にして、色の計算の前提を保つ（NORI-29）
+   */
+  useEnvironment?: boolean;
 };
 
 export type QualityControl = {
@@ -63,9 +68,14 @@ export const createQualityControl = (deps: QualityControlDeps): QualityControl =
       return;
     }
     deps.applyLook(loaded);
-    scene.environment = loaded.environment;
-    scene.environmentIntensity = LOOK.environmentIntensity;
-    hemi.intensity = LOOK.hemiTextured; // まわりの光（HDRI）が入るので、空と地面の光は弱める
+    if (deps.useEnvironment === false) {
+      scene.environment = null;
+      hemi.intensity = LOOK.hemiPlain;
+    } else {
+      scene.environment = loaded.environment;
+      scene.environmentIntensity = LOOK.environmentIntensity;
+      hemi.intensity = LOOK.hemiTextured; // まわりの光（HDRI）が入るので、空と地面の光は弱める
+    }
     lookState = "textured";
   };
   /** 画素の倍率と影。影の有無を変えたら、シェーダーを作り直す */

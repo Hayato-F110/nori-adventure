@@ -1,9 +1,19 @@
 import { expect, type Page, test } from "@playwright/test";
-import { STAGE1, STAGE2, TRAIN } from "../src/config";
-import { installCarDriver, installPlaneDriver, installSubDriver, installTrainDriver } from "./driver";
+import { BOSS, ROVER, SIM, STAGE1, STAGE2, STAGE5, TRAIN } from "../src/config";
+import { friendStarPositions, pathPoint } from "../src/core/stage5Layout";
+import {
+  installCarDriver,
+  installPlaneDriver,
+  installRoverDriver,
+  installSubDriver,
+  installTrainDriver,
+} from "./driver";
 
 // NORI-37：運転役（e2e/driver.ts）でステージをクリアまで走る。キーを押さず、刻みごとに入力を決めるので毎回同じ結果。
 // 完了条件（Jira）：CI で全ステージの E2E が通る。使った入力の記録は、リプレイ・自動録画（NORI-42）に使う。
+// NORI-66：CI（約 3 fps）でもゲームの時間を実時間どおりに進める早送り。60 刻み/秒 ÷ 3 fps = 20 刻み/フレーム
+const FAST = 20;
+
 const watchErrors = (page: Page) => {
   const errors: string[] = [];
   page.on("console", (m) => {
@@ -25,6 +35,7 @@ test("ステージ1：運転役が道すじどおりに走ると、チェック�
     // チェックポイントの半径（STAGE1.checkpointRadius 8 m）より手前で次へ向かうと、通らずに曲がってしまう
     turnAhead: STAGE1.checkpointRadius - 1,
     loop: false,
+    stepsPerFrame: FAST,
     steerGain: 3,
     slowAngle: 0.6,
     slowThrottle: 0.5,
@@ -59,6 +70,7 @@ test("ステージ2：運転役が駅ごとにブレーキで止まると、3つ
     brake: TRAIN.brakeDeceleration,
     closeEnough: STAGE2.stationStopLength / 4,
     slowSpeed: STAGE2.stationStopSpeed / 2,
+    stepsPerFrame: FAST,
   });
   await page.goto("./?stage=2");
   await page.waitForFunction(() => (window.__nori?.frames ?? 0) > 5, undefined, { timeout: 60_000 });
@@ -81,7 +93,7 @@ test("ステージ2：運転役が駅ごとにブレーキで止まると、3つ
 test("ステージ3：運転役が輪を順に目指すと、ゴールの輪をくぐる", async ({ page }, testInfo) => {
   test.setTimeout(300_000);
   const errors = watchErrors(page);
-  await installPlaneDriver(page, { steerGain: 2, climbGain: 0.2 });
+  await installPlaneDriver(page, { steerGain: 2, climbGain: 0.2, stepsPerFrame: FAST });
   await page.goto("./?stage=3");
   await page.waitForFunction(() => (window.__nori?.frames ?? 0) > 5, undefined, { timeout: 60_000 });
   await page.waitForFunction(() => window.__nori?.plane?.()?.finishTick !== null, undefined, {
@@ -100,7 +112,7 @@ test("ステージ3：運転役が輪を順に目指すと、ゴールの輪を�
 test("ステージ4：運転役がたからばこへ向かうと、たからばこに着く", async ({ page }, testInfo) => {
   test.setTimeout(300_000);
   const errors = watchErrors(page);
-  await installSubDriver(page, { steerGain: 2, climbGain: 0.3 });
+  await installSubDriver(page, { steerGain: 2, climbGain: 0.3, stepsPerFrame: FAST });
   await page.goto("./?stage=4");
   await page.waitForFunction(() => (window.__nori?.frames ?? 0) > 5, undefined, { timeout: 60_000 });
   await page.waitForFunction(() => window.__nori?.sub?.()?.finishTick !== null, undefined, {
@@ -113,5 +125,49 @@ test("ステージ4：運転役がたからばこへ向かうと、たからば�
     description: `ゴール ${((state?.finishTick ?? 0) / 60).toFixed(1)} 秒、生きもの ${state?.found.filter(Boolean).length ?? 0} / ${state?.found.length ?? 0}`,
   });
   await page.screenshot({ path: testInfo.outputPath("stage4-clear.png") });
+  expect(errors).toEqual([]);
+});
+
+test("ステージ5：運転役が道すじを走り、なかよしの星をボスへ5回届けると、エンディングが出る", async ({
+  page,
+}, testInfo) => {
+  test.setTimeout(420_000);
+  const errors = watchErrors(page);
+  const path = Array.from({ length: Math.floor(STAGE5.pathLength / 5) }, (_, i) => pathPoint((i + 1) * 5));
+  await installRoverDriver(page, {
+    path,
+    turnAhead: 3,
+    friends: friendStarPositions(),
+    respawnTicks: Math.round(BOSS.friendStarRespawnSeconds / SIM.fixedDt),
+    boss: {
+      x: STAGE5.arenaCenter.x,
+      z: STAGE5.arenaCenter.z,
+      radius: BOSS.orbitRadius,
+      perTick: (BOSS.moveSpeed / BOSS.orbitRadius) * SIM.fixedDt,
+    },
+    slowNear: 8,
+    slowSpeed: 4,
+    maxSpeed: ROVER.maxForwardSpeed,
+    stepsPerFrame: FAST,
+    steerGain: 3,
+  });
+  await page.goto("./?stage=5");
+  await page.waitForFunction(() => (window.__nori?.frames ?? 0) > 5, undefined, { timeout: 60_000 });
+  await page.waitForFunction(() => window.__nori?.rover?.()?.finishTick !== null, undefined, {
+    timeout: 360_000,
+    polling: 500,
+  });
+  const state = await page.evaluate(() => window.__nori?.rover?.());
+  expect(state?.calm).toBe(BOSS.calmPoints);
+  // ボタンと一緒に、5つの乗り物の絵（エンディング）が出る。「つぎ」は出さない
+  await expect(page.locator("#ending svg")).toHaveCount(5, { timeout: 30_000 });
+  await expect(page.locator("#ending")).toBeVisible();
+  await expect(page.locator("#clear-next")).toBeHidden();
+  expect(await page.evaluate(() => window.__nori?.bossMouth?.())).toBe("smile");
+  testInfo.annotations.push({
+    type: "ステージ5のクリア",
+    description: `クリア ${((state?.finishTick ?? 0) / 60).toFixed(1)} 秒、ほし ${state?.stars.filter(Boolean).length ?? 0} / ${state?.stars.length ?? 0}、復活 ${state?.respawns ?? -1} 回`,
+  });
+  await page.screenshot({ path: testInfo.outputPath("stage5-ending.png") });
   expect(errors).toEqual([]);
 });
