@@ -302,7 +302,8 @@ def build_person(m):
 
 def build_bicycle(m):
     W, H, L = SIZE["bicycle"]
-    frame = material("bicycle_frame", srgb(0xFF9F1C), 0.4)
+    # 青（11/13：橙 #FF9F1C はほしの金色と色相が近かった。ほし・子どもの車から 40 度以上はなれる色に）
+    frame = material("bicycle_frame", srgb(0x2563EB), 0.4)
     R = 0.34
     parts = [
         cylinder(R, 0.06, (0, 0.5, R), X_AXIS, m["tire"], vertices=20),

@@ -3,8 +3,8 @@
     {
       "name": "bicycle",
       "file": "bicycle.glb",
-      "sha256": "3c3521369ead24c3ba9be3ee9d0ee9827a352651e4f7b2fec4489f6f0a472154",
-      "bytes": 34756,
+      "sha256": "c1bb7302897f79aa46c10c50b07013f44e030aae840d22da592ca956672181c2",
+      "bytes": 34772,
       "triangles": 1088,
       "size": {
         "width": 0.6,
