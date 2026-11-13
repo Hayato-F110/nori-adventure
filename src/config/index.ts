@@ -403,6 +403,19 @@ export const STAGE5 = {
   ],
   arenaCenter: { x: 0, z: -55 },
   arenaRadius: 30,
+  /** 色（docs/game-rules.md「ステージ5の色」。明るさの比は式で計算した） */
+  groundColor: "#5a5c62",
+  pathColor: "#3e4046",
+  jumpPadColor: "#3fe0ff",
+  friendStarColor: "#ffb8e6",
+  rockColor: "#76716b",
+  craterColor: "#4c4e54",
+  arenaLineColor: "#d8dce4",
+  skyColor: "#05060f",
+  earthColor: "#4f8fe0",
+  hemiSkyColor: "#9aa4b8",
+  hemiGroundColor: "#3a3a40",
+  sunIntensity: 2.2,
 } as const;
 
 /** ステージ5のボス（倒すのではなく、なかよしの星で落ち着かせる）。回数による調整はしない */
