@@ -6,10 +6,11 @@ import { describe, expect, it } from "vitest";
 // @ts-expect-error -- Hook は素の JavaScript（.mjs）で、型定義を持たない（整形で行が分かれないよう、まとめて読む）
 import * as hook_ from "../../.claude/hooks/japanese-reply.mjs";
 
-const { findEnglishLines, textsBeforeThisTool, textsOfThisTurn } = hook_ as {
+const { findEnglishLines, textsBeforeThisTool, textsOfThisTurn, linesAlreadyFlagged } = hook_ as {
   findEnglishLines: (text: string) => string[];
   textsBeforeThisTool: (jsonl: string) => string[];
   textsOfThisTurn: (jsonl: string) => string[];
+  linesAlreadyFlagged: (jsonl: string) => string[];
 };
 
 const root = path.resolve(import.meta.dirname, "../..");
@@ -124,5 +125,42 @@ describe("Hook：英語だけの行があれば、応答を止めて日本語で
     expect(run({ hook_event_name: "PreToolUse", transcript_path: write("次に音の仕組みを直します。") })).toBe(
       0,
     );
+  });
+
+  // 11/12：道具を呼ぶ直前の Hook が止めて日本語で言い直した行を、応答の終わりの Hook がもう一度止めた
+  it("道具を呼ぶ直前に止めた行は、応答の終わりではもう止めない（ほかの英語の行は止める）", () => {
+    const line = "Replace the top status section of the handoff with the current state.";
+    const blocked = {
+      type: "user",
+      message: {
+        role: "user",
+        content: [
+          {
+            type: "tool_result",
+            is_error: true,
+            content: `PreToolUse:Read hook error: [node]: 道具を呼ぶ前に止めました：直前の文が英語だけです。\n- ${line}\n同じ内容を日本語で書き直してから、もう一度この道具を呼んでください。\n`,
+          },
+        ],
+      },
+    };
+    const entries = [
+      { type: "system", subtype: "stop_hook_summary" },
+      said(line),
+      blocked,
+      said("日本語で言い直しました。"),
+    ];
+    const jsonl = entries.map((e) => JSON.stringify(e)).join("\n");
+    expect(linesAlreadyFlagged(jsonl)).toEqual([line]);
+
+    const dir = mkdtempSync(path.join(tmpdir(), "nori-hook-"));
+    const once = path.join(dir, "once.jsonl");
+    writeFileSync(once, jsonl);
+    expect(run({ transcript_path: once })).toBe(0);
+    const twice = path.join(dir, "twice.jsonl");
+    writeFileSync(
+      twice,
+      [...entries, said("Another English line written later on.")].map((e) => JSON.stringify(e)).join("\n"),
+    );
+    expect(run({ transcript_path: twice })).toBe(2);
   });
 });
