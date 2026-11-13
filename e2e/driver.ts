@@ -18,6 +18,40 @@ export type CarDriverOptions = {
   slowThrottle: number;
 };
 
+export type TrainDriverOptions = {
+  /** 駅の場所（線路の上の距離 m。STAGE2.stations） */
+  stations: readonly number[];
+  /** ブレーキの減速（m/s²。TRAIN.brakeDeceleration）。止まれる距離 v² / 2a を求める */
+  brake: number;
+  /** 駅のこの距離（m）より近くで、ほぼ止まったら待つ（ホームの半分 STAGE2.stationStopLength / 2 より短く） */
+  closeEnough: number;
+  /** 止まったと見なす速さ（m/s）。STAGE2.stationStopSpeed より小さく */
+  slowSpeed: number;
+};
+
+/**
+ * ステージ2の列車の運転役を入れる。page.goto の前に呼ぶ。状態は Stage2State（train.distance・speed、nextStation）。
+ * 次の駅までの距離が、ブレーキで止まれる距離に近づいたらブレーキ、駅でほぼ止まったら手を離して待つ
+ */
+export const installTrainDriver = (page: Page, options: TrainDriverOptions) =>
+  page.addInitScript((o: TrainDriverOptions) => {
+    globalThis.__noriDriver = {
+      record: [],
+      drive(raw) {
+        const s = raw as { train: { distance: number; speed: number }; nextStation: number };
+        const target = o.stations[s.nextStation];
+        if (target === undefined) return { throttle: 0, steer: 0 };
+        const left = target - s.train.distance;
+        const v = s.train.speed;
+        if (Math.abs(left) <= o.closeEnough && Math.abs(v) <= o.slowSpeed) return { throttle: 0, steer: 0 };
+        if (left < 0) return { throttle: -1, steer: 0 }; // 行きすぎたら、ブレーキ（止まったらさがる）
+        if (v <= o.slowSpeed) return { throttle: 0.5, steer: 0 }; // 手前で止まったら、ゆっくり進む
+        const stopping = (v * v) / (2 * o.brake);
+        return { throttle: left <= stopping + 1 ? -1 : 1, steer: 0 };
+      },
+    };
+  }, options);
+
 /**
  * ステージ1の車の運転役を入れる。page.goto の前に呼ぶ。
  * 状態は GameState（car.x・z・heading）。heading 0 は −Z 向き、左へ切ると heading が増える。steer は −1 が左

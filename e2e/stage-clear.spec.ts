@@ -1,6 +1,6 @@
 import { expect, type Page, test } from "@playwright/test";
-import { STAGE1 } from "../src/config";
-import { installCarDriver } from "./driver";
+import { STAGE1, STAGE2, TRAIN } from "../src/config";
+import { installCarDriver, installTrainDriver } from "./driver";
 
 // NORI-37：運転役（e2e/driver.ts）でステージをクリアまで走る。キーを押さず、刻みごとに入力を決めるので毎回同じ結果。
 // 完了条件（Jira）：CI で全ステージの E2E が通る。使った入力の記録は、リプレイ・自動録画（NORI-42）に使う。
@@ -46,5 +46,34 @@ test("ステージ1：運転役が道すじどおりに走ると、チェック�
     description: `ゴール ${((state?.course.finishTick ?? 0) / 60).toFixed(1)} 秒、復活 ${state?.respawns ?? -1} 回、ほし ${state?.course.stars.filter(Boolean).length ?? 0} 個`,
   });
   await page.screenshot({ path: testInfo.outputPath("stage1-clear.png") });
+  expect(errors).toEqual([]);
+});
+
+test("ステージ2：運転役が駅ごとにブレーキで止まると、3つの駅を順に通ってゴールする", async ({
+  page,
+}, testInfo) => {
+  test.setTimeout(300_000);
+  const errors = watchErrors(page);
+  await installTrainDriver(page, {
+    stations: STAGE2.stations,
+    brake: TRAIN.brakeDeceleration,
+    closeEnough: STAGE2.stationStopLength / 4,
+    slowSpeed: STAGE2.stationStopSpeed / 2,
+  });
+  await page.goto("./?stage=2");
+  await page.waitForFunction(() => (window.__nori?.frames ?? 0) > 5, undefined, { timeout: 60_000 });
+  // 乗る列車を選ぶまで時間は進まない（NORI-59）
+  await page.locator('#train-choice button[data-train="train"]').click();
+  await page.waitForFunction(() => window.__nori?.train?.()?.finishTick !== null, undefined, {
+    timeout: 240_000,
+    polling: 500,
+  });
+  const state = await page.evaluate(() => window.__nori?.train?.());
+  expect(state?.nextStation).toBe(STAGE2.stationCount);
+  testInfo.annotations.push({
+    type: "ステージ2のクリア",
+    description: `ゴール ${((state?.finishTick ?? 0) / 60).toFixed(1)} 秒`,
+  });
+  await page.screenshot({ path: testInfo.outputPath("stage2-clear.png") });
   expect(errors).toEqual([]);
 });
