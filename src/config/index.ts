@@ -441,6 +441,9 @@ export const BOSS = {
   angryColor: "#E8604C",
   calmColor: "#7FD1FF",
   endingDelaySeconds: 3,
+  /** 落ち着いたあと、ボスがはねる高さ（m）と速さ（|sin(速さ × 秒)| × 高さ）。動きを減らす設定でははねない（NORI-70） */
+  hopHeight: 0.8,
+  hopSpeed: 4,
 } as const;
 
 /** 入力（全ステージ共通）。キーボード・タッチ・ゲームパッドを InputFrame に直すときの数値 */

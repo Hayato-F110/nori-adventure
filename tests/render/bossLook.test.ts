@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { BOSS, SIM } from "../../src/config";
-import { bossColor, bossMouth, bossPuff } from "../../src/render/bossLook";
+import { bossColor, bossHop, bossMouth, bossPuff } from "../../src/render/bossLook";
 
 // docs/game-rules.md「ボスの見た目とエンディング」（NORI-29）。テストの一覧の 21
 describe("ボスの見た目", () => {
@@ -55,5 +55,21 @@ describe("ボスの見た目", () => {
     const warn = Math.round(BOSS.rockWarnSeconds / SIM.fixedDt);
     expect(bossPuff(2 * interval - warn / 2, SIM.fixedDt, false)).toBeGreaterThan(0);
     expect(bossPuff(2 * interval - warn / 2, SIM.fixedDt, true)).toBe(0);
+  });
+});
+
+// NORI-70（初見レビュー R2-70-2）：ルール「落ち着いたら、その間ボスが笑ってはねる（動きを減らす設定でははねない）。
+// はねる高さは |sin(4 × 秒)| × 0.8 m」。期待値は、ルールの文の数（4・0.8）から作る
+describe("ボスがはねる（エンディング）", () => {
+  it.each([0.1, 0.3, 0.7])("落ち着いたら、%s 秒の高さは |sin(4 × 秒)| × 0.8 m", (seconds) => {
+    expect(bossHop(seconds, true, false)).toBeCloseTo(Math.abs(Math.sin(4 * seconds)) * 0.8, 9);
+    expect(bossHop(seconds, true, false)).toBeGreaterThan(0);
+  });
+
+  it("落ち着く前と、動きを減らす設定では、はねない（高さ 0）", () => {
+    for (const seconds of [0.1, 0.3, 0.7]) {
+      expect(bossHop(seconds, false, false)).toBe(0);
+      expect(bossHop(seconds, true, true)).toBe(0);
+    }
   });
 });

@@ -6,7 +6,7 @@ import * as THREE from "three";
 import { BOSS, LOOK, ROVER, SIM, STAGE5 } from "../config";
 import { bossAt, friendAvailable, rocksAt, type Stage5State } from "../core/stage5";
 import { friendStarPositions, jumpPads, pathPoint, starPositions } from "../core/stage5Layout";
-import { bossColor, bossMouth, bossPuff, type Mouth } from "./bossLook";
+import { bossColor, bossHop, bossMouth, bossPuff, type Mouth } from "./bossLook";
 import { type Look, setGroundUv1, setPlaneUvMeters } from "./look";
 
 const GROUND_SIZE = STAGE5.boundsHalfSize * 2 + 160;
@@ -269,7 +269,7 @@ export const createStage5View = (): Stage5View => {
       // ボス：位置・色・口・前ぶれのふくらみ。落ち着いたら、はねる（動きを減らす設定でははねない）
       const b = bossAt(state);
       const calmNow = state.finishTick !== null;
-      const hop = calmNow && !reducedMotion ? Math.abs(Math.sin(seconds * 4)) * 0.8 : 0;
+      const hop = bossHop(seconds, calmNow, reducedMotion);
       boss.position.set(b.x, hop, b.z);
       // 体の前（目のある −Z）を、ローバー（子ども）へ向ける。どこから近づいても顔が見える（見た目だけ）
       boss.rotation.y = Math.atan2(-(state.rover.x - b.x), -(state.rover.z - b.z));

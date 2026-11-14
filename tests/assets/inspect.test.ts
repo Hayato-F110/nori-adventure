@@ -335,11 +335,12 @@ describe("街のモデル（ASSET.city）", () => {
 
   // 初見レビュー R1-70-8：検査は assets:import のときにしか動かないので、リポジトリに入っている本物の GLB を CI でも毎回かける
   it.each(ASSET.city.variants)(
-    "本物の public/models/%s.glb は、街の決まり（大きさ・素材の名前など）で問題0",
+    "本物の public/models/%s.glb は、glTF-Validator のエラー 0、街の決まり（大きさ・素材の名前など）で問題0",
     async (name) => {
       const glb = new Uint8Array(
         readFileSync(path.resolve(import.meta.dirname, `../../public/models/${name}.glb`)),
       );
+      expect((await validateGlb(glb)).errors).toBe(0);
       expect(await problemsOf(glb, name)).toEqual([]);
     },
   );

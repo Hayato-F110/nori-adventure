@@ -231,7 +231,9 @@ test("ステージ5：運転役が道すじを走り、なかよしの星をボ�
   expect(times.confetti, JSON.stringify(times)).toBe(0);
   await expect(page.locator("#confetti")).toBeHidden();
   const waited = (times.ending - times.finish) / 1000;
-  // 下限：3 秒 − 画面の更新 1 回分（初見レビュー R1-70-2）。上限：3 + 1 秒（遅い CI でも画面の更新は 1 秒より短い）
+  // 下限：3 秒 − 画面の更新 1 回分（初見レビュー R1-70-2）。上限：3 + 1 秒。
+  // その前提として、画面の更新の間隔は 1 秒より短いことを確かめる（CI は約 3 fps で約 333 ミリ秒。初見レビュー R2-70-3）
+  expect(times.maxFrame, JSON.stringify(times)).toBeLessThan(1000);
   expect(waited, JSON.stringify(times)).toBeGreaterThanOrEqual(
     BOSS.endingDelaySeconds - times.maxFrame / 1000,
   );
@@ -248,7 +250,7 @@ test("ステージ5：運転役が道すじを走り、なかよしの星をボ�
   });
   testInfo.annotations.push({
     type: "ステージ5のクリア",
-    description: `クリア ${((state?.finishTick ?? 0) / 60).toFixed(1)} 秒、ほし ${state?.stars.filter(Boolean).length ?? 0} / ${state?.stars.length ?? 0}、復活 ${state?.respawns ?? -1} 回、エンディングまで ${waited.toFixed(2)} 秒`,
+    description: `クリア ${((state?.finishTick ?? 0) / 60).toFixed(1)} 秒、ほし ${state?.stars.filter(Boolean).length ?? 0} / ${state?.stars.length ?? 0}、復活 ${state?.respawns ?? -1} 回、エンディングまで ${waited.toFixed(2)} 秒、画面の更新の間隔のいちばん長いもの ${times.maxFrame.toFixed(0)} ミリ秒`,
   });
   await page.screenshot({ path: testInfo.outputPath("stage5-ending.png") });
   expect(errors).toEqual([]);

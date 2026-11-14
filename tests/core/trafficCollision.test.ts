@@ -305,11 +305,15 @@ describe("ほかの車は、動いて子どもの車に食いこまない（NORI
     const s0 = traffic.initial();
     const s1 = traffic.step(s0, pointNear(5, 2.5), dt);
     expect(s1.vehicles[0]?.speed).toBeLessThan(TRAFFIC.speed); // ブレーキがかかった
-    return (s1.vehicles[0]?.s ?? 0) - (s0.vehicles[0]?.s ?? 0);
+    const moved = (s1.vehicles[0]?.s ?? 0) - (s0.vehicles[0]?.s ?? 0);
+    expect(moved).toBeGreaterThan(0); // 初見レビュー R2-70-6
+    return moved;
   })();
   const stepOnce = (child: { x: number; z: number }) => {
     const s0 = traffic.initial();
     const s1 = traffic.step(s0, child, dt);
+    // 置いた所は止まる範囲（前 10 m・左右 3 m）の中で、ブレーキがかかる（m を測った所と同じ。初見レビュー R2-70-6）
+    expect(traffic.step(s0, child, dt).vehicles[0]?.speed ?? 0).toBeLessThan(TRAFFIC.speed);
     return { stopped: s1.vehicles[0]?.s === s0.vehicles[0]?.s && s1.vehicles[0]?.speed === 0 };
   };
 
