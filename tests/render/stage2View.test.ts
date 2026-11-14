@@ -9,6 +9,33 @@ import { createStage2View, RAIL_TOP } from "../../src/render/stage2View";
 const game = createStage2Game();
 const newView = () => createStage2View(game.track, game.stations);
 
+// NORI-74 の一覧 2：「線路の左」を、実装（rightOf・offsetOnTrack）と別の式で確かめる。
+// 進む向き f は線路の点の差、左は「上 × f」＝ (f.z, 0, −f.x)。今のテスト（下）は期待値も offsetOnTrack で作るので、
+// 左右の約束が両方そろって逆になっても通ってしまう（初見レビュー 74-1・R2-74-1）
+describe("すれ違う電車は進む向きの左（NORI-74）", () => {
+  it("1周を 4 m おきに、すれ違う電車が進む向きの左へ STAGE2.passingOffset 離れている（許す差 1e-6。計算は一覧の計算の節）", () => {
+    const view = newView();
+    const state = game.initial();
+    const track = game.track;
+    const ticksPer4m = 4 / (STAGE2.passingSpeed / 60);
+    const lap = Math.ceil(track.length / 4);
+    for (let i = 0; i < lap; i++) {
+      const tick = i * ticksPer4m;
+      view.update(state, 0, true, tick);
+      const s = passingTrainDistance(track.length, tick);
+      const back = track.pointAt(s - 0.01 < 0 ? s - 0.01 + track.length : s - 0.01);
+      const ahead = track.pointAt(s + 0.01 >= track.length ? s + 0.01 - track.length : s + 0.01);
+      const fx = ahead.x - back.x;
+      const fz = ahead.z - back.z;
+      const n = Math.hypot(fx, fz);
+      const left = { x: fz / n, z: -fx / n };
+      const p = track.pointAt(s);
+      const dot = (view.passing.position.x - p.x) * left.x + (view.passing.position.z - p.z) * left.z;
+      expect(Math.abs(dot - STAGE2.passingOffset), `s = ${s.toFixed(1)} m`).toBeLessThan(1e-6);
+    }
+  });
+});
+
 describe("ステージ2の景色（NORI-59）", () => {
   it("すれ違う電車は、時刻どおりに線路の左 STAGE2.passingOffset を逆向きに置く", () => {
     const view = newView();

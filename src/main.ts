@@ -86,7 +86,10 @@ declare global {
       /** ステージ2で Blender の山・駅に差しかえた数（NORI-59） */
       landmarks?: () => { mountains: number; stations: number };
       /** ステージ2のすれ違う電車の今の位置（NORI-59） */
-      passingTrain?: () => { x: number; y: number; z: number };
+      /** すれ違う電車：描いた位置と、そのとき使った刻み（小数）と線路の上の距離（NORI-74） */
+      passingTrain?: () => { x: number; y: number; z: number; tick: number; distance: number };
+      /** すれ違う電車の形：箱か、ふつうの電車の GLB か（NORI-74） */
+      passingModel?: "box" | "glb";
       /** ステージ3の空の景色（NORI-60）：数と、ほかの飛行機の形（"glb" は自作の plane.glb の色違い） */
       skyScenery?: () => {
         planes: number;

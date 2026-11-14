@@ -88,6 +88,10 @@ export type Stage2View = {
   usePassingModel(model: THREE.Object3D): void;
   /** すれ違う電車（E2E・テスト用） */
   readonly passing: THREE.Group;
+  /** すれ違う電車を最後に置いたときの刻み（小数）と線路の上の距離（NORI-74。読むときに計算し直さず、置いた値をそのまま返す） */
+  readonly passingAt: { readonly tick: number; readonly distance: number };
+  /** すれ違う電車の形：最初は箱、usePassingModel のあとは GLB（NORI-74。E2E が差しかえを確かめる） */
+  readonly passingModel: "box" | "glb";
   /**
    * Blender の山（mountain-a・b・c）と駅（station）を渡す（NORI-59）。読めたものだけ差しかえる。
    * 山は単位の形（底の半径 1・高さ 1）を今の円すいの大きさに引き伸ばす。高い山（60 m より上）は雪のある c
@@ -342,19 +346,27 @@ export const createStage2View = (
   passing.name = "passing-train";
   passing.add(createPassingBox());
   root.add(passing);
+  const passingAt = { tick: 0, distance: 0 };
   const placePassing = (tick: number) => {
     const s = passingTrainDistance(track.length, tick);
+    passingAt.tick = tick;
+    passingAt.distance = s;
     passing.position.copy(offsetPoint(track, s, -STAGE2.passingOffset, RAIL_TOP));
     // 逆向きに走るので、線路の向きの反対を向く。坂の向きも反対
     passing.rotation.set(-Math.atan(track.slopeAt(s)), track.headingAt(s) + Math.PI, 0, "YXZ");
   };
   placePassing(0);
+  let passingModel: "box" | "glb" = "box";
 
   return {
+    get passingModel() {
+      return passingModel;
+    },
     root,
     markers,
     trees,
     passing,
+    passingAt,
     landmarks,
     useLandmarks({ mountains, station }) {
       // 1回だけ差しかえる（2回呼ばれても、同じ山を重ねない）
@@ -407,6 +419,7 @@ export const createStage2View = (
       });
       passing.clear();
       passing.add(copy);
+      passingModel = "glb";
     },
     applyLook(look) {
       for (const swap of swaps) swap.mesh.material = look === null ? swap.plain : swap.pick(look);
