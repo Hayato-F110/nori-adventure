@@ -25,7 +25,15 @@ const ready = async (page: Page) => {
   await page.waitForFunction(() => window.__nori?.look !== "loading", undefined, { timeout: 60_000 });
 };
 
-type Name = "star" | "path" | "pad" | "friend" | "ground";
+/** 今の刻みから n 刻み進むまで待つ（実際の時間で待たない） */
+const waitTicks = async (page: Page, n: number) => {
+  const from = await page.evaluate(() => window.__nori?.rover?.()?.tick ?? 0);
+  await page.waitForFunction((t) => (window.__nori?.rover?.()?.tick ?? 0) >= t, from + n, {
+    timeout: 60_000,
+  });
+};
+
+type Name = "star" | "path" | "pad" | "sand" | "friend" | "ground";
 const screenPoints = (page: Page, names: Name[]) =>
   page.evaluate((names) => {
     const m = window.__nori?.moonMarker?.();
@@ -46,19 +54,30 @@ const expectOnScreen = (page: Page, points: { x: number; y: number }[]) => {
   }
 };
 
-test("ステージ5の見た目：スタートで、ほし・ジャンプ台が道より目立つ", async ({ page }, testInfo) => {
+test("ステージ5の見た目：スタートで、ほし・ジャンプ台がまわりの月の砂より目立つ", async ({
+  page,
+}, testInfo) => {
   test.setTimeout(120_000);
   const errors = watchErrors(page);
   await ready(page);
-  await page.waitForTimeout(800);
-  const points = await screenPoints(page, ["star", "path", "pad"]);
+  // NORI-70（初見レビュー 29-54）：実際の 0.8 秒でなく、ゲームの 90 刻み待つ（ステージ2の見た目と同じ。カメラが落ち着くまで）
+  await waitTicks(page, 90);
+  // ルールは、ほし・台を「まわりの月の砂」と比べる（計算：ほしと砂 4.59、台と砂 4.20）。前は道と比べていた
+  // （道は砂より暗いので、比が大きく出て通りやすい。NORI-70：初見レビュー R1-70-1）。道との比は記録にだけ残す
+  const points = await screenPoints(page, ["star", "path", "pad", "sand"]);
   expectOnScreen(page, points);
   const shot = await attachShot(page, testInfo, "stage5-start");
-  const [, path = 0] = await luminanceAt(page, points, shot);
+  const [, path = 0, , sand = 0] = await luminanceAt(page, points, shot);
   // ほし・台は小さく見えるので、読んだ点のまわり 6 px でいちばん明るいところを測る
   const star = await peakLuminanceAt(page, points[0] ?? { x: 0, y: 0 }, 6, shot);
   const pad = await peakLuminanceAt(page, points[2] ?? { x: 0, y: 0 }, 6, shot);
-  const result = { star: ratio(star, path), pad: ratio(pad, path), points };
+  const result = {
+    star: ratio(star, sand),
+    pad: ratio(pad, sand),
+    starToPath: ratio(star, path),
+    padToPath: ratio(pad, path),
+    points,
+  };
   await testInfo.attach("contrast", { body: JSON.stringify(result), contentType: "application/json" });
   expect(result.star, JSON.stringify(result)).toBeGreaterThanOrEqual(MIN_CONTRAST);
   expect(result.pad, JSON.stringify(result)).toBeGreaterThanOrEqual(MIN_CONTRAST);
@@ -91,7 +110,8 @@ test("ステージ5の見た目：広場の入口で、なかよしの星が砂�
     undefined,
     { timeout: 200_000, polling: 500 },
   );
-  await page.waitForTimeout(800);
+  // NORI-70（初見レビュー 29-54）：止まってから、実際の 0.8 秒でなくゲームの 90 刻み待つ。早送りはしない（画質の自動の切り替えを変えないため）
+  await waitTicks(page, 90);
   const points = await screenPoints(page, ["friend", "ground"]);
   expectOnScreen(page, points);
   const shot = await attachShot(page, testInfo, "stage5-arena");

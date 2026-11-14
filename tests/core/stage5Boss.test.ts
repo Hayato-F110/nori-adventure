@@ -89,6 +89,15 @@ describe("なかよしの星", () => {
     expect(friendAvailable(run(away, NONE, ticks(BOSS.friendStarRespawnSeconds)), 0)).toBe(true);
   });
 
+  // NORI-70（初見レビュー 29-36・R2-29-29）：ルール「なかよしの星を取る距離 2 m（ほしと同じ。高さも含めた距離）」。
+  // 星は高さ 1 m なので、地面のローバーとは横に √(2² − 1²) ≈ 1.732 m がちょうど 2 m
+  it("取る距離 2 m の境目：横に 1.70 m（合わせて約 1.97 m）なら取り、1.76 m（約 2.02 m）なら取らない", () => {
+    const star = friendStarPositions()[4];
+    if (star === undefined) throw new Error("星がない");
+    expect(game.step(at(star.x + 1.7, star.z), NONE).carrying).toBe(true);
+    expect(game.step(at(star.x + 1.76, star.z), NONE).carrying).toBe(false);
+  });
+
   it("持っている間は、ほかの星を取らない", () => {
     const star = friendStarPositions()[2];
     if (star === undefined) throw new Error("星がない");
@@ -169,6 +178,26 @@ describe("届ける", () => {
     expect(bossAt(later)).toEqual(bossAt(s));
     expect(rocksAt(later)).toEqual([]);
   });
+
+  // NORI-70（初見レビュー R2-29-40。11/13 オーナーの決定）：ルール「ゴール … そのあとは入力を受け付けず、手を離したときと同じ減速で止まる」
+  it("クリアのあとは ▶・ハンドルを受け付けず、手を離したときと同じ 2 m/s² で遅くなる", () => {
+    const t = 600;
+    const p = nearBoss(t, BOSS.deliverRadius - 0.5);
+    const start = at(p.x, p.z, t, { carrying: true, calm: BOSS.calmPoints - 1 });
+    // ボスから外へ向けて走らせる（ボスに当たって 0.3 倍にならないように。前は (−sin, −cos)）
+    const b = bossPosition(t + 1);
+    const heading = Math.atan2(-(p.x - b.x), -(p.z - b.z));
+    const moving = { ...start, rover: { ...start.rover, speed: 5, heading } };
+    const cleared = game.step(moving, NONE);
+    expect(cleared.finishTick).toBe(t + 1);
+    const pushed = run(cleared, { throttle: 1, steer: 1 }, 60);
+    const coasted = run(cleared, NONE, 60);
+    expect(pushed.rover).toEqual(coasted.rover);
+    // ◀（ブレーキ・後退）と左のハンドルも受け付けない（初見レビュー R1-70-5）
+    expect(run(cleared, { throttle: -1, steer: -1 }, 60).rover).toEqual(coasted.rover);
+    expect(pushed.rover.speed).toBeCloseTo(cleared.rover.speed - ROVER.coastDeceleration, 9);
+    expect(pushed.rover.heading).toBe(cleared.rover.heading);
+  });
 });
 
 describe("岩", () => {
@@ -189,6 +218,81 @@ describe("岩", () => {
     const life = ticks((STAGE5.arenaRadius - r0) / BOSS.rockSpeed);
     expect(rocksAt(at(0, 0, launch + life))).toHaveLength(1);
     expect(rocksAt(at(0, 0, launch + life + 1))).toEqual([]);
+  });
+
+  // NORI-70（初見レビュー 29-40・R2-29-33）：2回目以降も同じ決まり（10・15 秒に、そのときのボスの向きへ）
+  it.each([2, 3])("%d 回目の岩も、5 秒おきに、そのときの中心 → ボスの向きへ出る", (k) => {
+    const launch = k * ticks(BOSS.rockInterval);
+    const r0 = BOSS.orbitRadius + BOSS.radius + BOSS.rockRadius;
+    expect(rocksAt(at(0, 0, launch - 1))).toEqual([]); // 前の岩は消え、次はまだ
+    const rock = rocksAt(at(0, 0, launch))[0];
+    const b = bossPosition(launch);
+    expect(rock?.x).toBeCloseTo(C.x + Math.cos(b.angle) * r0, 9);
+    expect(rock?.z).toBeCloseTo(C.z + Math.sin(b.angle) * r0, 9);
+  });
+
+  // NORI-70（初見レビュー R2-29-34）：岩の位置の関数だけでなく、ゲームを進めて（step）確かめる
+  it("ゲームを 1 秒進めた岩は、出た刻みの中心 → ボスの向きにあり、ローバーの場所・動きで変わらない", () => {
+    const launch = ticks(BOSS.rockInterval);
+    // 2台は広場の中心の左右（x の正と負）に置く（同じ側だと、場所で向きを変える実装を見のがす）
+    const a = run(at(30, 60), { throttle: 1, steer: 0 }, launch + 60);
+    expect(a.rover.x).toBeGreaterThan(0);
+    const b = run(at(-40, -80), { throttle: 1, steer: 1 }, launch + 60);
+    expect(a.tick).toBe(launch + 60);
+    const rock = rocksAt(a)[0];
+    if (rock === undefined) throw new Error("岩がない");
+    expect(rocksAt(b)).toEqual(rocksAt(a));
+    const angle = bossPosition(launch).angle;
+    expect(Math.atan2(rock.z - C.z, rock.x - C.x)).toBeCloseTo(
+      Math.atan2(Math.sin(angle), Math.cos(angle)),
+      9,
+    );
+  });
+
+  // NORI-70（初見レビュー R2-29-37）：ルール「中心どうしが 2 m より近いと当たる。押し戻さない。そのあと 2 秒は当たらない」
+  it("岩の当たる距離 2 m の境目、押し戻さないこと、2 秒たつとまた当たること", () => {
+    const t = ticks(BOSS.rockInterval) + 60;
+    const rock = rocksAt(at(0, 0, t + 1))[0];
+    if (rock === undefined) throw new Error("岩がない");
+    const contact = BOSS.rockRadius + ROVER.collisionRadius;
+    // 止まったまま、岩の中心から +X へ d m に置く（止まっているので、ローバーは動かない）
+    const near = (d: number, tick = t, extra: Partial<Stage5State> = {}) =>
+      at(rock.x + d, rock.z, tick, extra);
+    const moving = (s: Stage5State) => ({ ...s, rover: { ...s.rover, speed: 2 } });
+    expect(game.step(moving(near(contact - 0.01)), NONE).rockImmuneTicks).toBe(
+      ticks(BOSS.rockInvincibleSeconds),
+    );
+    expect(game.step(moving(near(contact + 0.01)), NONE).rockImmuneTicks).toBe(0);
+    // 高さの境目（初見レビュー R1-70-6）：その刻みで動いたあとの高さが岩の高さ 2 m より低ければ当たり、ちょうど 2 m なら当たらない。
+    // 空中は放物線で、1刻みに 0.5 × 重力 × 刻み² だけ下がるので、その分だけ高く置く
+    const drop = 0.5 * ROVER.gravity * SIM.fixedDt * SIM.fixedDt;
+    const airborne = (yAfter: number) => {
+      const s = near(0.5);
+      return { ...s, rover: { ...s.rover, y: yAfter + drop, vy: 0 } };
+    };
+    const low = game.step(airborne(2 * BOSS.rockRadius - 0.05), NONE);
+    expect(low.rover.y).toBeCloseTo(2 * BOSS.rockRadius - 0.05, 9);
+    expect(low.rockImmuneTicks).toBe(ticks(BOSS.rockInvincibleSeconds));
+    const high = game.step(airborne(2 * BOSS.rockRadius), NONE);
+    expect(high.rover.y).toBeCloseTo(2 * BOSS.rockRadius, 9);
+    expect(high.rockImmuneTicks).toBe(0);
+    // 押し戻さない：止まっていれば、重なったままの場所にいる
+    const hit = game.step(near(0.5), NONE);
+    expect(hit.rockImmuneTicks).toBeGreaterThan(0);
+    expect([hit.rover.x, hit.rover.z]).toEqual([rock.x + 0.5, rock.z]);
+    // 2 秒のあと：残りが 0 になった次の刻みに、また岩の中にいれば当たる
+    const later = rocksAt(at(0, 0, t + 1 + ticks(BOSS.rockInvincibleSeconds) + 1))[0];
+    if (later === undefined) throw new Error("岩がない");
+    const again = game.step(
+      at(later.x, later.z, t + ticks(BOSS.rockInvincibleSeconds) + 1, { rockImmuneTicks: 0 }),
+      NONE,
+    );
+    expect(again.rockImmuneTicks).toBe(ticks(BOSS.rockInvincibleSeconds));
+    const stillImmune = game.step(
+      at(later.x, later.z, t + ticks(BOSS.rockInvincibleSeconds) + 1, { rockImmuneTicks: 1 }),
+      NONE,
+    );
+    expect(stillImmune.rockImmuneTicks).toBe(0);
   });
 
   it("一度に転がっている岩は 1 つだけ。ローバーの場所を変えても、岩の動きは同じ", () => {

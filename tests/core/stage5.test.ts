@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { RESPAWN, ROVER, SIM, STAGE5 } from "../../src/config";
+import { CAR, RESPAWN, ROVER, SIM, STAGE5 } from "../../src/config";
 import { runReplay } from "../../src/core/replay";
 import { createStage5Game, type Stage5State } from "../../src/core/stage5";
 import { jumpPads, nearestPathD, pathPoint, starPositions } from "../../src/core/stage5Layout";
@@ -51,6 +51,24 @@ describe("ローバーの動き", () => {
     const next = game.step(s, { throttle: 1, steer: 1 });
     expect((s.rover.heading - next.rover.heading) / dt).toBeCloseTo(ROVER.maxTurnRate, 3);
   });
+
+  // NORI-70（初見レビュー 29-2・R2-29-1）：ルール「曲がり方も車と同じ（4 m/s より遅いと曲がりにくい、効き始めの速さ 6 /s）」
+  it("4 m/s より遅いと曲がりにくい：2 m/s では 1.6 × (速さ ÷ 4) rad/s", () => {
+    const s0 = at(0, 50, 0, 2);
+    const s = { ...s0, rover: { ...s0.rover, steer: 1 } }; // ハンドルはもう効ききっている
+    const next = game.step(s, { throttle: 0, steer: 1 });
+    const v = next.rover.speed; // 手を離して 2 − 2/60 m/s
+    expect(v).toBeLessThan(CAR.fullTurnSpeed);
+    expect((s.rover.heading - next.rover.heading) / dt).toBeCloseTo(
+      ROVER.maxTurnRate * (v / CAR.fullTurnSpeed),
+      9,
+    );
+  });
+
+  it("ハンドルは 6 /s で効き始める：まっすぐから1刻みで 6 × 1/60 ＝ 0.1 だけ切れる", () => {
+    const next = game.step(at(0, 50, 0, 8), { throttle: 0, steer: 1 });
+    expect(next.rover.steer).toBeCloseTo(CAR.steerResponse * dt, 9);
+  });
 });
 
 /** ジャンプ台 k の中心に、台の向きで、速さ v で置く */
@@ -86,6 +104,34 @@ describe("ジャンプ", () => {
     const s = run(onPad(0, 0.5), NONE, 60);
     expect(s.rover.y).toBe(0);
     expect(s.rover.vy).toBe(0);
+  });
+
+  // NORI-70（初見レビュー 29-10・29-11・R2-29-9）：ルール「ジャンプが起きるとき」（1 m/s 以上・半径 2.5 m の円の中・地面にいる）
+  // 手を離して置くと、その刻みの速さは v − 2/60。跳ぶかは、その刻みで動いたあとの速さと場所で決まる
+  it("速さの境目：その刻みの速さがちょうど 1 m/s なら跳び、それより少し遅いと跳ばない", () => {
+    const coast = ROVER.coastDeceleration * dt;
+    expect(game.step(onPad(0, ROVER.jumpMinSpeed + coast), NONE).rover.vy).toBe(ROVER.jumpSpeed);
+    expect(game.step(onPad(0, ROVER.jumpMinSpeed + coast - 0.01), NONE).rover.vy).toBe(0);
+    expect(game.step(onPad(0, 1.5), NONE).rover.vy).toBe(ROVER.jumpSpeed); // 1〜2 m/s の間
+  });
+
+  it("台の半径の境目：中心から 2.45 m（円の中）なら跳び、2.55 m（円の外）なら跳ばない", () => {
+    const pad = jumpPads()[0];
+    if (pad === undefined) throw new Error("台がない");
+    // 台の向きに対して真横へずらし、台の向きに 2 m/s で進む（1刻みで横の距離は変わらない）
+    const side = (r: number) =>
+      at(pad.x + Math.cos(pad.heading) * r, pad.z - Math.sin(pad.heading) * r, pad.heading, 2);
+    expect(game.step(side(STAGE5.jumpPadRadius - 0.05), NONE).rover.vy).toBe(ROVER.jumpSpeed);
+    expect(game.step(side(STAGE5.jumpPadRadius + 0.05), NONE).rover.vy).toBe(0);
+  });
+
+  it("空中で台の上を通っても、跳び直さない（上向きの速さが足されない）", () => {
+    const pad = jumpPads()[1];
+    if (pad === undefined) throw new Error("台がない");
+    const s = { ...onPad(1, 8), rover: { ...onPad(1, 8).rover, y: 1, vy: -1 } };
+    const next = game.step(s, GO);
+    expect(next.rover.vy).toBeCloseTo(-1 - ROVER.gravity * dt, 9);
+    expect(Math.hypot(next.rover.x - pad.x, next.rover.z - pad.z)).toBeLessThan(STAGE5.jumpPadRadius);
   });
 
   it("後ろ向きに進んでいても跳ばない", () => {
@@ -133,7 +179,7 @@ describe("当たったとき", () => {
     expect(touchingAfter).toBeGreaterThan(0); // 触れ続けた刻みを本当に通った
   });
 
-  it("空中で岩の高さより上なら当たらない", () => {
+  it("空中で岩の高さ以上なら当たらない", () => {
     let s = facingRock(8, rock.radius + 0.9);
     s = run(s, GO, 15);
     expect(Math.hypot(s.rover.x - rock.x, s.rover.z - rock.z)).toBeLessThan(contact);
@@ -169,13 +215,39 @@ describe("ほし", () => {
     return s.stars.slice(from, from + STAGE5.airStars.length).filter(Boolean).length;
   };
 
+  // NORI-70（初見レビュー 29-25）：前は ▶ を押したまま台に置いたので、跳んだ速さが 6.07・4.07 m/s だった。
+  // 跳んだ刻みの速さがちょうど v になるように置く（▶ で 1 刻みに 4/60 m/s 速くなる）。台 0・1 の両方で
   it.each([
-    [8, 3],
-    [6, 3],
-    [4, 1],
-  ])("%d m/s で台から跳ぶと、空中のほしが %d 個取れる", (v, n) => {
-    const s = run(onPad(0, v), GO, 300);
-    expect(airStars(s, 0)).toBe(n);
+    [0, 8, 3],
+    [0, 6, 3],
+    [0, 4, 1],
+    [1, 8, 3],
+    [1, 6, 3],
+    [1, 4, 1],
+  ])("台 %d から %d m/s で跳ぶと、空中のほしが %d 個取れる", (pad, v, n) => {
+    const start = onPad(pad, v - ROVER.acceleration * dt);
+    const first = game.step(start, GO);
+    expect(first.rover.vy).toBe(ROVER.jumpSpeed);
+    expect(first.rover.speed).toBeCloseTo(v, 9);
+    const s = run(first, GO, 300);
+    expect(airStars(s, pad)).toBe(n);
+  });
+
+  // NORI-70（初見レビュー 29-26）：ルール「ほしを取る距離 2 m（高さも含めた距離）」
+  it("ほしを取る距離は高さを含む：横に 1.5 m・高さ 1.5 m（合わせて 2.12 m）では取れない", () => {
+    const star = starPositions()[0];
+    if (star === undefined) throw new Error("ほしがない");
+    expect(star.y).toBe(0);
+    const high = game.step(
+      { ...at(star.x + 1.5, star.z), rover: { ...at(star.x + 1.5, star.z).rover, y: 1.5, vy: 0.1 } },
+      NONE,
+    );
+    expect(high.stars[0]).toBe(false);
+    const low = game.step(
+      { ...at(star.x + 1.5, star.z), rover: { ...at(star.x + 1.5, star.z).rover, y: 1.2, vy: 0.1 } },
+      NONE,
+    );
+    expect(low.stars[0]).toBe(true); // 合わせて約 1.9 m
   });
 
   it("ほしは 2 m 以内で取れ、1 回だけ数える", () => {

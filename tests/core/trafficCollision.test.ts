@@ -6,6 +6,7 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { ASSET, CAR, PHYSICS, SIM, STAGE1, TRAFFIC } from "../../src/config";
 import { createCarState } from "../../src/core/car";
+import { trafficShapes } from "../../src/core/game";
 import { createCarPhysics, type CarPhysics, type MoverShape } from "../../src/core/physics";
 import { createStage1Layout } from "../../src/core/stage1Layout";
 import { createTraffic } from "../../src/core/traffic";
@@ -124,6 +125,82 @@ describe("ほかの車・人にぶつかったとき（建物と同じ扱い）"
   });
 });
 
+// NORI-70（初見レビュー 61-3・61-28・R2-61-2・R2-61-30）：上の節はテスト用の手作りの形（バスと人だけ）。
+// ここはゲームと同じ形（trafficShapes）で、自転車・バイク（半径 0.6 m）と、「30% は当たった瞬間だけ」を確かめる
+describe("ゲームと同じ当たりの形（NORI-70）", () => {
+  const traffic = createTraffic(TRAFFIC, ASSET.city.sizes, STAGE1.route, CAR.collisionRadius);
+  const first = traffic.initial();
+  const shapes = trafficShapes(first);
+  const nVehicles = TRAFFIC.vehicles.length;
+  const nBikes = first.bikes.length;
+  let game: CarPhysics;
+  beforeAll(async () => {
+    game = await createCarPhysics(createStage1Layout(STAGE1), PHYSICS, CAR.collisionRadius, shapes);
+  });
+  /** 動く物の位置：k 番目だけ pose に置き、ほかは遠く */
+  const only = (k: number, pose: Pose2D): Pose2D[] => shapes.map((_, i) => (i === k ? pose : away));
+
+  it("形は traffic.poses と同じ順・同じ数。車はモデルの幅・長さの箱、自転車・バイクは 0.6 m、人は 0.4 m の円", () => {
+    const poses = traffic.poses(first);
+    expect(shapes).toHaveLength(poses.vehicles.length + poses.bikes.length + poses.people.length);
+    TRAFFIC.vehicles.forEach((v, i) => {
+      const size = ASSET.city.sizes[v.model];
+      expect(shapes[i]).toEqual({ kind: "box", halfWidth: size.width / 2, halfLength: size.length / 2 });
+    });
+    for (let i = 0; i < nBikes; i++) {
+      expect(shapes[nVehicles + i]).toEqual({ kind: "circle", radius: TRAFFIC.bikeRadius });
+    }
+    for (let i = nVehicles + nBikes; i < shapes.length; i++) {
+      expect(shapes[i]).toEqual({ kind: "circle", radius: TRAFFIC.personRadius });
+    }
+  });
+
+  it(`自転車・バイク（半径 ${TRAFFIC.bikeRadius} m）にも当たって止まり、重ならない`, () => {
+    const bike: Pose2D = { x: 0, z: -20, heading: 0 };
+    let s = start();
+    let minDistance = Infinity;
+    let touched = false;
+    for (let t = 0; t < Math.round(5 / dt); t++) {
+      s = game.step(s, GAS, dt, CAR, STAGE1, only(nVehicles, bike));
+      touched ||= s.touching;
+      minDistance = Math.min(minDistance, Math.hypot(s.x - bike.x, s.z - bike.z));
+    }
+    expect(minDistance).toBeGreaterThanOrEqual(CAR.collisionRadius + TRAFFIC.bikeRadius - SKIN);
+    expect(touched).toBe(true);
+  });
+
+  it(`横に止まったバスに触れたまま並んで走ると、速さが ${CAR.bumpSpeedFactor * 100}% になるのは触れた最初の刻みだけ`, () => {
+    const bus0 = TRAFFIC.vehicles.findIndex((v) => v.model === "bus");
+    const size = ASSET.city.sizes.bus;
+    // 子どもの車（x 0 を −z へ）の右に、同じ向きのバス。横のすき間は「触れている」と数える幅（touchMargin）の半分
+    const side: Pose2D = {
+      x: size.width / 2 + CAR.collisionRadius + PHYSICS.touchMargin / 2,
+      z: -15,
+      heading: 0,
+    };
+    let s: CarState = { ...start(), speed: 6 };
+    let firstTouch: { before: number; after: number } | null = null;
+    let touchingTicks = 0;
+    for (let t = 0; t < Math.round(3 / dt); t++) {
+      const before = s;
+      s = game.step(s, GAS, dt, CAR, STAGE1, only(bus0, side));
+      if (s.touching && !before.touching && firstTouch === null) {
+        firstTouch = { before: before.speed, after: s.speed };
+      } else if (s.touching && before.touching) {
+        touchingTicks++;
+        // 触れ続けている間は、もう落とさない（横に動けるので、加速して速くなる）
+        expect(s.speed).toBeGreaterThanOrEqual(before.speed - 1e-6);
+      }
+    }
+    expect(firstTouch).not.toBeNull();
+    expect(firstTouch?.after).toBeLessThanOrEqual(
+      (firstTouch?.before ?? 0) * CAR.bumpSpeedFactor + CAR.acceleration * dt + 1e-6,
+    );
+    expect(touchingTicks).toBeGreaterThan(10); // 本当に触れたまま並んで走った
+    expect(s.z).toBeLessThan(side.z - size.length / 2); // バスの横を通りぬけた
+  });
+});
+
 // NORI-63（docs/test-plans/NORI-63.md の 1〜3）：ほかの車は、次の刻みの位置で体（長さ × 幅）を
 // 「子どもの車の半径 ＋ TRAFFIC.overlapMargin」だけ広げた角の丸い四角に子どもの車の中心が入り、しかも今より近づくなら、
 // その刻みは進まない（離れていく・同じ距離のまま並んで進むときは止めない）
@@ -218,5 +295,44 @@ describe("ほかの車は、動いて子どもの車に食いこまない（NORI
     expect(minGap).toBeGreaterThanOrEqual(CAR.collisionRadius - SKIN);
     // 本当に当たった（前を通り過ぎただけで通るテストにしない。NORI-69 の2回目の初見レビュー）
     expect(touched).toBe(true);
+  });
+
+  // NORI-70（初見レビュー R2-63-2・R2-63-3）：1刻みだけ進めて、「その刻みは進まずに止まる」（s が変わらず速さ 0）かを見る。
+  // ふつうのブレーキ（前 10 m・左右 3 m）では、1刻みで速さは 0 にならず、s は進む。
+  // その刻みに進む距離 m は、式で作らず、実際に1刻み進めて測る（初見レビュー R1-70-12）。子どもの車を止まる範囲の中
+  // （前 5 m・中心線から 2.5 m。ブレーキはかかるが、体から 1.3 m より遠いので食いこみでは止めない）に置く。約 0.0978 m
+  const m = (() => {
+    const s0 = traffic.initial();
+    const s1 = traffic.step(s0, pointNear(5, 2.5), dt);
+    expect(s1.vehicles[0]?.speed).toBeLessThan(TRAFFIC.speed); // ブレーキがかかった
+    const moved = (s1.vehicles[0]?.s ?? 0) - (s0.vehicles[0]?.s ?? 0);
+    expect(moved).toBeGreaterThan(0); // 初見レビュー R2-70-6
+    return moved;
+  })();
+  const stepOnce = (child: { x: number; z: number }) => {
+    const s0 = traffic.initial();
+    const s1 = traffic.step(s0, child, dt);
+    // 置いた所は止まる範囲（前 10 m・左右 3 m）の中で、ブレーキがかかる（m を測った所と同じ。初見レビュー R2-70-6）
+    expect(traffic.step(s0, child, dt).vehicles[0]?.speed ?? 0).toBeLessThan(TRAFFIC.speed);
+    return { stopped: s1.vehicles[0]?.s === s0.vehicles[0]?.s && s1.vehicles[0]?.speed === 0 };
+  };
+
+  it("4. 角の丸い所：右前の角から斜め 45 度に、今は 1.3 m の外・次の刻みで内側になる所なら、その刻みは進まない", () => {
+    const a = keep / Math.SQRT2 + 0.02; // 角から前へ a・右へ a（今の距離 ≈ 1.328 m）
+    expect(Math.hypot(a, a)).toBeGreaterThan(keep);
+    expect(Math.hypot(a - m, a)).toBeLessThan(keep); // 次の刻み ≈ 1.26 m
+    expect(stepOnce(pointNear(a, size.width / 2 + a)).stopped).toBe(true);
+  });
+
+  it("5. 角の丸い所の外：右前の角から前へ 1.25 m・右へ 1.25 m（四角なら中、丸い角なら外の 1.70 m）なら止めない", () => {
+    const a = 1.25;
+    expect(Math.max(a - m, a)).toBeLessThan(keep); // 角の四角い形なら中に入る
+    expect(Math.hypot(a - m, a)).toBeGreaterThan(keep); // 角の丸い形では外
+    expect(stepOnce(pointNear(a, size.width / 2 + a)).stopped).toBe(false);
+  });
+
+  it(`6. 正面：次の刻みで体から ${keep} m の少し外（＋0.002 m）なら止めず、少し内（−0.002 m）なら止める（止まる位置が遠すぎない）`, () => {
+    expect(stepOnce(pointNear(keep + m + 0.002, 0)).stopped).toBe(false);
+    expect(stepOnce(pointNear(keep + m - 0.002, 0)).stopped).toBe(true);
   });
 });

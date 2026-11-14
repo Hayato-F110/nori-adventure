@@ -5,7 +5,7 @@ import { createCarState } from "./car";
 import { createCourseState, respawnPose, starPositions, stepCourse } from "./course";
 import { createCarPhysics, type MoverShape } from "./physics";
 import { createStage1Layout, type Stage1Layout } from "./stage1Layout";
-import { createTraffic, type Traffic } from "./traffic";
+import { createTraffic, type Traffic, type TrafficState } from "./traffic";
 import type { GameState, InputFrame } from "./types";
 
 export type Game = {
@@ -24,20 +24,28 @@ const NO_INPUT: InputFrame = { throttle: 0, steer: 0 };
 const stuckLimit = Math.round(RESPAWN.stuckSeconds / SIM.fixedDt);
 const invincibleLength = Math.round(RESPAWN.invincibleSeconds / SIM.fixedDt);
 
+/**
+ * 当たり判定の形：車は上から見た長方形（モデルの幅・長さ）、自転車・バイク・人は円（traffic.poses と同じ順）。
+ * テストが同じ形を使えるように外に出した（NORI-70：初見レビュー 61-3。前のテストは手作りの形だった）
+ */
+export const trafficShapes = (first: TrafficState): MoverShape[] => [
+  ...TRAFFIC.vehicles.map((v): MoverShape => {
+    const size = ASSET.city.sizes[v.model];
+    return { kind: "box", halfWidth: size.width / 2, halfLength: size.length / 2 };
+  }),
+  ...first.bikes.map((): MoverShape => ({ kind: "circle", radius: TRAFFIC.bikeRadius })),
+  ...first.people.map((): MoverShape => ({ kind: "circle", radius: TRAFFIC.personRadius })),
+];
+
 export const createGame = async (): Promise<Game> => {
   const layout = createStage1Layout(STAGE1);
   const traffic = createTraffic(TRAFFIC, ASSET.city.sizes, STAGE1.route, CAR.collisionRadius);
-  // 当たり判定の形：車は上から見た長方形（モデルの幅・長さ）、自転車・バイク・人は円（traffic.poses と同じ順）
-  const first = traffic.initial();
-  const shapes: MoverShape[] = [
-    ...TRAFFIC.vehicles.map((v): MoverShape => {
-      const size = ASSET.city.sizes[v.model];
-      return { kind: "box", halfWidth: size.width / 2, halfLength: size.length / 2 };
-    }),
-    ...first.bikes.map((): MoverShape => ({ kind: "circle", radius: TRAFFIC.bikeRadius })),
-    ...first.people.map((): MoverShape => ({ kind: "circle", radius: TRAFFIC.personRadius })),
-  ];
-  const physics = await createCarPhysics(layout, PHYSICS, CAR.collisionRadius, shapes);
+  const physics = await createCarPhysics(
+    layout,
+    PHYSICS,
+    CAR.collisionRadius,
+    trafficShapes(traffic.initial()),
+  );
   const stars = starPositions(STAGE1.route, STAGE1.starCount, STAGE1.starStart, STAGE1.starSpacing);
   return {
     layout,

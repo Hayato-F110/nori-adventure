@@ -20,6 +20,8 @@ export type GlbReport = {
   min: [number, number, number];
   max: [number, number, number];
   nodeNames: string[];
+  /** 面に使われている素材の名前（重なりなし。NORI-70） */
+  materials: string[];
   /** 名前 → 位置・回転（ゲームが動かすノードを調べるため） */
   nodes: Record<string, { translation: number[]; rotation: number[] }>;
   /** buffers・images にある URI（GLB の中だけで完結していれば空） */
@@ -36,6 +38,7 @@ const emptyReport = (bytes: number, parseError: string): GlbReport => ({
   min: [0, 0, 0],
   max: [0, 0, 0],
   nodeNames: [],
+  materials: [],
   nodes: {},
   uris: [],
   extensions: [],
@@ -111,6 +114,14 @@ export const inspectGlb = async (glb: Uint8Array): Promise<GlbReport> => {
     min: [minX, minY, minZ],
     max: [maxX, maxY, maxZ],
     nodeNames: nodeList.map((n) => n.getName()),
+    materials: [
+      ...new Set(
+        doc
+          .getRoot()
+          .listMeshes()
+          .flatMap((mesh) => mesh.listPrimitives().map((p) => p.getMaterial()?.getName() ?? "")),
+      ),
+    ].filter((name) => name !== ""),
     nodes: Object.fromEntries(
       nodeList.map((n) => [
         n.getName(),
@@ -150,6 +161,8 @@ type ShapeSpec = {
   size: { width: number; height: number; length: number };
   nodes: readonly string[];
   propellerAt?: "front" | "rear";
+  /** なければならない素材の名前（街のモデルのランプ・服。NORI-70） */
+  materials?: readonly string[];
 };
 
 const specOf = (kind: Exclude<AssetKind, "generic">): ShapeSpec => {
@@ -157,7 +170,9 @@ const specOf = (kind: Exclude<AssetKind, "generic">): ShapeSpec => {
   if (kind === "tree") return ASSET.tree;
   if (isSea(kind)) return { size: ASSET.sea.sizes[kind], nodes: ASSET.sea.nodes };
   if (isLandmark(kind)) return { size: ASSET.landmark.sizes[kind], nodes: ASSET.landmark.nodes };
-  if (isCity(kind)) return { size: ASSET.city.sizes[kind], nodes: ASSET.city.nodes };
+  if (isCity(kind)) {
+    return { size: ASSET.city.sizes[kind], nodes: ASSET.city.nodes, materials: ASSET.city.materials[kind] };
+  }
   return ASSET.vehicles[kind];
 };
 
@@ -232,6 +247,9 @@ const checkShape = (report: GlbReport, spec: ShapeSpec): string[] => {
     problems.push(
       `原点が車体の底の中心にない（底の高さ ${minY.toFixed(2)} m、中心 x ${cx.toFixed(2)}・z ${cz.toFixed(2)} m）`,
     );
+  }
+  for (const name of spec.materials ?? []) {
+    if (!report.materials.includes(name)) problems.push(`素材 ${name} がない`);
   }
   const missing = spec.nodes.filter((name) => !(name in report.nodes));
   for (const name of missing) problems.push(`ノード ${name} がない`);
