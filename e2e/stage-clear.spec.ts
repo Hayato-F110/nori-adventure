@@ -183,13 +183,19 @@ test("ステージ5：運転役が道すじを走り、なかよしの星をボ�
   // エンディングの 3 秒：ページの中で画面の更新ごとに、クリアを見た時刻とエンディングが出た時刻を残す
   // （エンディングの待ちは、ゲームの刻みでなく実際の時間で数える作り。総点検の B）
   await page.evaluate(() => {
-    const times: { finish: number | null; ending: number | null; confetti: number } = {
-      finish: null,
-      ending: null,
-      confetti: 0,
-    };
+    const times: {
+      finish: number | null;
+      ending: number | null;
+      confetti: number;
+      last: number | null;
+      maxFrame: number;
+    } = { finish: null, ending: null, confetti: 0, last: null, maxFrame: 0 };
     (window as unknown as { __endingTimes: typeof times }).__endingTimes = times;
     const watch = (now: number) => {
+      // 画面の更新の間隔のいちばん長いもの（クリアを見るのもエンディングを見るのも、更新1回分おくれることがある）
+      if (times.finish !== null && times.last !== null)
+        times.maxFrame = Math.max(times.maxFrame, now - times.last);
+      times.last = now;
       if (times.finish === null && window.__nori?.rover?.()?.finishTick !== null) times.finish = now;
       if (times.ending === null && document.getElementById("ending")?.hidden === false) times.ending = now;
       // 紙ふぶきは 3 秒で消えるので、エンディングのあとに見てもわからない。更新ごとに、出ていた回数を数える
@@ -212,18 +218,24 @@ test("ステージ5：運転役が道すじを走り、なかよしの星をボ�
   await expect(page.locator("#clear-next")).toBeHidden();
   await expect(page.locator("#clear-home")).toBeVisible();
   expect(await page.evaluate(() => window.__nori?.bossMouth?.())).toBe("smile");
-  // クリアを見てからエンディングが出るまで、3 秒以上（画面の更新 1 回分の遅れは許す）
+  // クリアを見てからエンディングが出るまで、3 秒（画面の更新 1 回分の遅れは許す）
   const times = await page.evaluate(
     () =>
-      (window as unknown as { __endingTimes: { finish: number; ending: number; confetti: number } })
-        .__endingTimes,
+      (
+        window as unknown as {
+          __endingTimes: { finish: number; ending: number; confetti: number; maxFrame: number };
+        }
+      ).__endingTimes,
   );
   // 動きを減らす設定なので、クリアからエンディングまでの間に、紙ふぶきは一度も出ない
   expect(times.confetti, JSON.stringify(times)).toBe(0);
   await expect(page.locator("#confetti")).toBeHidden();
   const waited = (times.ending - times.finish) / 1000;
-  expect(waited, JSON.stringify(times)).toBeGreaterThanOrEqual(BOSS.endingDelaySeconds - 0.5);
-  expect(waited, JSON.stringify(times)).toBeLessThan(BOSS.endingDelaySeconds + 5);
+  // 下限：3 秒 − 画面の更新 1 回分（初見レビュー R1-70-2）。上限：3 + 1 秒（遅い CI でも画面の更新は 1 秒より短い）
+  expect(waited, JSON.stringify(times)).toBeGreaterThanOrEqual(
+    BOSS.endingDelaySeconds - times.maxFrame / 1000,
+  );
+  expect(waited, JSON.stringify(times)).toBeLessThan(BOSS.endingDelaySeconds + 1);
   // クリアのあとの上の表示：ほしの数・メーター 5 つすべてに色・時間はクリアした刻みの秒（切り捨て）
   // 時間はクリアした刻みで止まる（いま読んだ刻みは関係ない）
   expect({ ...(await hud()), tick: 0 }).toEqual({

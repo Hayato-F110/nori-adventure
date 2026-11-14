@@ -299,8 +299,14 @@ describe("ほかの車は、動いて子どもの車に食いこまない（NORI
 
   // NORI-70（初見レビュー R2-63-2・R2-63-3）：1刻みだけ進めて、「その刻みは進まずに止まる」（s が変わらず速さ 0）かを見る。
   // ふつうのブレーキ（前 10 m・左右 3 m）では、1刻みで速さは 0 にならず、s は進む。
-  // その刻みに進む距離 m ＝（6 − 8/60）× 1/60 ≈ 0.0978 m（止まる範囲の中なのでブレーキがかかった速さで進む）
-  const m = (TRAFFIC.speed - TRAFFIC.braking * dt) * dt;
+  // その刻みに進む距離 m は、式で作らず、実際に1刻み進めて測る（初見レビュー R1-70-12）。子どもの車を止まる範囲の中
+  // （前 5 m・中心線から 2.5 m。ブレーキはかかるが、体から 1.3 m より遠いので食いこみでは止めない）に置く。約 0.0978 m
+  const m = (() => {
+    const s0 = traffic.initial();
+    const s1 = traffic.step(s0, pointNear(5, 2.5), dt);
+    expect(s1.vehicles[0]?.speed).toBeLessThan(TRAFFIC.speed); // ブレーキがかかった
+    return (s1.vehicles[0]?.s ?? 0) - (s0.vehicles[0]?.s ?? 0);
+  })();
   const stepOnce = (child: { x: number; z: number }) => {
     const s0 = traffic.initial();
     const s1 = traffic.step(s0, child, dt);

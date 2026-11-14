@@ -333,6 +333,17 @@ describe("街のモデル（ASSET.city）", () => {
     }
   });
 
+  // 初見レビュー R1-70-8：検査は assets:import のときにしか動かないので、リポジトリに入っている本物の GLB を CI でも毎回かける
+  it.each(ASSET.city.variants)(
+    "本物の public/models/%s.glb は、街の決まり（大きさ・素材の名前など）で問題0",
+    async (name) => {
+      const glb = new Uint8Array(
+        readFileSync(path.resolve(import.meta.dirname, `../../public/models/${name}.glb`)),
+      );
+      expect(await problemsOf(glb, name)).toEqual([]);
+    },
+  );
+
   it.each(required)("%s に素材 %s がないと止まる", async (name, material) => {
     const glb = await makeCityGlb(name, { omitMaterials: [material] });
     expect(await problemsOf(glb, name)).toContain(`素材 ${material} がない`);

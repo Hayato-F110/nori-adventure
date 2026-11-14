@@ -193,6 +193,8 @@ describe("届ける", () => {
     const pushed = run(cleared, { throttle: 1, steer: 1 }, 60);
     const coasted = run(cleared, NONE, 60);
     expect(pushed.rover).toEqual(coasted.rover);
+    // ◀（ブレーキ・後退）と左のハンドルも受け付けない（初見レビュー R1-70-5）
+    expect(run(cleared, { throttle: -1, steer: -1 }, 60).rover).toEqual(coasted.rover);
     expect(pushed.rover.speed).toBeCloseTo(cleared.rover.speed - ROVER.coastDeceleration, 9);
     expect(pushed.rover.heading).toBe(cleared.rover.heading);
   });
@@ -261,6 +263,19 @@ describe("岩", () => {
       ticks(BOSS.rockInvincibleSeconds),
     );
     expect(game.step(moving(near(contact + 0.01)), NONE).rockImmuneTicks).toBe(0);
+    // 高さの境目（初見レビュー R1-70-6）：その刻みで動いたあとの高さが岩の高さ 2 m より低ければ当たり、ちょうど 2 m なら当たらない。
+    // 空中は放物線で、1刻みに 0.5 × 重力 × 刻み² だけ下がるので、その分だけ高く置く
+    const drop = 0.5 * ROVER.gravity * SIM.fixedDt * SIM.fixedDt;
+    const airborne = (yAfter: number) => {
+      const s = near(0.5);
+      return { ...s, rover: { ...s.rover, y: yAfter + drop, vy: 0 } };
+    };
+    const low = game.step(airborne(2 * BOSS.rockRadius - 0.05), NONE);
+    expect(low.rover.y).toBeCloseTo(2 * BOSS.rockRadius - 0.05, 9);
+    expect(low.rockImmuneTicks).toBe(ticks(BOSS.rockInvincibleSeconds));
+    const high = game.step(airborne(2 * BOSS.rockRadius), NONE);
+    expect(high.rover.y).toBeCloseTo(2 * BOSS.rockRadius, 9);
+    expect(high.rockImmuneTicks).toBe(0);
     // 押し戻さない：止まっていれば、重なったままの場所にいる
     const hit = game.step(near(0.5), NONE);
     expect(hit.rockImmuneTicks).toBeGreaterThan(0);
