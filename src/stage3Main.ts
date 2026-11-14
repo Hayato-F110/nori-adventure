@@ -240,11 +240,22 @@ export const startStage3 = async (canvas: HTMLCanvasElement, hud: HTMLElement, s
   const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
   placeCamera(current.plane, 1);
   let lastTime = performance.now();
+  // E2E 用（NORI-71）：時間を止める（状態もカメラも進めず、描画だけ続ける。ステージ4と同じ作り）。
+  // FPS は止めている間も実際の時刻で数え続ける（自動の画質の切り替えが止まらないように）
+  let frozenAt: number | null = null;
+  if (window.__nori) {
+    window.__nori.freeze = (on: boolean) => {
+      frozenAt = on ? lastTime : null;
+    };
+  }
 
-  const frame = (now: number) => {
+  const frame = (realNow: number) => {
     // E2E の早送り（NORI-66）のときは、実際の時間によらず決まった刻みの分だけ進める
-    const frameSeconds = fastForward(SIM.fixedDt)?.frameSeconds ?? Math.min(0.25, (now - lastTime) / 1000);
-    lastTime = now;
+    const frameSeconds =
+      frozenAt === null
+        ? (fastForward(SIM.fixedDt)?.frameSeconds ?? Math.min(0.25, (realNow - lastTime) / 1000))
+        : 0;
+    if (frozenAt === null) lastTime = realNow;
     input = mergeInputs([keyboard.read(), touch.read(), ...gamepads.read()]);
     const { alpha } = stepper.advance(frameSeconds, () => {
       previous = current;
@@ -274,7 +285,7 @@ export const startStage3 = async (canvas: HTMLCanvasElement, hud: HTMLElement, s
       nextCheckpoint: 0,
       finishTick: current.finishTick,
     });
-    clearFlow.update(current.finishTick !== null, now / 1000);
+    clearFlow.update(current.finishTick !== null, realNow / 1000);
     sound.update({
       tick: current.tick,
       collected: current.rings.filter(Boolean).length,
@@ -290,12 +301,12 @@ export const startStage3 = async (canvas: HTMLCanvasElement, hud: HTMLElement, s
 
     frames++;
     windowFrames++;
-    if (now - windowStart >= 1000) {
-      const fps = (windowFrames * 1000) / (now - windowStart);
+    if (realNow - windowStart >= 1000) {
+      const fps = (windowFrames * 1000) / (realNow - windowStart);
       fpsSamples.push(Math.round(fps * 10) / 10);
       quality.sample(fps, fpsSamples.length);
       windowFrames = 0;
-      windowStart = now;
+      windowStart = realNow;
       if (showDebug) hud.textContent = `${fps.toFixed(0)} fps · ${p.y.toFixed(0)} m`;
     }
     if (window.__nori) window.__nori.frames = frames;
