@@ -90,6 +90,14 @@ describe("景色の岩", () => {
     }
   });
 
+  // NORI-70（初見レビュー R2-29-21）：ルール「景色の岩 6 つ（半径 1.5〜3 m の半球）」
+  it("6 つとも半径 1.5〜3 m", () => {
+    for (const r of STAGE5.rocks) {
+      expect(r.radius).toBeGreaterThanOrEqual(1.5);
+      expect(r.radius).toBeLessThanOrEqual(3);
+    }
+  });
+
   it("広場（中心から 30 m）とジャンプ台に重ならない", () => {
     for (const r of STAGE5.rocks) {
       const c = STAGE5.arenaCenter;
