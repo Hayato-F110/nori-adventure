@@ -273,7 +273,7 @@ export const createStage5View = (): Stage5View => {
       boss.position.set(b.x, hop, b.z);
       // 体の前（目のある −Z）を、ローバー（子ども）へ向ける。どこから近づいても顔が見える（見た目だけ）
       boss.rotation.y = Math.atan2(-(state.rover.x - b.x), -(state.rover.z - b.z));
-      const puff = calmNow ? 0 : bossPuff(state.tick, SIM.fixedDt);
+      const puff = bossPuff(state.tick, SIM.fixedDt, calmNow);
       body.scale.setScalar(1 + 0.12 * puff);
       bodyMat.color.set(bossColor(state.calm));
       mouth = bossMouth(state.calm);
