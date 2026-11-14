@@ -135,6 +135,37 @@ export const findHarvestProblems = (text: string): string[] => {
   return problems;
 };
 
+/**
+ * 「計算」の節（2026-11-14 にオーナーが決めた。NORI-71 で、計算の前に E2E と値の掃引（値を段階的に変えてまとめて測ること）を流したため）：
+ * 見た目（明るさの比・色）や動き（速さ・距離）の値を E2E で測るテストがあるときは、流す前に式で必要な値を計算し、
+ * 「## 計算」の節に表で書く（CLAUDE.md「数値は試行錯誤で決めない」の①）。ないときは「なし（理由）」と書く
+ */
+export const findCalcProblems = (text: string): string[] => {
+  const lines = text.split(/\r?\n/);
+  const start = lines.findIndex((l) => /^## 計算/.test(l));
+  if (start < 0)
+    return ["「## 計算」の節がない（値を測る E2E の前に、式で計算した表。ないときは「なし（理由）」）"];
+  const body: string[] = [];
+  for (let i = start + 1; i < lines.length && !/^## /.test(lines[i] ?? ""); i++) {
+    const l = (lines[i] ?? "").trim();
+    if (l !== "") body.push(l);
+  }
+  const hasTable = body.some((l) => l.startsWith("|"));
+  const none = body.some((l) => /^なし（.+）/.test(l));
+  return hasTable || none ? [] : ["「計算」の節に、計算の表も「なし（理由）」もない"];
+};
+
+describe("計算の節の検査の仕組み", () => {
+  it("節がなければ落とす", () => {
+    expect(findCalcProblems("# 一覧\n").join()).toContain("節がない");
+  });
+  it("表か「なし（理由）」があれば通し、空なら落とす", () => {
+    expect(findCalcProblems("## 計算\n\n| 値 | 式 |\n| - | - |\n| 比 | 3.2 |\n")).toEqual([]);
+    expect(findCalcProblems("## 計算\n\nなし（値を測る E2E がない）\n")).toEqual([]);
+    expect(findCalcProblems("## 計算\n\nあとで書く\n\n## 次\n")).toHaveLength(1);
+  });
+});
+
 describe("刈り取りの節の検査の仕組み", () => {
   const plan = "| # | テスト |\n| - | - |\n| 1 | a |\n| 2 | b |\n| E2E | c |\n";
   const harvest = (rows: string) => `${plan}\n## 刈り取り\n\n| 項目 | 課題 |\n| - | - |\n${rows}`;
@@ -205,6 +236,6 @@ describe("docs/test-plans の一覧に「確かめる範囲」「確かめない
   });
   it.each(files)("%s", (f) => {
     const text = readFileSync(path.join(dir, f), "utf8");
-    expect([...findPlanProblems(text), ...findHarvestProblems(text)]).toEqual([]);
+    expect([...findPlanProblems(text), ...findHarvestProblems(text), ...findCalcProblems(text)]).toEqual([]);
   });
 });
