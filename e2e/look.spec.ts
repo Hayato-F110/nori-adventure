@@ -58,7 +58,6 @@ const checkLook = async (page: Page, testInfo: TestInfo, mode: "高画質" | "�
   });
   // 車の後ろのカメラが落ち着くまで待つ
   await page.waitForTimeout(1500);
-  await page.screenshot({ path: testInfo.outputPath(`look-${quality}.png`) });
 
   // ほし（2個目。(0, 1, −21)）と、そのすぐ横の道 (2.5, 0, −21)。道 (−2.5, 0, −12) と、道の外の芝 (−6.2, 0, −12)
   const points = await page.evaluate(() => {
@@ -70,14 +69,20 @@ const checkLook = async (page: Page, testInfo: TestInfo, mode: "高画質" | "�
     Math.min(ratio(s, byStar), ratio(s, center));
   // ほしは回っていて、真横を向いた瞬間は細くなり、測る範囲（5×5 px）に道が混ざる。
   // 0.3 秒ずつあけて3回撮り、いちばん見えている瞬間で判断する（ほとんどの時間は見えている。NORI-26）
-  let best = await luminanceAt(page, points);
+  const take = async () => {
+    const png = await page.screenshot();
+    return { png, values: await luminanceAt(page, points, png) };
+  };
+  let best = await take();
   for (let i = 0; i < 2; i++) {
     await page.waitForTimeout(300);
-    const shot = await luminanceAt(page, points);
-    if (contrastOf(shot) > contrastOf(best)) best = shot;
+    const next = await take();
+    if (contrastOf(next.values) > contrastOf(best.values)) best = next;
   }
-  const [star = 0, roadByStar = 0, road = 0, grass = 0, roadCenter = 0] = best;
-  const starContrast = contrastOf(best);
+  // 判断に使った1枚を報告に添付する（NORI-69。オーナーの決定：見た目の E2E は、測った画面を報告に添付する）
+  await testInfo.attach(`look-${quality}`, { body: best.png, contentType: "image/png" });
+  const [star = 0, roadByStar = 0, road = 0, grass = 0, roadCenter = 0] = best.values;
+  const starContrast = contrastOf(best.values);
   const roadGrass = ratio(road, grass);
   await testInfo.attach("contrast", {
     body: JSON.stringify({

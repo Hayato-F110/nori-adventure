@@ -26,7 +26,7 @@ const invincibleLength = Math.round(RESPAWN.invincibleSeconds / SIM.fixedDt);
 
 export const createGame = async (): Promise<Game> => {
   const layout = createStage1Layout(STAGE1);
-  const traffic = createTraffic(TRAFFIC, ASSET.city.sizes, STAGE1.route);
+  const traffic = createTraffic(TRAFFIC, ASSET.city.sizes, STAGE1.route, CAR.collisionRadius);
   // 当たり判定の形：車は上から見た長方形（モデルの幅・長さ）、自転車・バイク・人は円（traffic.poses と同じ順）
   const first = traffic.initial();
   const shapes: MoverShape[] = [

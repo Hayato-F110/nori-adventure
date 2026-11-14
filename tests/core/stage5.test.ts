@@ -110,21 +110,27 @@ describe("当たったとき", () => {
   // 岩の +Z 側 contact + 0.5 m から −Z（岩の方）へ
   const facingRock = (speed: number, y = 0) => at(rock.x, rock.z + contact + 0.5, 0, speed, y);
 
-  it("岩に当たると外へ押し戻され、速さが 0.3 倍になる", () => {
+  it("岩に当たると外へ押し戻され、当たり始めた刻みだけ速さが 0.3 倍になる", () => {
     let s = facingRock(8);
     let bumped = false;
+    let touchingAfter = 0;
     for (let i = 0; i < 30; i++) {
       const before = s.rover.speed;
       s = game.step(s, GO);
       expect(Math.hypot(s.rover.x - rock.x, s.rover.z - rock.z)).toBeGreaterThanOrEqual(contact - 1e-9);
       if (!bumped && s.rover.touching) {
         bumped = true;
-        expect(s.rover.speed).toBeLessThanOrEqual(
-          before * ROVER.bumpSpeedFactor + ROVER.acceleration * dt + 1e-9,
-        );
+        // 当たり始めた刻み：その刻みで加速したあとの速さ（上限 8 m/s）の 0.3 倍（NORI-69 の2回目の初見レビュー：前は上限だけ）
+        const accelerated = Math.min(before + ROVER.acceleration * dt, ROVER.maxForwardSpeed);
+        expect(s.rover.speed).toBeCloseTo(accelerated * ROVER.bumpSpeedFactor, 9);
+      } else if (bumped && s.rover.touching) {
+        // 触れ続けている間は、続けて 0.3 倍にしない（当たり始めた刻みだけ。ルールの文、レビュー 29-57）
+        expect(s.rover.speed).toBeGreaterThanOrEqual(before - 1e-9);
+        touchingAfter++;
       }
     }
     expect(bumped).toBe(true);
+    expect(touchingAfter).toBeGreaterThan(0); // 触れ続けた刻みを本当に通った
   });
 
   it("空中で岩の高さより上なら当たらない", () => {
@@ -181,5 +187,18 @@ describe("ほし", () => {
     expect(near.stars[0]).toBe(true);
     const again = run(near, NONE, 30);
     expect(again.stars.filter(Boolean)).toHaveLength(1);
+  });
+});
+
+// NORI-68：カバレッジで見つかった、通っていない分岐（docs/test-plans/coverage-2026-11-13.md の C）。
+// ルール「当たったら外へ押し戻す」の特別な場合：中心がぴったり重なったら、+Z へ押し出す（0 で割らない）
+describe("岩の中心にぴったり重なったとき", () => {
+  it("止まったまま岩の中心にいると、+Z の側（半径＋ローバーの半径）へ押し出され、当たったことになる", () => {
+    const rock = STAGE5.rocks[0];
+    if (rock === undefined) throw new Error("岩がない");
+    const s = game.step(at(rock.x, rock.z), NONE);
+    expect(s.rover.x).toBe(rock.x);
+    expect(s.rover.z).toBeCloseTo(rock.z + rock.radius + ROVER.collisionRadius, 9);
+    expect(s.rover.touching).toBe(true);
   });
 });
