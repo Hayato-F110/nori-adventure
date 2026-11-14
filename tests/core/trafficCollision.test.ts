@@ -296,4 +296,33 @@ describe("ほかの車は、動いて子どもの車に食いこまない（NORI
     // 本当に当たった（前を通り過ぎただけで通るテストにしない。NORI-69 の2回目の初見レビュー）
     expect(touched).toBe(true);
   });
+
+  // NORI-70（初見レビュー R2-63-2・R2-63-3）：1刻みだけ進めて、「その刻みは進まずに止まる」（s が変わらず速さ 0）かを見る。
+  // ふつうのブレーキ（前 10 m・左右 3 m）では、1刻みで速さは 0 にならず、s は進む。
+  // その刻みに進む距離 m ＝（6 − 8/60）× 1/60 ≈ 0.0978 m（止まる範囲の中なのでブレーキがかかった速さで進む）
+  const m = (TRAFFIC.speed - TRAFFIC.braking * dt) * dt;
+  const stepOnce = (child: { x: number; z: number }) => {
+    const s0 = traffic.initial();
+    const s1 = traffic.step(s0, child, dt);
+    return { stopped: s1.vehicles[0]?.s === s0.vehicles[0]?.s && s1.vehicles[0]?.speed === 0 };
+  };
+
+  it("4. 角の丸い所：右前の角から斜め 45 度に、今は 1.3 m の外・次の刻みで内側になる所なら、その刻みは進まない", () => {
+    const a = keep / Math.SQRT2 + 0.02; // 角から前へ a・右へ a（今の距離 ≈ 1.328 m）
+    expect(Math.hypot(a, a)).toBeGreaterThan(keep);
+    expect(Math.hypot(a - m, a)).toBeLessThan(keep); // 次の刻み ≈ 1.26 m
+    expect(stepOnce(pointNear(a, size.width / 2 + a)).stopped).toBe(true);
+  });
+
+  it("5. 角の丸い所の外：右前の角から前へ 1.25 m・右へ 1.25 m（四角なら中、丸い角なら外の 1.70 m）なら止めない", () => {
+    const a = 1.25;
+    expect(Math.max(a - m, a)).toBeLessThan(keep); // 角の四角い形なら中に入る
+    expect(Math.hypot(a - m, a)).toBeGreaterThan(keep); // 角の丸い形では外
+    expect(stepOnce(pointNear(a, size.width / 2 + a)).stopped).toBe(false);
+  });
+
+  it(`6. 正面：次の刻みで体から ${keep} m の少し外（＋0.002 m）なら止めず、少し内（−0.002 m）なら止める（止まる位置が遠すぎない）`, () => {
+    expect(stepOnce(pointNear(keep + m + 0.002, 0)).stopped).toBe(false);
+    expect(stepOnce(pointNear(keep + m - 0.002, 0)).stopped).toBe(true);
+  });
 });
