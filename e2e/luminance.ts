@@ -1,9 +1,20 @@
-// E2E で、スクリーンショットの明るさを測る（ステージ1・2の見た目のテストで共通）。
-import type { Page } from "@playwright/test";
+// E2E で、スクリーンショットの明るさを測る（見た目のテストで共通）。
+import type { Page, TestInfo } from "@playwright/test";
 
-/** スクリーンショットの、画面の点のまわり（5×5 px）の平均の相対輝度（WCAG の式） */
-export const luminanceAt = async (page: Page, points: { x: number; y: number }[]) => {
-  const png = (await page.screenshot()).toString("base64");
+/**
+ * 画面を1枚撮って保存し、報告（HTML のレポート・CI の成果物）に添付する（NORI-69。オーナーの決定：
+ * 見た目の E2E は、測った画面を報告に添付する）。返した画像を luminanceAt・peakLuminanceAt に渡すと、
+ * 添付した画面と同じ1枚で測るので、報告の画面と値が必ず合う
+ */
+export const attachShot = async (page: Page, testInfo: TestInfo, name: string): Promise<Buffer> => {
+  const shot = await page.screenshot({ path: testInfo.outputPath(`${name}.png`) });
+  await testInfo.attach(name, { body: shot, contentType: "image/png" });
+  return shot;
+};
+
+/** スクリーンショットの、画面の点のまわり（5×5 px）の平均の相対輝度（WCAG の式）。shot を渡すとその画面で測る */
+export const luminanceAt = async (page: Page, points: { x: number; y: number }[], shot?: Buffer) => {
+  const png = (shot ?? (await page.screenshot())).toString("base64");
   return page.evaluate(
     async ({ png, points }) => {
       const img = new Image();
@@ -38,8 +49,13 @@ export const ratio = (a: number, b: number) => (Math.max(a, b) + 0.05) / (Math.m
  * 画面の点のまわり（半径 radius px）で、3×3 px の平均の相対輝度がいちばん高いところの値（NORI-62）。
  * 小さく動く印（きらきら）を測る。位置を読んでから撮るまでに少しずれても外さない
  */
-export const peakLuminanceAt = async (page: Page, point: { x: number; y: number }, radius: number) => {
-  const png = (await page.screenshot()).toString("base64");
+export const peakLuminanceAt = async (
+  page: Page,
+  point: { x: number; y: number },
+  radius: number,
+  shot?: Buffer,
+) => {
+  const png = (shot ?? (await page.screenshot())).toString("base64");
   return page.evaluate(
     async ({ png, point, radius }) => {
       const img = new Image();

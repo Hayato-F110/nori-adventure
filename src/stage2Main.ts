@@ -233,7 +233,10 @@ export const startStage2 = async (canvas: HTMLCanvasElement, hud: HTMLElement, s
     landmarks: () => ({ ...view.landmarks }),
     passingTrain: () => {
       const p = view.passing.position;
-      return { x: p.x, y: p.y, z: p.z };
+      return { x: p.x, y: p.y, z: p.z, tick: view.passingAt.tick, distance: view.passingAt.distance };
+    },
+    get passingModel() {
+      return view.passingModel;
     },
     screenOf: (x, y, z) => {
       projected.set(x, y, z).project(camera);

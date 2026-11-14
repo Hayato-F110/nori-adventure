@@ -30,7 +30,17 @@ jobs:
       - run: npm run typecheck
       - run: npm run lint
       - run: npm run format:check
-      - run: npm test
+      # 単体テストを流し、あわせてカバレッジ（テストが通った命令・分岐・関数・行の割合）を測る（NORI-68）。
+      # 最初は数値を出すだけで、下回っても落とさない（下限はオーナーと決めてから入れる）
+      - run: npm run coverage
+      # 測った値を表にして、実行結果の画面の「Summary」に出す
+      - run: node tools/ci/coverage-summary.ts >> "$GITHUB_STEP_SUMMARY"
+      # ファイルごと・行ごとの詳しい結果（HTML）を、CI の成果物として 14 日残す
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: coverage-html
+          path: coverage/
+          retention-days: 14
       - run: npm run build
       # 既知の脆弱性を調べる。high・critical があれば CI を赤にする（moderate 以下は Dependabot で見る。NORI-36）
       - run: npm audit --audit-level=high
