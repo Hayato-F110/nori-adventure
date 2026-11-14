@@ -392,6 +392,10 @@ export const installRoverDriver = (page: Page, options: RoverDriverOptions) =>
       record: [],
       ...(o.stepsPerFrame === undefined ? {} : { stepsPerFrame: o.stepsPerFrame }),
       drive(raw) {
+        // NORI-70：始めの上の表示（ほし 0・メーター 0・時間 0）を確かめてから走り出すため
+        if (o.waitForGo === true && (globalThis as { __noriGo?: boolean }).__noriGo !== true) {
+          return { throttle: 0, steer: 0 };
+        }
         const s = raw as {
           tick: number;
           rover: { x: number; z: number; heading: number; speed: number };

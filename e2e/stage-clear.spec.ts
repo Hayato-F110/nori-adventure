@@ -7,6 +7,7 @@ import {
   installRoverDriver,
   installSubDriver,
   installTrainDriver,
+  startDriving,
 } from "./driver";
 
 // NORI-37：運転役（e2e/driver.ts）でステージをクリアまで走る。キーを押さず、刻みごとに入力を決めるので毎回同じ結果。
@@ -150,23 +151,92 @@ test("ステージ5：運転役が道すじを走り、なかよしの星をボ�
     maxSpeed: ROVER.maxForwardSpeed,
     stepsPerFrame: FAST,
     steerGain: 3,
+    waitForGo: true,
   });
+  // NORI-70（初見レビュー 29-49）：動きを減らす設定の端末で、紙ふぶきを止めてエンディングを出すこと
+  await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("./?stage=5");
   await page.waitForFunction(() => (window.__nori?.frames ?? 0) > 5, undefined, { timeout: 60_000 });
+
+  // NORI-70（初見レビュー 29-29・R2-29-23）：上の表示。走り出す前は、ほし 0・なかよしのメーター（5 つの丸）に色なし。
+  // 時間はゲームの時計（走り出す前も進む）なので、同じ瞬間に読んだ刻みの秒（切り捨て）と比べる
+  const hud = () =>
+    page.evaluate(() => ({
+      stars: document.getElementById("star-count")?.textContent,
+      time: document.getElementById("time")?.textContent,
+      meter: document.querySelectorAll("#flags .status-flag").length,
+      calmed: document.querySelectorAll("#flags .status-flag.passed").length,
+      label: document.getElementById("flags")?.getAttribute("aria-label"),
+      tick: window.__nori?.rover?.()?.tick ?? -1,
+    }));
+  const start = await hud();
+  expect(start.tick).toBeGreaterThan(0);
+  expect(start).toEqual({
+    stars: "0",
+    time: String(Math.floor(start.tick * SIM.fixedDt)),
+    tick: start.tick,
+    meter: BOSS.calmPoints,
+    calmed: 0,
+    label: "なかよし",
+  });
+
+  // エンディングの 3 秒：ページの中で画面の更新ごとに、クリアを見た時刻とエンディングが出た時刻を残す
+  // （エンディングの待ちは、ゲームの刻みでなく実際の時間で数える作り。総点検の B）
+  await page.evaluate(() => {
+    const times: { finish: number | null; ending: number | null; confetti: number } = {
+      finish: null,
+      ending: null,
+      confetti: 0,
+    };
+    (window as unknown as { __endingTimes: typeof times }).__endingTimes = times;
+    const watch = (now: number) => {
+      if (times.finish === null && window.__nori?.rover?.()?.finishTick !== null) times.finish = now;
+      if (times.ending === null && document.getElementById("ending")?.hidden === false) times.ending = now;
+      // 紙ふぶきは 3 秒で消えるので、エンディングのあとに見てもわからない。更新ごとに、出ていた回数を数える
+      const confetti = document.getElementById("confetti");
+      if (confetti !== null && (!confetti.hidden || confetti.childElementCount > 0)) times.confetti++;
+      if (times.ending === null) requestAnimationFrame(watch);
+    };
+    requestAnimationFrame(watch);
+  });
+  await startDriving(page);
   await page.waitForFunction(() => window.__nori?.rover?.()?.finishTick !== null, undefined, {
     timeout: 360_000,
     polling: 500,
   });
   const state = await page.evaluate(() => window.__nori?.rover?.());
   expect(state?.calm).toBe(BOSS.calmPoints);
-  // ボタンと一緒に、5つの乗り物の絵（エンディング）が出る。「つぎ」は出さない
+  // ボタンと一緒に、5つの乗り物の絵（エンディング）が出る。「つぎ」は出さず、タイトルへのボタンを出す
   await expect(page.locator("#ending svg")).toHaveCount(5, { timeout: 30_000 });
   await expect(page.locator("#ending")).toBeVisible();
   await expect(page.locator("#clear-next")).toBeHidden();
+  await expect(page.locator("#clear-home")).toBeVisible();
   expect(await page.evaluate(() => window.__nori?.bossMouth?.())).toBe("smile");
+  // クリアを見てからエンディングが出るまで、3 秒以上（画面の更新 1 回分の遅れは許す）
+  const times = await page.evaluate(
+    () =>
+      (window as unknown as { __endingTimes: { finish: number; ending: number; confetti: number } })
+        .__endingTimes,
+  );
+  // 動きを減らす設定なので、クリアからエンディングまでの間に、紙ふぶきは一度も出ない
+  expect(times.confetti, JSON.stringify(times)).toBe(0);
+  await expect(page.locator("#confetti")).toBeHidden();
+  const waited = (times.ending - times.finish) / 1000;
+  expect(waited, JSON.stringify(times)).toBeGreaterThanOrEqual(BOSS.endingDelaySeconds - 0.5);
+  expect(waited, JSON.stringify(times)).toBeLessThan(BOSS.endingDelaySeconds + 5);
+  // クリアのあとの上の表示：ほしの数・メーター 5 つすべてに色・時間はクリアした刻みの秒（切り捨て）
+  // 時間はクリアした刻みで止まる（いま読んだ刻みは関係ない）
+  expect({ ...(await hud()), tick: 0 }).toEqual({
+    tick: 0,
+    stars: String(state?.stars.filter(Boolean).length),
+    time: String(Math.floor((state?.finishTick ?? 0) * SIM.fixedDt)),
+    meter: BOSS.calmPoints,
+    calmed: BOSS.calmPoints,
+    label: "なかよし",
+  });
   testInfo.annotations.push({
     type: "ステージ5のクリア",
-    description: `クリア ${((state?.finishTick ?? 0) / 60).toFixed(1)} 秒、ほし ${state?.stars.filter(Boolean).length ?? 0} / ${state?.stars.length ?? 0}、復活 ${state?.respawns ?? -1} 回`,
+    description: `クリア ${((state?.finishTick ?? 0) / 60).toFixed(1)} 秒、ほし ${state?.stars.filter(Boolean).length ?? 0} / ${state?.stars.length ?? 0}、復活 ${state?.respawns ?? -1} 回、エンディングまで ${waited.toFixed(2)} 秒`,
   });
   await page.screenshot({ path: testInfo.outputPath("stage5-ending.png") });
   expect(errors).toEqual([]);

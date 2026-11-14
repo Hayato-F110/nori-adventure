@@ -25,6 +25,14 @@ const ready = async (page: Page) => {
   await page.waitForFunction(() => window.__nori?.look !== "loading", undefined, { timeout: 60_000 });
 };
 
+/** 今の刻みから n 刻み進むまで待つ（実際の時間で待たない） */
+const waitTicks = async (page: Page, n: number) => {
+  const from = await page.evaluate(() => window.__nori?.rover?.()?.tick ?? 0);
+  await page.waitForFunction((t) => (window.__nori?.rover?.()?.tick ?? 0) >= t, from + n, {
+    timeout: 60_000,
+  });
+};
+
 type Name = "star" | "path" | "pad" | "friend" | "ground";
 const screenPoints = (page: Page, names: Name[]) =>
   page.evaluate((names) => {
@@ -50,7 +58,8 @@ test("ステージ5の見た目：スタートで、ほし・ジャンプ台が�
   test.setTimeout(120_000);
   const errors = watchErrors(page);
   await ready(page);
-  await page.waitForTimeout(800);
+  // NORI-70（初見レビュー 29-54）：実際の 0.8 秒でなく、ゲームの 90 刻み待つ（ステージ2の見た目と同じ。カメラが落ち着くまで）
+  await waitTicks(page, 90);
   const points = await screenPoints(page, ["star", "path", "pad"]);
   expectOnScreen(page, points);
   const shot = await attachShot(page, testInfo, "stage5-start");
@@ -91,7 +100,8 @@ test("ステージ5の見た目：広場の入口で、なかよしの星が砂�
     undefined,
     { timeout: 200_000, polling: 500 },
   );
-  await page.waitForTimeout(800);
+  // NORI-70（初見レビュー 29-54）：止まってから、実際の 0.8 秒でなくゲームの 90 刻み待つ。早送りはしない（画質の自動の切り替えを変えないため）
+  await waitTicks(page, 90);
   const points = await screenPoints(page, ["friend", "ground"]);
   expectOnScreen(page, points);
   const shot = await attachShot(page, testInfo, "stage5-arena");
