@@ -2,10 +2,10 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { createGame, type Game } from "../../src/core/game";
 import { createFixedStepper } from "../../src/core/loop";
 import { parseReplay, runReplay, serializeReplay } from "../../src/core/replay";
-import { BOSS, ROVER, SIM, STAGE5 } from "../../src/config";
+import { BOSS, ROVER, SIM, STAGE1, STAGE5, TRAFFIC } from "../../src/config";
 import { bossPosition, createStage5Game, type Stage5State } from "../../src/core/stage5";
 import { friendStarPositions, pathPoint } from "../../src/core/stage5Layout";
-import type { InputFrame } from "../../src/core/types";
+import type { GameState, InputFrame } from "../../src/core/types";
 
 // 10秒分の、加速・左右のハンドル・ブレーキ・後退を含む入力記録
 const recordedInputs = (): InputFrame[] =>
@@ -83,6 +83,45 @@ describe("街のほかの車・人もリプレイでずれない（NORI-61）", 
     const second = runReplay(game, game.initial(), inputs);
     expect(first.traffic).toStrictEqual(second.traffic);
     expect(first.traffic).not.toStrictEqual(game.initial().traffic);
+  });
+
+  // NORI-70（NORI-61 の一覧 8 の「確かめない範囲」）：上の記録が「止まる」場面を通ったかを見ていなかった。
+  // E2E の運転役（installCarDriver）と同じ決め方でコースを 30 秒走り、走り出してから自転車・バイクが子どもの車の
+  // そばで止まった刻みがあること、刻みごとの状態が2回の再生で完全に一致することを確かめる
+  it("運転して作った 30 秒の記録は、自転車・バイクが止まる場面を通り、刻みごとの状態が一致する", () => {
+    const wrap = (a: number) => Math.atan2(Math.sin(a), Math.cos(a));
+    const clamp = (v: number) => Math.max(-1, Math.min(1, v));
+    const waypoints = STAGE1.route.slice(1);
+    let target = 0;
+    const drive = (s: GameState): InputFrame => {
+      const here = waypoints[target] as { x: number; z: number };
+      if (Math.hypot(here.x - s.car.x, here.z - s.car.z) < STAGE1.checkpointRadius - 1) {
+        target = Math.min(waypoints.length - 1, target + 1);
+      }
+      const aim = waypoints[target] as { x: number; z: number };
+      const error = wrap(Math.atan2(-(aim.x - s.car.x), -(aim.z - s.car.z)) - s.car.heading);
+      return { throttle: Math.abs(error) > 0.6 ? 0.5 : 1, steer: clamp(-error * 3) };
+    };
+    const inputs: InputFrame[] = [];
+    const recorded: GameState[] = [];
+    let s = game.initial();
+    let stops = 0;
+    for (let t = 0; t < Math.round(30 / SIM.fixedDt); t++) {
+      const input = drive(s);
+      inputs.push(input);
+      const before = s;
+      s = game.step(s, input);
+      recorded.push(s);
+      const away = Math.hypot(before.car.x - STAGE1.start.x, before.car.z - STAGE1.start.z) > 20;
+      game.traffic.poses(before.traffic).bikes.forEach((p, i) => {
+        const near = Math.hypot(p.x - before.car.x, p.z - before.car.z) <= TRAFFIC.bikeStopRadius;
+        if (away && near && s.traffic.bikes[i]?.speed === 0) stops++;
+      });
+    }
+    expect(stops, "走り出してから、そばで止まった自転車・バイク（台 × 刻み）").toBeGreaterThan(0);
+    let r = game.initial();
+    const states = inputs.map((input) => (r = game.step(r, input)));
+    expect(states).toStrictEqual(recorded);
   });
 });
 
