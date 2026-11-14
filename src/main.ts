@@ -61,8 +61,10 @@ declare global {
       creatures?: () => { x: number; y: number; z: number }[];
       /** ステージ4の生きもののきらきら（1つめ）の位置。見つけたあとは null（NORI-62） */
       sparkles?: () => ({ x: number; y: number; z: number } | null)[];
-      /** E2E 用：ステージ4の時間を止める・戻す（状態を進めず、描画だけ続ける） */
+      /** E2E 用：ステージ3・4の時間を止める・戻す（状態を進めず、描画だけ続ける。FPS は実際の時刻で数え続ける） */
       freeze?: (on: boolean) => void;
+      /** E2E 用（NORI-71）：ステージ4のカメラの今の位置（早送りでは目標より遅れて追うので、実際の値を読む） */
+      cameraAt?: () => { x: number; y: number; z: number };
       /** ステージ4で自作モデル（sea-*）に差し替えた種類の数（0〜7） */
       seaModels?: number;
       /** ステージ4のたからばこの真ん中と、横の海底（E2E で明るさの比を測る） */
@@ -84,7 +86,10 @@ declare global {
       /** ステージ2で Blender の山・駅に差しかえた数（NORI-59） */
       landmarks?: () => { mountains: number; stations: number };
       /** ステージ2のすれ違う電車の今の位置（NORI-59） */
-      passingTrain?: () => { x: number; y: number; z: number };
+      /** すれ違う電車：描いた位置と、そのとき使った刻み（小数）と線路の上の距離（NORI-74） */
+      passingTrain?: () => { x: number; y: number; z: number; tick: number; distance: number };
+      /** すれ違う電車の形：箱か、ふつうの電車の GLB か（NORI-74） */
+      passingModel?: "box" | "glb";
       /** ステージ3の空の景色（NORI-60）：数と、ほかの飛行機の形（"glb" は自作の plane.glb の色違い） */
       skyScenery?: () => {
         planes: number;
