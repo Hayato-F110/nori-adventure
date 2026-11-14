@@ -97,6 +97,96 @@ export const findPlanProblems = (text: string): string[] => {
   return problems;
 };
 
+/**
+ * 「刈り取り」の節（2026-11-14 にオーナーが決めた）：一覧の各項目を、どの課題の完了条件で刈り取る（実装して確かめ、閉じる）かを書く。
+ * 「## 刈り取り」の見出しのあとに、見出しが「項目」で始まり「課題」の列がある表を置く。
+ * 一覧の表の行の「#」（1・2・E2E など）は、どれかの「項目」の頭（「：」か「 の」の前。「・」で区切り、「1〜7」は範囲）に出てくること。
+ * 「課題」の欄は NORI-xx を含むか、「課題なし（理由）」で始まること（何も決めずに残さない）
+ */
+export const findHarvestProblems = (text: string): string[] => {
+  const lines = text.split(/\r?\n/);
+  const start = lines.findIndex((l) => /^## 刈り取り/.test(l));
+  if (start < 0) return ["「## 刈り取り」の節がない（各項目をどの課題の完了条件で閉じるか）"];
+  const headerAt = lines.findIndex((l, i) => i > start && l.startsWith("|"));
+  const header = headerAt < 0 ? [] : cellsOf(lines[headerAt] ?? "");
+  const issueCol = header.indexOf("課題");
+  if (header[0] !== "項目" || issueCol < 0) return ["「刈り取り」の節に、見出しが「項目」「課題」の表がない"];
+  const problems: string[] = [];
+  const covered = new Set<string>();
+  for (let j = headerAt + 2; (lines[j] ?? "").startsWith("|"); j++) {
+    const cells = cellsOf(lines[j] ?? "");
+    const lead = (cells[0] ?? "").split(/：| の/)[0]?.trim() ?? "";
+    for (const token of lead.split("・")) {
+      const range = /^(\d+)〜(\d+)$/.exec(token);
+      if (range === null) covered.add(token);
+      else for (let n = Number(range[1]); n <= Number(range[2]); n++) covered.add(String(n));
+    }
+    const issue = cells[issueCol] ?? "";
+    if (!/NORI-\d+/.test(issue) && !/^課題なし（.+）/.test(issue)) {
+      problems.push(`${j + 1} 行目：「課題」が NORI-xx でも「課題なし（理由）」でもない`);
+    }
+  }
+  for (const { rows } of parsePlan(text)) {
+    for (const { cells } of rows) {
+      const id = cells[0] ?? "";
+      if (!covered.has(id)) problems.push(`一覧の「${id}」を、どの課題で刈り取るかが「刈り取り」の節にない`);
+    }
+  }
+  return problems;
+};
+
+/**
+ * 「計算」の節（2026-11-14 にオーナーが決めた。NORI-71 で、計算の前に E2E と値の掃引（値を段階的に変えてまとめて測ること）を流したため）：
+ * 見た目（明るさの比・色）や動き（速さ・距離）の値を E2E で測るテストがあるときは、流す前に式で必要な値を計算し、
+ * 「## 計算」の節に表で書く（CLAUDE.md「数値は試行錯誤で決めない」の①）。ないときは「なし（理由）」と書く
+ */
+export const findCalcProblems = (text: string): string[] => {
+  const lines = text.split(/\r?\n/);
+  const start = lines.findIndex((l) => /^## 計算/.test(l));
+  if (start < 0)
+    return ["「## 計算」の節がない（値を測る E2E の前に、式で計算した表。ないときは「なし（理由）」）"];
+  const body: string[] = [];
+  for (let i = start + 1; i < lines.length && !/^## /.test(lines[i] ?? ""); i++) {
+    const l = (lines[i] ?? "").trim();
+    if (l !== "") body.push(l);
+  }
+  const hasTable = body.some((l) => l.startsWith("|"));
+  const none = body.some((l) => /^なし（.+）/.test(l));
+  return hasTable || none ? [] : ["「計算」の節に、計算の表も「なし（理由）」もない"];
+};
+
+describe("計算の節の検査の仕組み", () => {
+  it("節がなければ落とす", () => {
+    expect(findCalcProblems("# 一覧\n").join()).toContain("節がない");
+  });
+  it("表か「なし（理由）」があれば通し、空なら落とす", () => {
+    expect(findCalcProblems("## 計算\n\n| 値 | 式 |\n| - | - |\n| 比 | 3.2 |\n")).toEqual([]);
+    expect(findCalcProblems("## 計算\n\nなし（値を測る E2E がない）\n")).toEqual([]);
+    expect(findCalcProblems("## 計算\n\nあとで書く\n\n## 次\n")).toHaveLength(1);
+  });
+});
+
+describe("刈り取りの節の検査の仕組み", () => {
+  const plan = "| # | テスト |\n| - | - |\n| 1 | a |\n| 2 | b |\n| E2E | c |\n";
+  const harvest = (rows: string) => `${plan}\n## 刈り取り\n\n| 項目 | 課題 |\n| - | - |\n${rows}`;
+  it("節がなければ落とす", () => {
+    expect(findHarvestProblems(plan).join()).toContain("節がない");
+  });
+  it("すべての行が、範囲（1〜2）や「・」の区切りで課題にひも付いていれば通す", () => {
+    expect(
+      findHarvestProblems(harvest("| 1〜2 | NORI-71 |\n| E2E の確かめない範囲：x | NORI-70 |\n")),
+    ).toEqual([]);
+    expect(findHarvestProblems(harvest("| 1・2・E2E | NORI-71 |\n"))).toEqual([]);
+  });
+  it("節に出てこない行があれば落とす", () => {
+    expect(findHarvestProblems(harvest("| 1〜2 | NORI-71 |\n")).join()).toContain("「E2E」");
+  });
+  it("課題が空や「—」なら落とし、「課題なし（理由）」なら通す", () => {
+    expect(findHarvestProblems(harvest("| 1・2・E2E | — |\n"))).toHaveLength(1);
+    expect(findHarvestProblems(harvest("| 1・2・E2E | 課題なし（直す必要がない） |\n"))).toEqual([]);
+  });
+});
+
 describe("テストの一覧の検査の仕組み", () => {
   const table = `| # | テスト | ${SCOPE} | ${NOT_SCOPE} |\n| - | - | - | - |\n`;
   /** 表に、今のハッシュ値のレビューの行を付ける */
@@ -145,6 +235,7 @@ describe("docs/test-plans の一覧に「確かめる範囲」「確かめない
     expect(files.length).toBeGreaterThan(0);
   });
   it.each(files)("%s", (f) => {
-    expect(findPlanProblems(readFileSync(path.join(dir, f), "utf8"))).toEqual([]);
+    const text = readFileSync(path.join(dir, f), "utf8");
+    expect([...findPlanProblems(text), ...findHarvestProblems(text), ...findCalcProblems(text)]).toEqual([]);
   });
 });
