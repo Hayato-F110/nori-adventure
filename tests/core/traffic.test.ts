@@ -94,6 +94,46 @@ describe("車の道（createLoopPath）", () => {
   it("角の丸めが辺より長いと、作るときに止まる（気づかずにおかしな道にしない）", () => {
     expect(() => createLoopPath(TRAFFIC.loop, o, 50)).toThrow();
   });
+
+  // NORI-70（初見レビュー 61-5・R2-61-5）：ルール「コースとは2つの交差点（(0, −40)・(40, 40)）で横切るだけ」。
+  // 前は1つ目の交差点を横切る時刻だけを見ていた。1周を 0.1 m おきに歩き、コースの道（中心線から道の幅の半分）の上にいる所を数える
+  it("1周で、コースの道の上を通るのは2か所だけ。(0, −40)・(40, 40) を横切る所", () => {
+    const route = [...STAGE1.route, STAGE1.route[0] as Point];
+    const toSegment = (p: Point, a: Point, b: Point): number => {
+      const dx = b.x - a.x;
+      const dz = b.z - a.z;
+      const t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.z - a.z) * dz) / (dx * dx + dz * dz)));
+      return Math.hypot(p.x - (a.x + dx * t), p.z - (a.z + dz * t));
+    };
+    const onCourse = (p: Point): boolean =>
+      route.slice(1).some((b, i) => toSegment(p, route[i] as Point, b) <= STAGE1.roadWidth / 2);
+    const step = 0.1;
+    const count = Math.floor(path.length / step);
+    const flags = Array.from({ length: count }, (_, i) => onCourse(path.pointAt(i * step)));
+    // 道の上にいる所のまとまり（輪なので、最後と最初はつながる）
+    const runs: number[][] = [];
+    const startAt = flags.findIndex((f) => !f);
+    for (let k = 0; k < count; k++) {
+      const i = (startAt + k) % count;
+      if (!flags[i]) continue;
+      const prev = flags[(i - 1 + count) % count];
+      if (!prev) runs.push([]);
+      runs[runs.length - 1]?.push(i);
+    }
+    expect(runs).toHaveLength(2);
+    const centers = runs.map((run) => path.pointAt((run[Math.floor(run.length / 2)] as number) * step));
+    // 車は中心線の左 2.5 m を走るので、交差点の中心から laneOffset だけずれた所を通る
+    const crossings = [
+      { x: 0, z: -40 },
+      { x: 40, z: 40 },
+    ];
+    for (const c of crossings) {
+      const nearest = Math.min(...centers.map((p) => Math.hypot(p.x - c.x, p.z - c.z)));
+      expect(nearest).toBeLessThanOrEqual(o + step);
+    }
+    // 横切るだけ：道の上にいる長さは、道の幅（と1刻みの幅）ほど
+    for (const run of runs) expect(run.length * step).toBeLessThanOrEqual(STAGE1.roadWidth + 2 * step);
+  });
 });
 
 // 一覧 2：始めの位置は 100 m おき。止まらなければ 6 m/s で、間は変わらない
@@ -178,6 +218,23 @@ describe("子どもの車の前で止まる", () => {
       const next = traffic.step(start, inFrontOf(start, 0, TRAFFIC.stopAhead - 0.01, left), dt);
       expect(speed0(next)).toBeLessThan(TRAFFIC.speed);
     }
+  });
+
+  // NORI-70（初見レビュー 61-16・R2-61-16）：止まる範囲は「車の前の端から」なので、車の長さで変わる。前は先頭の車（traffic-car）だけだった
+  it("バス（いちばん長い車）でも、前の端から 10 m の中なら止まり始め、外なら止まらない", () => {
+    const bus = TRAFFIC.vehicles.findIndex((v) => v.model === "bus");
+    expect(bus).toBeGreaterThanOrEqual(0);
+    expect(lengthOf(bus)).toBeGreaterThan(lengthOf(0));
+    const speedOf = (s: TrafficState) => s.vehicles[bus]?.speed;
+    expect(speedOf(traffic.step(start, inFrontOf(start, bus, TRAFFIC.stopAhead - 0.01), dt))).toBeCloseTo(
+      TRAFFIC.speed - TRAFFIC.braking * dt,
+      9,
+    );
+    expect(speedOf(traffic.step(start, inFrontOf(start, bus, TRAFFIC.stopAhead + 0.01), dt))).toBe(
+      TRAFFIC.speed,
+    );
+    // 前の端より後ろ（バスの横）なら止まらない。ほかの車の長さで測ると、ここは前の端より前になる
+    expect(speedOf(traffic.step(start, inFrontOf(start, bus, -0.5), dt))).toBe(TRAFFIC.speed);
   });
 
   it("子どもの車がいなくなると、3 m/s² で動き出す（1 秒で 3 m/s、2 秒で 6 m/s に戻る）", () => {
@@ -289,6 +346,78 @@ describe("自転車・バイク", () => {
     expect(minGap).toBeGreaterThan(TRAFFIC.bikeFollowGap - TRAFFIC.motorbikes.speed * dt - 1e-9);
   });
 
+  // NORI-70（初見レビュー 61-22・R2-61-24）：前はバイク1台（2台目）を +x の向きから近づけただけだった。
+  // 4台すべてを、4つの向き（±x・±z）から 6 m の内側・外側に置く。止まるのはその1台だけ
+  it.each([0, 1, 2, 3])(
+    `%i 台目は、どの向きからでも中心から ${TRAFFIC.bikeStopRadius} m 以内ならすぐ止まり、その外では止まらない`,
+    (i) => {
+      const start = traffic.initial();
+      const p = traffic.poses(start).bikes[i] as Point;
+      const speed = start.bikes[i]?.kind === "bicycle" ? TRAFFIC.bicycles.speed : TRAFFIC.motorbikes.speed;
+      for (const [dx, dz] of [
+        [1, 0],
+        [-1, 0],
+        [0, 1],
+        [0, -1],
+      ] as const) {
+        const at = (d: number) => ({ x: p.x + dx * d, z: p.z + dz * d });
+        const inside = traffic.step(start, at(TRAFFIC.bikeStopRadius - 0.01), dt);
+        expect(inside.bikes[i]?.speed).toBe(0);
+        expect(inside.bikes[i]?.s).toBe(start.bikes[i]?.s);
+        // ほかの3台は止まらない（近くにいないので）
+        inside.bikes.forEach((b, k) => {
+          if (k !== i) expect(b.speed).toBeGreaterThan(0);
+        });
+        expect(traffic.step(start, at(TRAFFIC.bikeStopRadius + 0.01), dt).bikes[i]?.speed).toBe(speed);
+      }
+    },
+  );
+
+  it("止まっていた自転車は、子どもの車が離れたらその刻みで 4 m/s に戻る（加速の値を持たない）", () => {
+    const start = traffic.initial();
+    const p = traffic.poses(start).bikes[0] as Point;
+    const stopped = run(start, { x: p.x, z: p.z + 1 }, 30);
+    expect(stopped.bikes[0]?.speed).toBe(0);
+    const moved = traffic.step(stopped, far, dt);
+    expect(moved.bikes[0]?.speed).toBe(TRAFFIC.bicycles.speed);
+    expect(wrapDistance((moved.bikes[0]?.s ?? 0) - (stopped.bikes[0]?.s ?? 0), bikePath.length)).toBeCloseTo(
+      TRAFFIC.bicycles.speed * dt,
+      9,
+    );
+  });
+
+  // NORI-70（初見レビュー R2-61-25）：前は「間が 3 m − 0.1 m より縮まない」だけで、バイクが本当に待ったかを見ていなかった
+  // （遠くの子どもの車では、止まる理由は前との間だけ）
+  it(`バイクは自転車に追いつくと、間が ${TRAFFIC.bikeFollowGap} m を切った所で止まって待ち、間があくとまた走る`, () => {
+    let state = traffic.initial();
+    let waited = 0;
+    let resumed = false;
+    for (let t = 0; t < Math.round(120 / dt); t++) {
+      const before = state;
+      state = traffic.step(state, far, dt);
+      state.bikes.forEach((b, i) => {
+        if (b.kind !== "motorbike") return;
+        const ahead = before.bikes[(i + 1) % before.bikes.length] as (typeof before.bikes)[number];
+        const me = before.bikes[i] as (typeof before.bikes)[number];
+        const gap =
+          wrapDistance(ahead.s - me.s, bikePath.length) -
+          bikeLength(me.kind) / 2 -
+          bikeLength(ahead.kind) / 2;
+        if (b.speed === 0) {
+          // 止まったのは、前との間が 3 m を切っていたから（その手前で止まりはしない）
+          expect(gap).toBeLessThan(TRAFFIC.bikeFollowGap);
+          expect(gap).toBeGreaterThan(TRAFFIC.bikeFollowGap - TRAFFIC.motorbikes.speed * dt - 1e-9);
+          waited++;
+        } else if (waited > 0) {
+          resumed = true;
+          expect(gap).toBeGreaterThanOrEqual(TRAFFIC.bikeFollowGap);
+        }
+      });
+    }
+    expect(waited).toBeGreaterThan(0);
+    expect(resumed).toBe(true);
+  });
+
   it("まっすぐな所では、コースの中心線から進む向きの左へ 4 m（1辺目の真ん中）", () => {
     const p = bikePath.pointAt(40);
     expect(p.x).toBeCloseTo(-TRAFFIC.bikeOffset, 9);
@@ -343,6 +472,72 @@ describe("歩行者", () => {
     // 120 秒で 144 m 歩くので、どの人も端で向きを変えている
     expect(turned).toEqual(new Array<number>(people.count).fill(1));
   });
+
+  /** 歩行者 k の、辺の中の位置（歩く所の始まりからの距離）。コースの道すじの辺の向きで測る */
+  const alongSide = (k: number, p: Point): number => {
+    const route = [...STAGE1.route, STAGE1.route[0] as Point];
+    const from = (people.blockSides[k] ?? 0) * people.blockLength;
+    const a = pointAlong(route, from);
+    const b = pointAlong(route, from + people.blockLength);
+    const len = Math.hypot(b.x - a.x, b.z - a.z);
+    return ((p.x - a.x) * (b.x - a.x) + (p.z - a.z) * (b.z - a.z)) / len - margin;
+  };
+
+  // NORI-70（初見レビュー 61-25・R2-61-26）：ルール「はじめは k 人目が 26 × k / 6 m の所から前へ歩く」
+  it(`はじめは k 人目が、歩く所の始まりから ${people.sideLength} × k / ${people.count} m の所にいて、前へ歩く`, () => {
+    const start = traffic.initial();
+    traffic.poses(start).people.forEach((p, k) => {
+      expect(alongSide(k, p)).toBeCloseTo((people.sideLength * k) / people.count, 9);
+      expect(start.people[k]?.dir).toBe(1);
+    });
+    // 前へ：1刻みで、辺の中の位置が増える
+    const next = traffic.poses(traffic.step(start, far, dt)).people;
+    next.forEach((p, k) => {
+      expect(alongSide(k, p) - (people.sideLength * k) / people.count).toBeCloseTo(TRAFFIC.walkSpeed * dt, 9);
+    });
+  });
+
+  // NORI-70（初見レビュー 61-26・R2-61-27）：前は「1刻みに 1.2 m/s × 1/60 秒より多くは動かない」（上限）だけだった。
+  // 端で向きを変える刻みのほかは、ちょうどその距離だけ歩く（遅すぎる・止まったままも見つける）
+  it("端で向きを変える刻みのほかは、1刻みにちょうど 1.2 m/s × 1/60 秒歩く（120 秒）", () => {
+    let state = traffic.initial();
+    let prev = traffic.poses(state).people;
+    let steady = 0;
+    for (let t = 0; t < Math.round(120 / dt); t++) {
+      const before = state;
+      state = traffic.step(state, far, dt);
+      const now = traffic.poses(state).people;
+      now.forEach((p, k) => {
+        if (state.people[k]?.dir !== before.people[k]?.dir) return; // 端で折り返した刻み
+        const q = prev[k] as Point;
+        expect(Math.hypot(p.x - q.x, p.z - q.z)).toBeCloseTo(TRAFFIC.walkSpeed * dt, 9);
+        steady++;
+      });
+      prev = now;
+    }
+    expect(steady).toBeGreaterThan(people.count * Math.round(100 / dt));
+  });
+
+  // NORI-70（初見レビュー 61-27・R2-61-28）：前は1人目を +z の向きから近づけただけだった。6人すべてを4つの向きから
+  it.each([0, 1, 2, 3, 4, 5])(
+    `%i 人目は、どの向きからでも中心から ${TRAFFIC.walkStopRadius} m 以内なら止まり、その外では歩く`,
+    (k) => {
+      const start = traffic.initial();
+      const p = traffic.poses(start).people[k] as Point;
+      for (const [dx, dz] of [
+        [1, 0],
+        [-1, 0],
+        [0, 1],
+        [0, -1],
+      ] as const) {
+        const at = (d: number) => ({ x: p.x + dx * d, z: p.z + dz * d });
+        expect(traffic.step(start, at(TRAFFIC.walkStopRadius - 0.01), dt).people[k]).toEqual(start.people[k]);
+        expect(traffic.step(start, at(TRAFFIC.walkStopRadius + 0.01), dt).people[k]).not.toEqual(
+          start.people[k],
+        );
+      }
+    },
+  );
 
   it(`子どもの車の中心が ${TRAFFIC.walkStopRadius} m 以内なら止まり、離れれば歩き出す`, () => {
     const start = traffic.initial();

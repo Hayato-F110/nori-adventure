@@ -6,6 +6,7 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { ASSET, CAR, PHYSICS, SIM, STAGE1, TRAFFIC } from "../../src/config";
 import { createCarState } from "../../src/core/car";
+import { trafficShapes } from "../../src/core/game";
 import { createCarPhysics, type CarPhysics, type MoverShape } from "../../src/core/physics";
 import { createStage1Layout } from "../../src/core/stage1Layout";
 import { createTraffic } from "../../src/core/traffic";
@@ -121,6 +122,82 @@ describe("ほかの車・人にぶつかったとき（建物と同じ扱い）"
       },
     );
     expect(touched).toBe(false);
+  });
+});
+
+// NORI-70（初見レビュー 61-3・61-28・R2-61-2・R2-61-30）：上の節はテスト用の手作りの形（バスと人だけ）。
+// ここはゲームと同じ形（trafficShapes）で、自転車・バイク（半径 0.6 m）と、「30% は当たった瞬間だけ」を確かめる
+describe("ゲームと同じ当たりの形（NORI-70）", () => {
+  const traffic = createTraffic(TRAFFIC, ASSET.city.sizes, STAGE1.route, CAR.collisionRadius);
+  const first = traffic.initial();
+  const shapes = trafficShapes(first);
+  const nVehicles = TRAFFIC.vehicles.length;
+  const nBikes = first.bikes.length;
+  let game: CarPhysics;
+  beforeAll(async () => {
+    game = await createCarPhysics(createStage1Layout(STAGE1), PHYSICS, CAR.collisionRadius, shapes);
+  });
+  /** 動く物の位置：k 番目だけ pose に置き、ほかは遠く */
+  const only = (k: number, pose: Pose2D): Pose2D[] => shapes.map((_, i) => (i === k ? pose : away));
+
+  it("形は traffic.poses と同じ順・同じ数。車はモデルの幅・長さの箱、自転車・バイクは 0.6 m、人は 0.4 m の円", () => {
+    const poses = traffic.poses(first);
+    expect(shapes).toHaveLength(poses.vehicles.length + poses.bikes.length + poses.people.length);
+    TRAFFIC.vehicles.forEach((v, i) => {
+      const size = ASSET.city.sizes[v.model];
+      expect(shapes[i]).toEqual({ kind: "box", halfWidth: size.width / 2, halfLength: size.length / 2 });
+    });
+    for (let i = 0; i < nBikes; i++) {
+      expect(shapes[nVehicles + i]).toEqual({ kind: "circle", radius: TRAFFIC.bikeRadius });
+    }
+    for (let i = nVehicles + nBikes; i < shapes.length; i++) {
+      expect(shapes[i]).toEqual({ kind: "circle", radius: TRAFFIC.personRadius });
+    }
+  });
+
+  it(`自転車・バイク（半径 ${TRAFFIC.bikeRadius} m）にも当たって止まり、重ならない`, () => {
+    const bike: Pose2D = { x: 0, z: -20, heading: 0 };
+    let s = start();
+    let minDistance = Infinity;
+    let touched = false;
+    for (let t = 0; t < Math.round(5 / dt); t++) {
+      s = game.step(s, GAS, dt, CAR, STAGE1, only(nVehicles, bike));
+      touched ||= s.touching;
+      minDistance = Math.min(minDistance, Math.hypot(s.x - bike.x, s.z - bike.z));
+    }
+    expect(minDistance).toBeGreaterThanOrEqual(CAR.collisionRadius + TRAFFIC.bikeRadius - SKIN);
+    expect(touched).toBe(true);
+  });
+
+  it(`横に止まったバスに触れたまま並んで走ると、速さが ${CAR.bumpSpeedFactor * 100}% になるのは触れた最初の刻みだけ`, () => {
+    const bus0 = TRAFFIC.vehicles.findIndex((v) => v.model === "bus");
+    const size = ASSET.city.sizes.bus;
+    // 子どもの車（x 0 を −z へ）の右に、同じ向きのバス。横のすき間は「触れている」と数える幅（touchMargin）の半分
+    const side: Pose2D = {
+      x: size.width / 2 + CAR.collisionRadius + PHYSICS.touchMargin / 2,
+      z: -15,
+      heading: 0,
+    };
+    let s: CarState = { ...start(), speed: 6 };
+    let firstTouch: { before: number; after: number } | null = null;
+    let touchingTicks = 0;
+    for (let t = 0; t < Math.round(3 / dt); t++) {
+      const before = s;
+      s = game.step(s, GAS, dt, CAR, STAGE1, only(bus0, side));
+      if (s.touching && !before.touching && firstTouch === null) {
+        firstTouch = { before: before.speed, after: s.speed };
+      } else if (s.touching && before.touching) {
+        touchingTicks++;
+        // 触れ続けている間は、もう落とさない（横に動けるので、加速して速くなる）
+        expect(s.speed).toBeGreaterThanOrEqual(before.speed - 1e-6);
+      }
+    }
+    expect(firstTouch).not.toBeNull();
+    expect(firstTouch?.after).toBeLessThanOrEqual(
+      (firstTouch?.before ?? 0) * CAR.bumpSpeedFactor + CAR.acceleration * dt + 1e-6,
+    );
+    expect(touchingTicks).toBeGreaterThan(10); // 本当に触れたまま並んで走った
+    expect(s.z).toBeLessThan(side.z - size.length / 2); // バスの横を通りぬけた
   });
 });
 
