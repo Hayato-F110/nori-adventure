@@ -1,6 +1,6 @@
 import { expect, type Page, test, type TestInfo } from "@playwright/test";
-import { approachStopped, installSubApproachDriver } from "./driver";
-import { luminanceAt, peakLuminanceAt, ratio } from "./luminance";
+import { approachStopped, installSubApproachDriver, startDriving } from "./driver";
+import { attachShot, luminanceAt, peakLuminanceAt, ratio } from "./luminance";
 
 // NORI-66 と同じ早送り：60 刻み/秒 ÷ CI の約 3 fps = 20 刻み/フレーム
 const FAST = 20;
@@ -64,6 +64,16 @@ const steerTo = async (
 test("ステージ4：操縦して生きものに近づくと、上の表示の数が増える", async ({ page }, testInfo) => {
   test.setTimeout(180_000);
   const errors = watchErrors(page);
+  // NORI-69：本物の時間でキーを押す代わりに、運転役＋早送りで1匹目に近づき、見つけた距離の内側で時間を止める
+  await installSubApproachDriver(page, {
+    creature: 0,
+    above: 0,
+    stopAt: 4, // STAGE4.discoverRadius 8 m より内側
+    steerGain: 2,
+    climbGain: 0.3,
+    stepsPerFrame: FAST,
+    waitForGo: true,
+  });
   await ready(page);
   expect(await page.evaluate(() => window.__nori?.stage)).toBe(4);
   await expect(page.locator("#star-count")).toHaveText("0");
@@ -72,14 +82,9 @@ test("ステージ4：操縦して生きものに近づくと、上の表示の�
   await page.waitForFunction(() => window.__nori?.seaModels === 7, undefined, { timeout: 30_000 });
   await page.screenshot({ path: testInfo.outputPath("01-start.png") });
 
-  await steerTo(page, () =>
-    page.evaluate(() => {
-      const s = window.__nori?.sub?.();
-      const c = window.__nori?.creatures?.()[0];
-      return s && c ? { sub: s.sub, goal: c, done: s.found[0] ?? false } : null;
-    }),
-  );
-  await page.waitForFunction(() => window.__nori?.sub?.()?.found[0] === true, undefined, { timeout: 10_000 });
+  await startDriving(page);
+  await page.waitForFunction(approachStopped, undefined, { timeout: 150_000, polling: 200 });
+  expect(await page.evaluate(() => window.__nori?.sub?.()?.found[0])).toBe(true);
   await expect(page.locator("#star-count")).toHaveText("1");
   await page.screenshot({ path: testInfo.outputPath("02-found.png") });
   expect(errors).toEqual([]);
@@ -118,7 +123,6 @@ const checkLook = async (page: Page, testInfo: TestInfo, mode: "高画質" | "�
   );
   await page.waitForTimeout(800);
   const quality = await page.evaluate(() => window.__nori?.quality);
-  await page.screenshot({ path: testInfo.outputPath(`stage4-look-${quality}.png`) });
 
   const points = await page.evaluate(() => {
     const m = window.__nori?.treasureMarker?.();
@@ -134,7 +138,8 @@ const checkLook = async (page: Page, testInfo: TestInfo, mode: "高画質" | "�
     expect(p.y).toBeGreaterThanOrEqual(2);
     expect(p.y).toBeLessThanOrEqual(viewport.height - 3);
   }
-  const [treasure = 0, water = 0] = await luminanceAt(page, points);
+  const shot = await attachShot(page, testInfo, `stage4-look-${quality}`);
+  const [treasure = 0, water = 0] = await luminanceAt(page, points, shot);
   const contrast = ratio(treasure, water);
   await testInfo.attach("contrast", {
     body: JSON.stringify({ quality, contrast, treasure, water, points }),
@@ -199,13 +204,12 @@ test("ステージ4の見た目：生きもの（エイ）のきらきらがま�
   expect(onScreen(waterPoint)).toBe(true);
   const visible = ringPoints.filter(onScreen);
   expect(visible.length).toBeGreaterThan(0);
-  const shot = await page.screenshot({ path: testInfo.outputPath("stage4-ray.png") });
-  // 落ちたときに CI の報告で画面を見られるようにする（NORI-67。前は文書しか残らなかった）
-  await testInfo.attach("stage4-ray", { body: shot, contentType: "image/png" });
-  const [water = 0] = await luminanceAt(page, [waterPoint]);
+  // 落ちたときに CI の報告で画面を見られるようにする（NORI-67）。同じ1枚で測る（NORI-69）
+  const ray = await attachShot(page, testInfo, "stage4-ray");
+  const [water = 0] = await luminanceAt(page, [waterPoint], ray);
   // きらきらは小さい（約 20 px）ので、各粒のまわり 10 px でいちばん明るいところを測り、いちばん明るい粒を使う
   const peaks: number[] = [];
-  for (const p of visible) peaks.push(await peakLuminanceAt(page, p, 10));
+  for (const p of visible) peaks.push(await peakLuminanceAt(page, p, 10, ray));
   const sparkle = Math.max(...peaks);
   testInfo.annotations.push({
     type: "きらきらの明るさ（粒ごと）",
