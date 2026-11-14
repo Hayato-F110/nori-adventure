@@ -6,7 +6,20 @@ import type { Page } from "@playwright/test";
 export type Waypoint = { x: number; z: number };
 
 /** E2E の早送り（NORI-66）：1フレームに進める刻みの数。クリアの E2E だけで使う（FPS を測るテストでは使わない） */
-export type FastForwardOption = { stepsPerFrame?: number };
+export type FastForwardOption = {
+  stepsPerFrame?: number;
+  /**
+   * NORI-69：true なら、startDriving(page) を呼ぶまで入力 0（止まったまま）。始めの画面（表示が 0 など）を
+   * 確かめてから走り出すため。早送りでも、確かめる前に進んでしまわない
+   */
+  waitForGo?: boolean;
+};
+
+/** waitForGo の運転役を走り出させる */
+export const startDriving = (page: Page) =>
+  page.evaluate(() => {
+    (globalThis as { __noriGo?: boolean }).__noriGo = true;
+  });
 
 export type CarDriverOptions = FastForwardOption & {
   /** 順に目指す点（最後まで行ったら、loop なら最初へ戻る。そうでなければ最後の点を目指し続ける） */
@@ -57,6 +70,8 @@ export const installTrainDriver = (page: Page, options: TrainDriverOptions) =>
   }, options);
 
 export type PlaneDriverOptions = FastForwardOption & {
+  /** NORI-69：ステージ3で、輪をこの数くぐったら手を離す（入力 0。水平に戻るのを確かめる） */
+  releaseAfterRings?: number;
   /** 向きのずれ（rad）にかけて、左右の傾きの量にする */
   steerGain: number;
   /** 高さの差（m）にかけて、上下の量にする */
@@ -76,7 +91,13 @@ export const installPlaneDriver = (page: Page, options: PlaneDriverOptions) =>
       record: [],
       ...(o.stepsPerFrame === undefined ? {} : { stepsPerFrame: o.stepsPerFrame }),
       drive(raw) {
+        if (o.waitForGo === true && (globalThis as { __noriGo?: boolean }).__noriGo !== true) {
+          return { throttle: 0, steer: 0 };
+        }
         const s = raw as { plane: { x: number; y: number; z: number; heading: number }; rings: boolean[] };
+        if (o.releaseAfterRings !== undefined && s.rings.filter(Boolean).length >= o.releaseAfterRings) {
+          return { throttle: 0, steer: 0 };
+        }
         const all = window.__nori?.rings?.() ?? [];
         const next = s.rings.findIndex((done) => !done);
         const ring = all[next === -1 ? all.length - 1 : next];
@@ -115,6 +136,197 @@ export const installSubDriver = (page: Page, options: PlaneDriverOptions) =>
     };
   }, options);
 
+export type SubApproachOptions = PlaneDriverOptions & {
+  /** 近づく生きもの（STAGE4.creatures の番号）。target が "treasure" のときは使わない */
+  creature: number;
+  /** NORI-71：たからばこへ近づく（creature の代わりに、たからばこ window.__nori.treasureMarker().treasure を目指す） */
+  target?: "treasure";
+  /**
+   * NORI-71（2026-11-14 オーナーの決定）：stopAt の代わりに、カメラ（window.__nori.cameraAt）から目標そのもの
+   * （above を足す前の点）までの距離で止める。霧はカメラからの距離でかかるため。大きい順に並べると、
+   * 止まるたびに __noriApproachStops が 1 増え、テストが freeze(false) で再開すると次の距離まで進む（掃引用）
+   */
+  cameraStops?: readonly number[];
+  /** 生きもののこの高さ（m）上を目指す（真後ろからだと潜水艇に隠れるので、上から見下ろす） */
+  above: number;
+  /** 目指す点まで、この距離（m）に近づいた刻みで時間を止める */
+  stopAt: number;
+};
+
+/**
+ * NORI-67：ステージ4で、生きものの上へ近づいて止まる運転役。page.goto の前に呼ぶ。
+ * 近づいた刻みで window.__nori.freeze(true) を呼ぶ。早送り（stepsPerFrame）の刻みの区切りは毎回同じなので、
+ * 止まる刻み・潜水艇・生きもの・カメラの位置は、PC の速さによらず毎回同じになる
+ * （前は本物の時間でキーを押し、止まる位置が CI の遅さで変わって、測るきらきらが潜水艇の陰に入った）
+ */
+export const installSubApproachDriver = (page: Page, options: SubApproachOptions) =>
+  page.addInitScript((o: SubApproachOptions) => {
+    const wrap = (a: number) => Math.atan2(Math.sin(a), Math.cos(a));
+    const clamp = (v: number) => Math.max(-1, Math.min(1, v));
+    let stopped = false;
+    globalThis.__noriDriver = {
+      record: [],
+      ...(o.stepsPerFrame === undefined ? {} : { stepsPerFrame: o.stepsPerFrame }),
+      drive(raw) {
+        if (stopped) return { throttle: 0, steer: 0 };
+        if (o.waitForGo === true && (globalThis as { __noriGo?: boolean }).__noriGo !== true) {
+          return { throttle: 0, steer: 0 };
+        }
+        const p = (raw as { sub: { x: number; y: number; z: number; heading: number } }).sub;
+        const c =
+          o.target === "treasure"
+            ? window.__nori?.treasureMarker?.().treasure
+            : window.__nori?.creatures?.()[o.creature];
+        if (c === undefined) return { throttle: 0, steer: 0 };
+        const g = { x: c.x, y: c.y + o.above, z: c.z };
+        if (o.cameraStops !== undefined) {
+          const k = (globalThis as { __noriApproachStops?: number }).__noriApproachStops ?? 0;
+          const limit = o.cameraStops[k];
+          const cam = window.__nori?.cameraAt?.();
+          if (
+            limit !== undefined &&
+            cam !== undefined &&
+            Math.hypot(c.x - cam.x, c.y - cam.y, c.z - cam.z) <= limit
+          ) {
+            (globalThis as { __noriApproachStops?: number }).__noriApproachStops = k + 1;
+            if (k + 1 === o.cameraStops.length) stopped = true;
+            window.__nori?.freeze?.(true);
+            (globalThis as { __noriApproachStopped?: boolean }).__noriApproachStopped = true;
+            return { throttle: 0, steer: 0 };
+          }
+        } else if (Math.hypot(g.x - p.x, g.y - p.y, g.z - p.z) <= o.stopAt) {
+          stopped = true;
+          window.__nori?.freeze?.(true);
+          (globalThis as { __noriApproachStopped?: boolean }).__noriApproachStopped = true;
+          return { throttle: 0, steer: 0 };
+        }
+        const wanted = Math.atan2(-(g.x - p.x), -(g.z - p.z));
+        return {
+          throttle: clamp((g.y - p.y) * o.climbGain),
+          steer: clamp(-wrap(wanted - p.heading) * o.steerGain),
+        };
+      },
+    };
+  }, options);
+
+export type PlaneApproachOptions = FastForwardOption & {
+  /** 目指す輪の番号（window.__nori.rings() の番号。−1 はゴールの輪＝最後） */
+  ring: number;
+  /** 輪までの水平の距離がこれ（m）以下になったら手を離し、水平に戻ったら時間を止める */
+  releaseAt: number;
+  steerGain: number;
+  climbGain: number;
+};
+
+/**
+ * NORI-71：ステージ3で、輪へ近づいて止まる運転役。page.goto の前に呼ぶ（1刻み目から操縦する）。
+ * 輪までの水平の距離が releaseAt 以下になったら手を離し（入力 0。自動で水平に戻る）、
+ * 傾き・上下がどちらも 1e-6 未満になった刻みで window.__nori.freeze(true) を呼ぶ。
+ * 止まるのはその刻みを含むコマの終わり（そのコマの残りの刻みは入力 0 で進む）。早送りの区切りは毎回同じなので、
+ * 止まる刻み・位置は PC の速さによらない。止まった刻みは __noriApproachStoppedTick に入る
+ */
+export const installPlaneApproachDriver = (page: Page, options: PlaneApproachOptions) =>
+  page.addInitScript((o: PlaneApproachOptions) => {
+    const wrap = (a: number) => Math.atan2(Math.sin(a), Math.cos(a));
+    const clamp = (v: number) => Math.max(-1, Math.min(1, v));
+    let released = false;
+    let stopped = false;
+    globalThis.__noriDriver = {
+      record: [],
+      ...(o.stepsPerFrame === undefined ? {} : { stepsPerFrame: o.stepsPerFrame }),
+      drive(raw) {
+        if (stopped) return { throttle: 0, steer: 0 };
+        const s = raw as {
+          tick: number;
+          rings: boolean[];
+          plane: { x: number; y: number; z: number; heading: number; pitch: number; bank: number };
+        };
+        const all = window.__nori?.rings?.() ?? [];
+        const target = o.ring < 0 ? all.length - 1 : o.ring;
+        // 手前の輪は順にくぐる（ゴールはスタートの 20 m 後ろにあるので、まっすぐ目指すと背を向けたまま止まる）
+        const next = s.rings.findIndex((done) => !done);
+        const now = next === -1 ? all.length - 1 : Math.min(next, target);
+        const ring = all[now];
+        if (ring === undefined) return { throttle: 0, steer: 0 };
+        const p = s.plane;
+        if (now === target && Math.hypot(ring.x - p.x, ring.z - p.z) <= o.releaseAt) released = true;
+        if (released) {
+          if (Math.abs(p.bank) < 1e-6 && Math.abs(p.pitch) < 1e-6) {
+            stopped = true;
+            window.__nori?.freeze?.(true);
+            const g = globalThis as { __noriApproachStopped?: boolean; __noriApproachStoppedTick?: number };
+            g.__noriApproachStopped = true;
+            g.__noriApproachStoppedTick = s.tick;
+          }
+          return { throttle: 0, steer: 0 };
+        }
+        const wanted = Math.atan2(-(ring.x - p.x), -(ring.z - p.z));
+        return {
+          throttle: clamp((ring.y - p.y) * o.climbGain),
+          steer: clamp(-wrap(wanted - p.heading) * o.steerGain),
+        };
+      },
+    };
+  }, options);
+
+export type SkyPlaneOptions = FastForwardOption & {
+  /** 1枚目：左へ回す刻みの数（回し終えた刻みで止める） */
+  turnTicks: number;
+  /** 2枚目：ほかの飛行機（1機目）へ向かい、向きの差（rad）・高さの差（m）・距離（m）がこれ以下になったら止める */
+  angle: number;
+  height: number;
+  distance: number;
+  steerGain: number;
+  climbGain: number;
+};
+
+/**
+ * NORI-71：ステージ3の景色。1枚目は左へ turnTicks 刻み回して止める（__noriSkyPhase = 1）。
+ * テストが freeze(false) で再開すると、1機目のほかの飛行機（skyScenery().planeAt[0]）へ向かい、
+ * 条件を満たした刻みで止める（__noriSkyPhase = 2）
+ */
+export const installSkyPlaneDriver = (page: Page, options: SkyPlaneOptions) =>
+  page.addInitScript((o: SkyPlaneOptions) => {
+    const wrap = (a: number) => Math.atan2(Math.sin(a), Math.cos(a));
+    const clamp = (v: number) => Math.max(-1, Math.min(1, v));
+    const g = globalThis as { __noriSkyPhase?: number };
+    let turned = 0;
+    globalThis.__noriDriver = {
+      record: [],
+      ...(o.stepsPerFrame === undefined ? {} : { stepsPerFrame: o.stepsPerFrame }),
+      drive(raw) {
+        const phase = g.__noriSkyPhase ?? 0;
+        if (phase === 0) {
+          turned++;
+          if (turned >= o.turnTicks) {
+            g.__noriSkyPhase = 1;
+            window.__nori?.freeze?.(true);
+            return { throttle: 0, steer: 0 };
+          }
+          return { throttle: 0, steer: -1 }; // 左へ
+        }
+        if (phase >= 2) return { throttle: 0, steer: 0 };
+        const p = (raw as { plane: { x: number; y: number; z: number; heading: number } }).plane;
+        const t = window.__nori?.skyScenery?.().planeAt[0];
+        if (t === undefined) return { throttle: 0, steer: 0 };
+        const diff = wrap(Math.atan2(-(t.x - p.x), -(t.z - p.z)) - p.heading);
+        const dy = t.y - p.y;
+        // 距離は高さも含める（霧はカメラからの距離でかかる）
+        const near = Math.hypot(t.x - p.x, dy, t.z - p.z) < o.distance;
+        if (Math.abs(diff) <= o.angle && Math.abs(dy) <= o.height && near) {
+          g.__noriSkyPhase = 2;
+          window.__nori?.freeze?.(true);
+          return { throttle: 0, steer: 0 };
+        }
+        return { throttle: clamp(dy * o.climbGain), steer: clamp(-diff * o.steerGain) };
+      },
+    };
+  }, options);
+
+/** installSubApproachDriver が止まったか（page.waitForFunction の中で呼ぶ） */
+export const approachStopped = (): boolean =>
+  (globalThis as { __noriApproachStopped?: boolean }).__noriApproachStopped === true;
+
 /**
  * ステージ1の車の運転役を入れる。page.goto の前に呼ぶ。
  * 状態は GameState（car.x・z・heading）。heading 0 は −Z 向き、左へ切ると heading が増える。steer は −1 が左
@@ -128,6 +340,9 @@ export const installCarDriver = (page: Page, options: CarDriverOptions) =>
       record: [],
       ...(o.stepsPerFrame === undefined ? {} : { stepsPerFrame: o.stepsPerFrame }),
       drive(raw) {
+        if (o.waitForGo === true && (globalThis as { __noriGo?: boolean }).__noriGo !== true) {
+          return { throttle: 0, steer: 0 };
+        }
         const car = (raw as { car: { x: number; z: number; heading: number } }).car;
         const last = o.waypoints.length - 1;
         const here = o.waypoints[target] ?? { x: 0, z: 0 };

@@ -213,6 +213,8 @@ export const startStage4 = async (canvas: HTMLCanvasElement, hud: HTMLElement, s
     sub: () => structuredClone(current),
     creatures: () => STAGE4.creatures.map((_, i) => view.creatureAt(i)),
     sparkles: () => STAGE4.creatures.map((_, i) => view.sparkleAt(i)),
+    // NORI-71：カメラの今の位置（早送りでは目標より遅れて追うので、設定から計算せず実際の値を読む）
+    cameraAt: () => ({ x: camera.position.x, y: camera.position.y, z: camera.position.z }),
     get seaModels() {
       return view.seaModels;
     },

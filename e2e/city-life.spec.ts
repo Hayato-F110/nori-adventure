@@ -27,7 +27,7 @@ test("ステージ1：ほかの車・自転車・バイク・人が自作モデ�
   expect(before.bikes).toHaveLength(4);
   expect(before.people).toHaveLength(6);
 
-  // 2 秒待つ（子どもの車は動かさない）。遅い CI でも刻みが進んだことを確かめてから比べる
+  // ゲームが 30 刻み（0.5 秒）より多く進むまで待つ（子どもの車は動かさない）。遅い CI でも刻みで待つ
   const tick0 = await page.evaluate(() => window.__nori?.state().tick ?? 0);
   await page.waitForFunction((t) => (window.__nori?.state().tick ?? 0) > t + 30, tick0, { timeout: 60_000 });
   const after = await read();
