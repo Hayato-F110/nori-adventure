@@ -5,6 +5,13 @@ import { createHash } from "node:crypto";
 import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+// @ts-expect-error -- Hook は素の JavaScript（.mjs）で、型定義を持たない。刈り取りの表の読み方を Hook と同じにする
+import { harvestTable } from "../../.claude/hooks/harvest-before-done.mjs";
+
+type HarvestTable = {
+  header: string[];
+  rows: { lineNo: number; item: string; issue: string; result: string }[];
+};
 
 const SCOPE = "確かめる範囲";
 const NOT_SCOPE = "確かめない範囲（理由）";
@@ -100,36 +107,51 @@ export const findPlanProblems = (text: string): string[] => {
 /**
  * 「刈り取り」の節（2026-11-14 にオーナーが決めた）：一覧の各項目を、どの課題の完了条件で刈り取る（実装して確かめ、閉じる）かを書く。
  * 「## 刈り取り」の見出しのあとに、見出しが「項目」で始まり「課題」の列がある表を置く。
- * 一覧の表の行の「#」（1・2・E2E など）は、どれかの「項目」の頭（「：」か「 の」の前。「・」で区切り、「1〜7」は範囲）に出てくること。
- * 「課題」の欄は NORI-xx を含むか、「課題なし（理由）」で始まること（何も決めずに残さない）
+ * 2026-11-14 にオーナーが決めた形（**1項目1行・結果の列**）：課題の完了条件は「この表で、その課題の行の結果がすべて埋まっていること」。
+ * 閉じる前に Hook（.claude/hooks/harvest-before-done.mjs）が同じ表を読み、結果が空か「まだ」の行があれば止める。
+ * - 見出しに「項目」「課題」「結果」の列がある
+ * - 一覧の表の行の「#」（1・2・E2E など）ごとに、「項目」がちょうどその「#」の行が1つある（「1〜4」「1・2」のまとめ書きは不可）
+ * - 「確かめない範囲（理由）」が空でも「—」でもない行は、「項目」が「# の確かめない範囲」で始まる行が1つ以上ある
+ * - 「課題」の欄は NORI-xx を含むか、「課題なし（理由）」で始まる（何も決めずに残さない）
+ * - 「結果」の欄は空にしない（まだなら「（まだ）」、課題なしなら「（承認で閉じる）」など）
  */
 export const findHarvestProblems = (text: string): string[] => {
-  const lines = text.split(/\r?\n/);
-  const start = lines.findIndex((l) => /^## 刈り取り/.test(l));
-  if (start < 0) return ["「## 刈り取り」の節がない（各項目をどの課題の完了条件で閉じるか）"];
-  const headerAt = lines.findIndex((l, i) => i > start && l.startsWith("|"));
-  const header = headerAt < 0 ? [] : cellsOf(lines[headerAt] ?? "");
-  const issueCol = header.indexOf("課題");
-  if (header[0] !== "項目" || issueCol < 0) return ["「刈り取り」の節に、見出しが「項目」「課題」の表がない"];
-  const problems: string[] = [];
-  const covered = new Set<string>();
-  for (let j = headerAt + 2; (lines[j] ?? "").startsWith("|"); j++) {
-    const cells = cellsOf(lines[j] ?? "");
-    const lead = (cells[0] ?? "").split(/：| の/)[0]?.trim() ?? "";
-    for (const token of lead.split("・")) {
-      const range = /^(\d+)〜(\d+)$/.exec(token);
-      if (range === null) covered.add(token);
-      else for (let n = Number(range[1]); n <= Number(range[2]); n++) covered.add(String(n));
-    }
-    const issue = cells[issueCol] ?? "";
-    if (!/NORI-\d+/.test(issue) && !/^課題なし（.+）/.test(issue)) {
-      problems.push(`${j + 1} 行目：「課題」が NORI-xx でも「課題なし（理由）」でもない`);
-    }
+  if (!/^## 刈り取り/m.test(text))
+    return ["「## 刈り取り」の節がない（各項目をどの課題の完了条件で閉じるか）"];
+  const table = harvestTable(text) as HarvestTable | null;
+  const header = table?.header ?? [];
+  if (table === null || header[0] !== "項目" || !header.includes("課題") || !header.includes("結果")) {
+    return [
+      "「刈り取り」の節に、見出しが「項目」「課題」「結果」の表がない（1項目1行。結果は閉じるときに埋める）",
+    ];
   }
-  for (const { rows } of parsePlan(text)) {
+  const problems: string[] = [];
+  const items = table.rows.map((r) => r.item);
+  for (const { lineNo, item, issue, result } of table.rows) {
+    if (/〜/.test(item.split(/：| の/)[0] ?? "") || /^[^：]*・/.test(item.split(/ の|：/)[0] ?? "")) {
+      problems.push(`${lineNo} 行目：「${item}」は項目をまとめて書いている（1項目1行に分ける）`);
+    }
+    if (!/NORI-\d+/.test(issue) && !/^課題なし（.+）/.test(issue)) {
+      problems.push(`${lineNo} 行目：「課題」が NORI-xx でも「課題なし（理由）」でもない`);
+    }
+    if (result === "") problems.push(`${lineNo} 行目：「結果」が空（まだなら「（まだ）」と書く）`);
+  }
+  for (const { header: planHeader, rows } of parsePlan(text)) {
+    const notScope = planHeader.indexOf(NOT_SCOPE);
     for (const { cells } of rows) {
       const id = cells[0] ?? "";
-      if (!covered.has(id)) problems.push(`一覧の「${id}」を、どの課題で刈り取るかが「刈り取り」の節にない`);
+      if (!items.includes(id))
+        problems.push(`一覧の「${id}」の行が「刈り取り」の表にない（項目がちょうど「${id}」の行）`);
+      const reason = notScope < 0 ? "" : (cells[notScope] ?? "");
+      if (
+        reason !== "" &&
+        !/^[-—ー]+$/.test(reason) &&
+        !items.some((i) => i.startsWith(`${id} の確かめない範囲`))
+      ) {
+        problems.push(
+          `一覧の「${id}」の確かめない範囲を、どの課題で刈り取るかが「刈り取り」の表にない（「${id} の確かめない範囲：…」の行）`,
+        );
+      }
     }
   }
   return problems;
@@ -167,23 +189,50 @@ describe("計算の節の検査の仕組み", () => {
 });
 
 describe("刈り取りの節の検査の仕組み", () => {
-  const plan = "| # | テスト |\n| - | - |\n| 1 | a |\n| 2 | b |\n| E2E | c |\n";
-  const harvest = (rows: string) => `${plan}\n## 刈り取り\n\n| 項目 | 課題 |\n| - | - |\n${rows}`;
+  // 一覧：1 と E2E は確かめない範囲あり、2 は「—」
+  const plan = `| # | テスト | ${NOT_SCOPE} |\n| - | - | - |\n| 1 | a | x（理由） |\n| 2 | b | — |\n| E2E | c | y（理由） |\n`;
+  const harvest = (rows: string) => `${plan}\n## 刈り取り\n\n| 項目 | 課題 | 結果 |\n| - | - | - |\n${rows}`;
+  const full =
+    "| 1 | NORI-71 | （まだ） |\n| 2 | NORI-71 | （まだ） |\n| E2E | NORI-71 | （まだ） |\n" +
+    "| 1 の確かめない範囲：x | 課題なし（直す必要がない） | （承認で閉じる） |\n| E2E の確かめない範囲：y | NORI-70 | （まだ） |\n";
   it("節がなければ落とす", () => {
     expect(findHarvestProblems(plan).join()).toContain("節がない");
   });
-  it("すべての行が、範囲（1〜2）や「・」の区切りで課題にひも付いていれば通す", () => {
+  it("1項目1行で、行ごと・確かめない範囲ごとに課題と結果があれば通す", () => {
+    expect(findHarvestProblems(harvest(full))).toEqual([]);
+  });
+  it("「結果」の列がなければ落とす", () => {
+    const noResult = `${plan}\n## 刈り取り\n\n| 項目 | 課題 |\n| - | - |\n| 1 | NORI-71 |\n`;
+    expect(findHarvestProblems(noResult).join()).toContain("見出しが「項目」「課題」「結果」の表がない");
+  });
+  it("「1〜2」「1・2」のまとめ書きは落とす（項目がちょうどその「#」の行も足りない）", () => {
+    const rest = full.split("\n").slice(2).join("\n");
+    expect(findHarvestProblems(harvest(`| 1〜2 | NORI-71 | （まだ） |\n${rest}`)).join()).toContain(
+      "まとめて",
+    );
+    expect(findHarvestProblems(harvest(`| 1・2 | NORI-71 | （まだ） |\n${rest}`)).join()).toContain(
+      "まとめて",
+    );
+  });
+  it("一覧の行が表にない、確かめない範囲の行がないと落とす（「—」の行は要らない）", () => {
+    const without = (text: string) =>
+      full
+        .split("\n")
+        .filter((l) => !l.startsWith(text))
+        .join("\n");
+    expect(findHarvestProblems(harvest(without("| E2E |"))).join()).toContain("「E2E」の行");
+    expect(findHarvestProblems(harvest(without("| 1 の確かめない"))).join()).toContain(
+      "「1」の確かめない範囲",
+    );
+    expect(findHarvestProblems(harvest(full)).join()).not.toContain("「2」の確かめない範囲");
+  });
+  it("課題が空や「—」、結果が空なら落とし、「課題なし（理由）」なら通す", () => {
+    expect(findHarvestProblems(harvest(full.replace("| 2 | NORI-71 |", "| 2 | — |"))).join()).toContain(
+      "「課題」",
+    );
     expect(
-      findHarvestProblems(harvest("| 1〜2 | NORI-71 |\n| E2E の確かめない範囲：x | NORI-70 |\n")),
-    ).toEqual([]);
-    expect(findHarvestProblems(harvest("| 1・2・E2E | NORI-71 |\n"))).toEqual([]);
-  });
-  it("節に出てこない行があれば落とす", () => {
-    expect(findHarvestProblems(harvest("| 1〜2 | NORI-71 |\n")).join()).toContain("「E2E」");
-  });
-  it("課題が空や「—」なら落とし、「課題なし（理由）」なら通す", () => {
-    expect(findHarvestProblems(harvest("| 1・2・E2E | — |\n"))).toHaveLength(1);
-    expect(findHarvestProblems(harvest("| 1・2・E2E | 課題なし（直す必要がない） |\n"))).toEqual([]);
+      findHarvestProblems(harvest(full.replace("| 2 | NORI-71 | （まだ） |", "| 2 | NORI-71 |  |"))).join(),
+    ).toContain("「結果」が空");
   });
 });
 

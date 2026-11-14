@@ -44,6 +44,17 @@
         ]
       },
       {
+        "matcher": "mcp__.*__transitionJiraIssue",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node",
+            "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/harvest-before-done.mjs"],
+            "timeout": 15
+          }
+        ]
+      },
+      {
         "matcher": "*",
         "hooks": [
           {
