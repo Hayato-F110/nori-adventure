@@ -31,7 +31,7 @@ export type Stage5View = {
   applyLook(look: Look | null): void;
   update(state: Stage5State, seconds: number, reducedMotion: boolean): void;
   /** E2E で明るさの比を測る点：ほし（1つめ）・道、ジャンプ台（1つめ）、なかよしの星（1つめ）・砂 */
-  marker(): { star: Point3; path: Point3; pad: Point3; friend: Point3; ground: Point3 };
+  marker(): { star: Point3; path: Point3; pad: Point3; sand: Point3; friend: Point3; ground: Point3 };
   /** 今の口の形（E2E・確かめ用） */
   readonly mouth: Mouth;
 };
@@ -303,6 +303,8 @@ export const createStage5View = (): Stage5View => {
         star: { x: s.x, y: 0.8, z: s.z },
         // ほしの横の道（ほしと重ならない、道の端寄り）
         path: { x: p.x + STAGE5.pathWidth / 2 - 1, y: 0.02, z: p.z },
+        // ほしの横の砂：道の端から 2 m 外（ルールは、ほし・台を「まわりの月の砂」と比べる。NORI-70：初見レビュー R1-70-1）
+        sand: { x: p.x + STAGE5.pathWidth / 2 + 2, y: 0, z: p.z },
         // 台の真ん中の矢印を避けて、右へ 1.8 m（台の半径 2.5 m の中）
         pad: { x: pad.x + Math.cos(pad.heading) * 1.8, y: 0.04, z: pad.z - Math.sin(pad.heading) * 1.8 },
         friend: { x: f.x, y: f.y, z: f.z },

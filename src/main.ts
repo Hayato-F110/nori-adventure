@@ -50,7 +50,7 @@ declare global {
       rover?: () => Stage5State;
       /** ステージ5で明るさの比を測る点（ほし・道・ジャンプ台・なかよしの星・砂） */
       moonMarker?: () => Record<
-        "star" | "path" | "pad" | "friend" | "ground",
+        "star" | "path" | "pad" | "sand" | "friend" | "ground",
         { x: number; y: number; z: number }
       >;
       /** ステージ5のボスの口の形（落ち着くと笑顔） */
