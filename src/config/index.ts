@@ -552,6 +552,16 @@ export const ASSET = {
       motorbike: { width: 0.8, height: 1.6, length: 2.0 },
     },
     nodes: ["body"],
+    /** なければならない素材の名前（ゲームが名前で探す：ランプを光らせる・服を塗りかえる。NORI-70） */
+    materials: {
+      "traffic-car": [],
+      bus: [],
+      police: ["lamp_red", "lamp_blue"],
+      "fire-truck": ["lamp_red", "lamp_blue"],
+      person: ["shirt"],
+      bicycle: ["shirt"],
+      motorbike: ["shirt"],
+    },
     maxTriangles: 3000,
     maxGlbBytes: 262144,
   },
