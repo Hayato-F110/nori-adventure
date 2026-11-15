@@ -47,6 +47,11 @@ describe("Hook：サブエージェントの報告を、自動でファイルに
     expect(reportOf(stop)).toBe("調べ終わりました。");
   });
 
+  it("種類が空のもの（Claude Code が内部で使うエージェント。公式の文書）は保存しない", () => {
+    expect(reportOf({ ...stop, agent_type: "" })).toBeNull();
+    expect(reportOf({ ...handback, agent_type: undefined })).toBeNull();
+  });
+
   it("ほかの道具・空の報告は保存しない", () => {
     expect(reportOf({ ...handback, tool_name: "Bash" })).toBeNull();
     expect(reportOf({ ...stop, last_assistant_message: "  " })).toBeNull();

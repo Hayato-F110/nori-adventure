@@ -12,6 +12,8 @@ import path from "node:path";
 
 /** 入力から報告の本文を取り出す。保存しないときは null */
 export const reportOf = (input) => {
+  // 種類が空のものは、Claude Code が内部で使うエージェント（公式の文書）。保存しない（11/15、「OK」だけの報告が残った）
+  if (typeof input?.agent_type !== "string" || input.agent_type.trim() === "") return null;
   let text = null;
   if (input?.hook_event_name === "PostToolUse" && input?.tool_name === "SubagentHandback") {
     text = input?.tool_input?.message;
