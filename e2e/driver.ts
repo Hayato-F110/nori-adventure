@@ -430,3 +430,24 @@ export const installRoverDriver = (page: Page, options: RoverDriverOptions) =>
       },
     };
   }, options);
+
+/** NORI-38：ステージごとに、決まった入力を出し続ける運転役の入力（キーはステージの番号） */
+export type ConstantInputs = Record<1 | 2 | 3 | 4 | 5, { throttle: number; steer: number }>;
+
+/**
+ * NORI-38：5 つのステージで使える「決まった入力を出し続ける」運転役を入れる。page.goto の前に1回呼べば、
+ * そのあと開くどのステージでも、URL の ?stage=N（なければ 1）の入力を出す。状態は読まない
+ */
+export const installConstantDriver = (page: Page, inputs: ConstantInputs, options: FastForwardOption = {}) =>
+  page.addInitScript(
+    ({ i, o }: { i: ConstantInputs; o: FastForwardOption }) => {
+      const stage = Number(new URLSearchParams(location.search).get("stage") ?? "1") as 1 | 2 | 3 | 4 | 5;
+      const input = i[stage] ?? { throttle: 0, steer: 0 };
+      globalThis.__noriDriver = {
+        record: [],
+        ...(o.stepsPerFrame === undefined ? {} : { stepsPerFrame: o.stepsPerFrame }),
+        drive: () => input,
+      };
+    },
+    { i: inputs, o: options },
+  );

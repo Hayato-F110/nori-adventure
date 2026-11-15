@@ -1,5 +1,8 @@
 import { defineConfig } from "vitest/config";
+import path from "node:path";
+import { PWA } from "./src/config/index.ts";
 import { productionCsp } from "./tools/build/csp.ts";
+import { writeServiceWorker } from "./tools/build/pwa.ts";
 
 // GitHub Pages はリポジトリ名のサブパスで公開される。開発・preview・本番で同じパスにそろえる
 // （本番だけ変えると、vite preview でファイルが 404 になった：2026-11-05）
@@ -10,6 +13,18 @@ export default defineConfig(() => ({
   plugins: [
     // 本番のビルドだけ、CSP の style-src から 'unsafe-inline' を外す（NORI-16）
     { name: "nori-production-csp", apply: "build" as const, transformIndexHtml: productionCsp },
+    // 本番のビルドの最後に、通信なしで持つファイルの一覧と版を書いた sw.js を作る（NORI-38）。
+    // closeBundle はファイルを全部書き終えたあと（public のコピーも含む）に呼ばれる。上限を超えたら build を止める
+    {
+      name: "nori-service-worker",
+      apply: "build" as const,
+      closeBundle() {
+        const outDir = path.resolve(import.meta.dirname, "dist");
+        const core = path.resolve(import.meta.dirname, "src/pwa/swCore.js");
+        const { count, totalBytes } = writeServiceWorker(outDir, PWA.maxPrecacheBytes, core);
+        console.info(`sw.js：${count} ファイル・${totalBytes} B を通信なしで持つ`);
+      },
+    },
   ],
   test: {
     include: ["tests/**/*.test.ts"],

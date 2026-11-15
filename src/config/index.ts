@@ -778,6 +778,14 @@ export const SOUND = {
   },
 } as const;
 
+/** ホーム画面に追加・通信なしで遊ぶ（PWA。NORI-38）。docs/game-rules.md の同じ名前の節 */
+export const PWA = {
+  /** 通信なしで持つファイルの合計の上限（B）。超えたら build を止める */
+  maxPrecacheBytes: 10485760,
+  /** アイコンの背景の色（maskable の安全な円の外はこの色だけ） */
+  iconBackground: "#9fd8ff",
+} as const;
+
 export const CONFIG = {
   SIM,
   PHYSICS,
@@ -804,4 +812,5 @@ export const CONFIG = {
   TRAFFIC,
   CITY_SKY,
   SOUND,
+  PWA,
 } as const;
