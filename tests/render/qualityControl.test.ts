@@ -158,3 +158,91 @@ describe("まわりの光（HDRI）を使わないステージ", () => {
     expect(hemi.intensity).toBe(LOOK.hemiPlain);
   });
 });
+
+// NORI-76 一覧 4（docs/test-plans/NORI-76.md）：結果を覚えているステージ・ステージで判定したとき・低で始めるとき
+describe("NORI-76 一覧 4：覚えた結果で始める・覚え直す", () => {
+  const setup76 = (initial: QualityChoice, remembered: "high" | "low" | null) => {
+    const renderer = {
+      pixelRatio: 2,
+      shadowMap: { enabled: true },
+      setPixelRatio(r: number) {
+        this.pixelRatio = r;
+      },
+    };
+    const applied: (Look | null)[] = [];
+    const judged: string[] = [];
+    const sun = new THREE.DirectionalLight();
+    sun.castShadow = true;
+    const control = createQualityControl({
+      renderer: renderer as unknown as THREE.WebGLRenderer,
+      scene: new THREE.Scene(),
+      sun,
+      hemi: new THREE.HemisphereLight(),
+      highPixelRatio: 2,
+      applyLook: (l) => applied.push(l),
+      resize: () => undefined,
+      initial,
+      remembered,
+      onJudged: (q) => judged.push(q),
+    });
+    return { control, renderer, sun, applied, judged };
+  };
+
+  it("自動で high を覚えていれば、判定を待たずに、素材が読めた時点で textured", () => {
+    const { control, applied } = setup76("auto", "high");
+    expect(control.lookState).toBe("loading");
+    control.lookLoaded(look);
+    expect(control.lookState).toBe("textured");
+    expect(applied).toEqual([look]);
+  });
+
+  it("自動で low を覚えていれば、素材を待たずに初めから plain・倍率 1・影なし。選び方は auto のまま", () => {
+    const { control, renderer, sun } = setup76("auto", "low");
+    expect(control.lookState).toBe("plain");
+    expect(control.quality).toBe("low");
+    expect(control.choice).toBe("auto");
+    expect(renderer.pixelRatio).toBe(LOOK.lowPixelRatio);
+    expect(renderer.shadowMap.enabled).toBe(false);
+    expect(sun.castShadow).toBe(false);
+  });
+
+  it("ボタンで「低」を選んで始めたときも、素材を待たずに初めから plain", () => {
+    const { control } = setup76("low", null);
+    expect(control.lookState).toBe("plain");
+  });
+
+  it("覚えていなければ今と同じ（4 秒まで loading）。判定が済んだら、その時点の画質を覚える", () => {
+    const { control, judged } = setup76("auto", null);
+    control.lookLoaded(look);
+    for (let s = 1; s < LOOK.settleSeconds + LOOK.lowFpsSeconds; s++) control.sample(60, s);
+    expect(control.lookState).toBe("loading");
+    expect(judged).toEqual([]);
+    control.sample(60, LOOK.settleSeconds + LOOK.lowFpsSeconds);
+    expect(control.lookState).toBe("textured");
+    expect(judged).toEqual(["high"]);
+  });
+
+  it("覚えていない自動で遅ければ、判定のときに low を覚える", () => {
+    const { control, judged } = setup76("auto", null);
+    control.lookLoaded(look);
+    goSlow(control);
+    expect(judged).toContain("low");
+    expect(judged.at(-1)).toBe("low");
+  });
+
+  it.each(["high", "low"] as const)("ボタンで %s を選んでいれば、覚えた結果を使わず、書かない", (q) => {
+    const { control, judged } = setup76(q, q === "high" ? "low" : "high");
+    expect(control.quality).toBe(q);
+    control.lookLoaded(look);
+    judgeFast(control);
+    expect(judged).toEqual([]);
+  });
+
+  it("覚えた high で始め、遊んでいる間に自動で低へ下げたら low を覚え直す", () => {
+    const { control, judged } = setup76("auto", "high");
+    control.lookLoaded(look);
+    goSlow(control);
+    expect(control.quality).toBe("low");
+    expect(judged).toEqual(["low"]);
+  });
+});

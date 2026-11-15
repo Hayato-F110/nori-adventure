@@ -2,9 +2,12 @@ import { describe, expect, it } from "vitest";
 import { LOOK } from "../../src/config";
 import {
   createQualityGovernor,
+  JUDGED_STORAGE_KEY,
+  loadJudged,
   loadQualityChoice,
   nextQualityChoice,
   QUALITY_STORAGE_KEY,
+  saveJudged,
   saveQualityChoice,
 } from "../../src/render/quality";
 
@@ -144,5 +147,66 @@ describe("画質のボタンの押す順", () => {
     saveQualityChoice(s, "auto");
     expect(loadQualityChoice(s)).toBe("auto");
     expect(data.get(QUALITY_STORAGE_KEY)).toBe("auto");
+  });
+});
+
+// NORI-76 一覧 3（docs/test-plans/NORI-76.md）：判定の結果を覚える（sessionStorage。名前 nori-adventure.judged）
+describe("NORI-76 一覧 3：判定の結果を覚える・読む", () => {
+  const memory = () => {
+    const data = new Map<string, string>();
+    const writes: string[] = [];
+    return {
+      data,
+      writes,
+      storage: {
+        getItem: (k: string) => data.get(k) ?? null,
+        setItem: (k: string, v: string) => {
+          writes.push(k);
+          data.set(k, v);
+        },
+      },
+    };
+  };
+
+  it("名前は nori-adventure.judged", () => {
+    expect(JUDGED_STORAGE_KEY).toBe("nori-adventure.judged");
+  });
+
+  it.each(["high", "low"] as const)("%s を書いて読める", (q) => {
+    const m = memory();
+    saveJudged(m.storage, q);
+    expect(loadJudged(m.storage)).toBe(q);
+    expect(m.data.get(JUDGED_STORAGE_KEY)).toBe(q);
+  });
+
+  it.each([["auto"], [""], ["fast"]])("知らない値（%s）は覚えていない（null）", (v) => {
+    const m = memory();
+    m.data.set(JUDGED_STORAGE_KEY, v);
+    expect(loadJudged(m.storage)).toBeNull();
+  });
+
+  it("何もない・保存場所がないときは null", () => {
+    expect(loadJudged(memory().storage)).toBeNull();
+    expect(loadJudged(null)).toBeNull();
+  });
+
+  it("読み書きで例外が出ても止まらない", () => {
+    const broken = {
+      getItem: () => {
+        throw new Error("SecurityError");
+      },
+      setItem: () => {
+        throw new Error("QuotaExceededError");
+      },
+    };
+    expect(loadJudged(broken)).toBeNull();
+    expect(() => saveJudged(broken, "high")).not.toThrow();
+  });
+
+  it("渡した保存場所の nori-adventure.judged だけに書く（画質の選び方の名前には書かない）", () => {
+    const m = memory();
+    saveJudged(m.storage, "low");
+    expect(m.writes).toEqual([JUDGED_STORAGE_KEY]);
+    expect(m.data.has(QUALITY_STORAGE_KEY)).toBe(false);
   });
 });
