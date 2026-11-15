@@ -273,13 +273,25 @@ export const makeSeaGlb = async (
 /** 街のモデル（ASSET.city。NORI-61）の、正しい形の仮の GLB：外形いっぱいの箱1つ（body）。原点は底の中心 */
 export const makeCityGlb = async (
   name: (typeof ASSET.city.variants)[number],
-  options: FixtureOptions = {},
-): Promise<Uint8Array> => makeBodyBoxGlb(name, ASSET.city.sizes[name], options);
+  options: CityFixtureOptions = {},
+): Promise<Uint8Array> =>
+  makeBodyBoxGlb(
+    name,
+    ASSET.city.sizes[name],
+    options,
+    (ASSET.city.materials as Record<string, readonly string[]>)[name] ?? [],
+  );
+
+export type CityFixtureOptions = FixtureOptions & {
+  /** 付けない素材の名前（NORI-70：素材の名前の検査を確かめるため） */
+  omitMaterials?: readonly string[];
+};
 
 const makeBodyBoxGlb = async (
   name: string,
   size: { width: number; height: number; length: number },
-  options: FixtureOptions,
+  options: CityFixtureOptions,
+  materials: readonly string[] = [],
 ): Promise<Uint8Array> => {
   const s = options.scale ?? 1;
   const lift = options.liftY ?? 0;
@@ -288,10 +300,16 @@ const makeBodyBoxGlb = async (
   doc.createBuffer();
   const scene = doc.createScene(name);
   if (!(options.omitNodes ?? []).includes("body")) {
+    const mesh = addBox(doc, "body", [width * s, height * s, length * s], 1);
+    // 決まりの素材（ランプ・服）を、同じ箱の面にもう1つずつ付ける（名前を読み取れればよい）
+    const base = mesh.listPrimitives()[0];
+    for (const m of materials.filter((m) => !(options.omitMaterials ?? []).includes(m))) {
+      if (base) mesh.addPrimitive(base.clone().setMaterial(doc.createMaterial(m)));
+    }
     scene.addChild(
       doc
         .createNode("body")
-        .setMesh(addBox(doc, "body", [width * s, height * s, length * s], 1))
+        .setMesh(mesh)
         .setTranslation([0, (height * s) / 2 + lift, 0]),
     );
   }
