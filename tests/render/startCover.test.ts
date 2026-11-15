@@ -52,7 +52,9 @@ describe("NORI-76 一覧 6：覆いの部品と見た目の値", () => {
     expect(open).toContain('aria-label="よみこみちゅう"');
     const inner = m?.[1] ?? "";
     expect(inner.match(/class="start-cover-dot"/g)).toHaveLength(3);
-    expect(inner.replace(/<[^>]+>/g, "").trim()).toBe("");
+    // タグの外（< と > で区切った偶数番目）がすべて空白なら、文字がない
+    const outside = inner.split(/[<>]/).filter((_, i) => i % 2 === 0);
+    expect(outside.join("").trim()).toBe("");
   });
 
   it("丸の色が START.dotColor（#1f6fd1）と同じ", () => {
