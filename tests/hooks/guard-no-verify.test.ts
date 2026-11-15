@@ -38,7 +38,10 @@ describe("Hook：git の確認の仕組みを飛ばす指定を止める", () =>
   });
 
   it("Hook として動かすと、止めるときは終了コード 2", () => {
-    const input = JSON.stringify({ tool_name: "Bash", tool_input: { command: "git commit --no-verify -m x" } });
+    const input = JSON.stringify({
+      tool_name: "Bash",
+      tool_input: { command: "git commit --no-verify -m x" },
+    });
     let status = 0;
     try {
       execFileSync("node", [hook], { input, stdio: ["pipe", "pipe", "pipe"] });
