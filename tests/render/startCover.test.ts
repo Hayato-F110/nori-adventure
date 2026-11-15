@@ -55,6 +55,10 @@ describe("NORI-76 一覧 6：覆いの部品と見た目の値", () => {
     expect(inner.replace(/<[^>]+>/g, "").trim()).toBe("");
   });
 
+  it("丸の色が START.dotColor（#1f6fd1）と同じ", () => {
+    expect(prop(block(".start-cover-dot"), "background")).toBe(START.dotColor);
+  });
+
   it("丸の直径・間が START と同じ", () => {
     const dot = block(".start-cover-dot");
     expect(prop(dot, "width")).toBe(`${START.dotSize}px`);

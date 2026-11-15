@@ -655,6 +655,8 @@ export const LOOK = {
 export const START = {
   /** 素材が決まらなくても、ページを開いてからこの秒で覆いを外す */
   maxWaitSeconds: 10,
+  /** 覆いの丸の色（空色の背景との明るさの比 3 以上。画質のボタンの「自動」の印と同じ青） */
+  dotColor: "#1f6fd1",
   /** 覆いの丸の直径・間（px）と、1 周の秒 */
   dotSize: 24,
   dotGap: 16,
