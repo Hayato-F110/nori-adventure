@@ -61,7 +61,7 @@ describe("Hook：承認のお願いの刈り取りの表に出てくる課題は
     const jsonl = jsonlOf([
       { type: "system", subtype: "stop_hook_summary" },
       call("a", "mcp__claude_ai_Atlassian_MCP__getJiraIssue", "NORI-57"),
-      result("a", POINTS.replace("刈り取りの表", "刈り取りの表")),
+      result("a", POINTS),
       call("b", "mcp__claude_ai_Atlassian_MCP__editJiraIssue", "NORI-42"),
       result("b", OLD),
     ]);
