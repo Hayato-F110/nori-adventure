@@ -124,7 +124,8 @@ test.describe("E1：ステージの覆い（タッチの端末）", () => {
       for (const id of ["sound", "quality", "parent"]) {
         expect(await topAt(page, await centerOf(page, `#${id}`)), id).toBe(id);
       }
-      for (const id of ["wheel", "go", "back", "status"]) {
+      // ステージ2（列車）はハンドルを使わないので出さない（docs/game-rules.md「ステージ2」）
+      for (const id of stage === 2 ? ["go", "back", "status"] : ["wheel", "go", "back", "status"]) {
         expect(await topAt(page, await centerOf(page, `#${id}`)), id).toBe("start-cover");
       }
       if (stage === 2) await expect(page.locator("#train-choice")).toBeHidden();

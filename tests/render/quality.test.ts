@@ -203,6 +203,12 @@ describe("NORI-76 一覧 3：判定の結果を覚える・読む", () => {
     expect(() => saveJudged(broken, "high")).not.toThrow();
   });
 
+  it("high・low 以外は書かない（privacy-reviewer の指摘：書く側でもポリシーの値を守る）", () => {
+    const m = memory();
+    saveJudged(m.storage, "fast" as unknown as "high");
+    expect(m.writes).toEqual([]);
+  });
+
   it("渡した保存場所の nori-adventure.judged だけに書く（画質の選び方の名前には書かない）", () => {
     const m = memory();
     saveJudged(m.storage, "low");

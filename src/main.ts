@@ -294,6 +294,8 @@ if (judgeMode) {
       pixelRatio: renderer.getPixelRatio(),
       drawn: frames,
     }),
+    // 読み取りの口の例外（privacy-reviewer の指摘）：タイトルが判定のあとに片付けるための口。描画の準備を捨てるだけで、
+    // ゲームの状態は変えない。?judge のページにだけ出す
     dispose() {
       renderer.dispose();
       renderer.forceContextLoss();

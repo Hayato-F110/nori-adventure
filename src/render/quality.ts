@@ -99,6 +99,8 @@ export const loadJudged = (storage: StorageLike | null): Quality | null => {
 
 /** 判定の結果を覚える。覚えられなくても止まらない（次のステージで判定し直すだけ） */
 export const saveJudged = (storage: StorageLike | null, quality: Quality): void => {
+  // 書く側でも high・low だけにする（ポリシーの文と同じ。枠から読んだ値を確かめずに書かない）
+  if (quality !== "high" && quality !== "low") return;
   try {
     storage?.setItem(JUDGED_STORAGE_KEY, quality);
   } catch {
