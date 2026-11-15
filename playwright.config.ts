@@ -20,6 +20,9 @@ export default defineConfig({
   use: {
     baseURL: remoteUrl ?? LOCAL_URL,
     viewport: { width: 1280, height: 720 },
+    // NORI-38：Service Worker を登録させない（裏で約 7.3 MiB を読み、FPS などの E2E に響くため）。
+    // 通信なしの E2E（e2e/offline.spec.ts）だけが test.use で "allow" にする
+    serviceWorkers: "block",
   },
   projects: [
     {

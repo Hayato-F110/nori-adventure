@@ -27,6 +27,7 @@ import { createStatusView } from "./render/statusView";
 import { loadTreeModels } from "./render/trees";
 import { createParentLink } from "./input/parentLink";
 import { parseRoute } from "./core/route";
+import { registerServiceWorker } from "./pwa/register";
 import { startClearFlow } from "./render/clearFlow";
 import { startSound } from "./render/sound";
 
@@ -127,6 +128,10 @@ const showDebug = params.has("debug");
 // 保護者の方への入口（NORI-54）：どのステージでも左上に。2秒押し続けて離すとポリシーを開く
 const parentLink = document.querySelector<HTMLAnchorElement>("#parent");
 if (parentLink !== null) createParentLink(parentLink);
+
+// 通信なしでも遊べるように、本番だけ Service Worker を登録する（NORI-38）。
+// タイトルとステージ2〜5の分かれ道は終わらない await で止まるので、その前で呼ぶ
+registerServiceWorker(import.meta.env.PROD, import.meta.env.BASE_URL);
 
 // 開く画面は URL で決める（NORI-30。docs/game-rules.md「タイトル画面・ステージ選び・クリアの演出」）
 const route = parseRoute(location.search);
