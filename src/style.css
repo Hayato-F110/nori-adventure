@@ -242,6 +242,7 @@ body {
   .rotate {
     position: fixed;
     inset: 0;
+    z-index: 26; /* ステージの始まりの覆い（25）の上。待つ間に横にしてもらう（NORI-76 の kids-ui-reviewer） */
     display: grid;
     place-items: center;
     background: rgb(0 0 0 / 45%);
