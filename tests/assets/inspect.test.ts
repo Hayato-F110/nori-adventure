@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { ASSET, STAGE4, TRAFFIC } from "../../src/config/index.ts";
 import { type AssetKind, checkGlb, inspectGlb, kindOf, validateGlb } from "../../tools/assets/inspect.ts";
@@ -316,6 +318,51 @@ describe("街のモデル（ASSET.city）", () => {
     expect(await problemsOf(await makeCityGlb("bicycle", { omitNodes: ["body"] }), "bicycle")).toContain(
       "ノード body がない",
     );
+  });
+
+  // NORI-70（初見レビュー 61-34）：ルールの表「パトカーのランプ（素材の名前 lamp_red・lamp_blue）」「服（素材の名前 shirt）」。
+  // 名前が違うと、ゲームはランプを光らせず、服を塗りかえない（cityLifeView.ts は素材の名前で探す）
+  const required = Object.entries(ASSET.city.materials).flatMap(([name, mats]) =>
+    mats.map((m) => [name as (typeof ASSET.city.variants)[number], m] as const),
+  );
+  it("ランプ・服の素材の決まり：パトカー・消防車は lamp_red・lamp_blue、人・自転車・バイクは shirt", () => {
+    expect(ASSET.city.materials.police).toEqual(["lamp_red", "lamp_blue"]);
+    expect(ASSET.city.materials["fire-truck"]).toEqual(["lamp_red", "lamp_blue"]);
+    for (const name of ["person", "bicycle", "motorbike"] as const) {
+      expect(ASSET.city.materials[name]).toEqual(["shirt"]);
+    }
+  });
+
+  // 初見レビュー R1-70-8：検査は assets:import のときにしか動かないので、リポジトリに入っている本物の GLB を CI でも毎回かける
+  it.each(ASSET.city.variants)(
+    "本物の public/models/%s.glb は、glTF-Validator のエラー 0、街の決まり（大きさ・素材の名前など）で問題0",
+    async (name) => {
+      const glb = new Uint8Array(
+        readFileSync(path.resolve(import.meta.dirname, `../../public/models/${name}.glb`)),
+      );
+      expect((await validateGlb(glb)).errors).toBe(0);
+      expect(await problemsOf(glb, name)).toEqual([]);
+    },
+  );
+
+  it.each(required)("%s に素材 %s がないと止まる", async (name, material) => {
+    const glb = await makeCityGlb(name, { omitMaterials: [material] });
+    expect(await problemsOf(glb, name)).toContain(`素材 ${material} がない`);
+  });
+
+  // NORI-70（初見レビュー R2-61-38）：モデルの表の大きさ（幅 × 高さ × 長さ）が、設定 ASSET.city.sizes と同じこと。
+  // 表には「設定のキー」の欄がないので、game-rules.md と設定の一致の検査（rules-sync）が見ていなかった
+  it("game-rules.md の街のモデルの表の大きさは、ASSET.city.sizes と同じ（7種類すべて）", () => {
+    const rules = readFileSync(path.resolve(import.meta.dirname, "../../docs/game-rules.md"), "utf8");
+    const rows = new Map(
+      [...rules.matchAll(/^\| `([a-z-]+)` +\| ([\d.]+) × ([\d.]+) × ([\d.]+) /gm)].map((m) => [
+        m[1] ?? "",
+        { width: Number(m[2]), height: Number(m[3]), length: Number(m[4]) },
+      ]),
+    );
+    for (const name of ASSET.city.variants) {
+      expect(rows.get(name), `${name} の行`).toEqual(ASSET.city.sizes[name]);
+    }
   });
 
   it("回る車（TRAFFIC.vehicles）と自転車・バイク・人は、みな ASSET.city のモデルがある", () => {

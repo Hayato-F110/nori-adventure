@@ -22,8 +22,19 @@ export const bossColor = (calm: number): string => {
 export const bossMouth = (calm: number): Mouth =>
   calm >= BOSS.calmPoints ? "smile" : calm >= 3 ? "flat" : "frown";
 
-/** 岩を転がす前ぶれ（0〜1）：転がす rockWarnSeconds 前から 1 へふくらみ、転がしたら 0 に戻る */
-export const bossPuff = (tick: number, fixedDt: number): number => {
+/**
+ * 落ち着いたあと（calmed）にボスがはねる高さ（m）：|sin(hopSpeed × 秒)| × hopHeight。落ち着く前と、動きを減らす設定では 0
+ * （NORI-70：初見レビュー R2-70-2 で単体テストを足すため、描画の側から移した）
+ */
+export const bossHop = (seconds: number, calmed: boolean, reducedMotion: boolean): number =>
+  calmed && !reducedMotion ? Math.abs(Math.sin(seconds * BOSS.hopSpeed)) * BOSS.hopHeight : 0;
+
+/**
+ * 岩を転がす前ぶれ（0〜1）：転がす rockWarnSeconds 前から 1 へふくらみ、転がしたら 0 に戻る。
+ * 落ち着いたあと（calmed）は岩を転がさないので、ふくらまない（NORI-70：初見レビュー R2-29-35 で単体テストを足すため、描画の側から移した）
+ */
+export const bossPuff = (tick: number, fixedDt: number, calmed = false): number => {
+  if (calmed) return 0;
   const interval = Math.round(BOSS.rockInterval / fixedDt);
   const warn = Math.round(BOSS.rockWarnSeconds / fixedDt);
   const untilNext = interval - (tick % interval);

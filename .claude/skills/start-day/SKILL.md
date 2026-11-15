@@ -9,7 +9,7 @@ argument-hint: "[確認だけ]"
 
 1. `date` で今日の日付と時刻を確かめる（記憶や推測で書かない）
 2. 読む：`docs/handoff.md`（最初に）、`CLAUDE.md`、最新の `docs/devlog/YYYY-MM-DD.md`、`docs/jira/sprint1.md`（今のスプリントの一覧）
-3. `git status`・`git branch -a`・`gh pr list` で、作業中のブランチと未マージの PR を確かめる
+3. `git status`・`git branch -a`・`gh pr list` で、作業中のブランチと未マージの PR を確かめる。あわせて `node tools/dev/agent-reports.mjs` で、48 時間の中に自動で保存したサブエージェントの報告（`.claude/agent-reports/`）を一覧にし、引き継ぎに「受け取れていない」「回し直す」とある報告がそこにないかを先に確かめる（2026-11-15。前のセッションの報告を探さずに「残っていない」と判断したため）
 4. Jira（NORI）で、今のスプリントの課題の状態を確かめる（`searchJiraIssuesUsingJql`、`project = NORI AND sprint in openSprints()`）。引き継ぎと違う点があれば知らせる
 5. 次を簡潔に示す
    - 今日のゴール（1〜2行）と、スプリントの残り日数
