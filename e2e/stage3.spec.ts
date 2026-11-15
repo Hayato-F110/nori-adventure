@@ -28,7 +28,11 @@ const watchErrors = (page: Page) => {
 
 const ready = async (page: Page) => {
   await page.goto("./?stage=3");
-  await page.waitForFunction(() => (window.__nori?.frames ?? 0) > 5, undefined, { timeout: 60_000 });
+  await page.waitForFunction(
+    () => (window.__nori?.frames ?? 0) > 5 && window.__nori?.cover?.state === "gone",
+    undefined,
+    { timeout: 60_000 },
+  );
 };
 
 test("ステージ3：操縦して輪をくぐると、上の表示の数が増える", async ({ page }, testInfo) => {
@@ -139,7 +143,11 @@ const checkLook = async (page: Page, testInfo: TestInfo, quality: "high" | "low"
 
   // 止まったあとに、モデル・素材（高画質は山の木も）を待つ。止めても描画は続くので、止まった画面に出る
   await page.waitForFunction(() => window.__nori?.carModel === "glb", undefined, { timeout: 30_000 });
-  await page.waitForFunction(() => window.__nori?.look !== "loading", undefined, { timeout: 60_000 });
+  await page.waitForFunction(
+    () => window.__nori?.look !== "loading" && window.__nori?.cover?.state === "gone",
+    undefined,
+    { timeout: 60_000 },
+  );
   if (quality === "high") {
     await page.waitForFunction(() => window.__nori?.trees === "model", undefined, { timeout: 30_000 });
   }
@@ -217,7 +225,11 @@ test("ステージ3の景色：ほかの飛行機・気球・鳥・木がある"
       timeout: 120_000,
     });
   await phase(1);
-  await page.waitForFunction(() => window.__nori?.look !== "loading", undefined, { timeout: 60_000 });
+  await page.waitForFunction(
+    () => window.__nori?.look !== "loading" && window.__nori?.cover?.state === "gone",
+    undefined,
+    { timeout: 60_000 },
+  );
   await page.waitForFunction(() => window.__nori?.skyScenery?.().planeModel === "glb", undefined, {
     timeout: 30_000,
   });

@@ -6,12 +6,15 @@ import { LOOK } from "../config";
 import type { Look } from "./look";
 import {
   createQualityGovernor,
+  loadJudged,
   loadQualityChoice,
   nextQualityChoice,
   type Quality,
   type QualityChoice,
+  saveJudged,
   saveQualityChoice,
 } from "./quality";
+import type { QualitySource } from "./stageCover";
 
 export type LookState = "loading" | "textured" | "plain";
 
@@ -187,18 +190,40 @@ const browserStorage = (): Storage | null => {
   }
 };
 
+/** ブラウザの sessionStorage（NORI-76。タブ・アプリを閉じると消える）。使えないときは null */
+export const sessionStorageOrNull = (): Storage | null => {
+  try {
+    return window.sessionStorage;
+  } catch {
+    return null;
+  }
+};
+
 /**
  * 各ステージの起動で使う：覚えた画質を読み、画質の切り替えを作り、右上のボタン（#quality）につなぐ。
  * 自動で低へ下げたときも、ボタンの絵を合わせる
  */
 export const startQuality = (
-  deps: Omit<QualityControlDeps, "initial" | "highPixelRatio">,
-): QualityControl => {
+  deps: Omit<QualityControlDeps, "initial" | "highPixelRatio" | "remembered" | "onJudged">,
+  /** タイトルの裏で判定するとき（NORI-76）：判定を待たずに高画質の素材を貼り、結果は書かない（書くのはタイトル） */
+  judgeMode = false,
+): QualityControl & { readonly source: QualitySource; readonly loadedSamples: number | null } => {
   const storage = browserStorage();
+  const session = sessionStorageOrNull();
+  const initial = loadQualityChoice(storage);
+  // 判定の結果を覚えていれば使い（判定を待たない）、判定したら覚える（NORI-76）
+  const remembered = judgeMode ? "high" : loadJudged(session);
+  const source: QualitySource = initial !== "auto" ? "chosen" : remembered !== null ? "memory" : "measured";
+  let seconds = 0;
+  let loadedSamples: number | null = null;
   const control = createQualityControl({
     ...deps,
     highPixelRatio: Math.min(window.devicePixelRatio, LOOK.highPixelRatioMax),
-    initial: loadQualityChoice(storage),
+    initial,
+    remembered,
+    onJudged: (q) => {
+      if (!judgeMode) saveJudged(session, q);
+    },
   });
   const element = document.getElementById("quality");
   const button =
@@ -213,9 +238,17 @@ export const startQuality = (
     get lookState() {
       return control.lookState;
     },
-    lookLoaded: (look) => control.lookLoaded(look),
-    sample(fps, seconds) {
-      control.sample(fps, seconds);
+    source,
+    get loadedSamples() {
+      return loadedSamples;
+    },
+    lookLoaded: (look) => {
+      loadedSamples = seconds;
+      control.lookLoaded(look);
+    },
+    sample(fps, s) {
+      seconds = s;
+      control.sample(fps, s);
       button?.update();
     },
     select(q) {

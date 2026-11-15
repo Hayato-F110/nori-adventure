@@ -28,7 +28,11 @@ test("ステージ1：走るとほしが取れて、上の数が増える", asyn
     slowThrottle: 0.5,
   });
   await page.goto("./?stage=1");
-  await page.waitForFunction(() => (window.__nori?.frames ?? 0) > 5, undefined, { timeout: 60_000 });
+  await page.waitForFunction(
+    () => (window.__nori?.frames ?? 0) > 5 && window.__nori?.cover?.state === "gone",
+    undefined,
+    { timeout: 60_000 },
+  );
   await expect(page.locator("#status")).toBeVisible();
   await expect(page.locator("#star-count")).toHaveText("0");
   await expect(page.locator("#flags svg")).toHaveCount(3);

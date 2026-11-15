@@ -16,6 +16,7 @@ import { createTouchInput } from "./input/touch";
 import { type CarView, loadCarView, type ModelManifest } from "./render/carModel";
 import { LIGHTMAPS, loadLook, surfacesFor } from "./render/look";
 import { startQuality } from "./render/qualityControl";
+import { startStageCover } from "./render/stageCover";
 import { createStage2View } from "./render/stage2View";
 import { createStatusView } from "./render/statusView";
 import { startClearFlow } from "./render/clearFlow";
@@ -107,6 +108,11 @@ export const startStage2 = async (canvas: HTMLCanvasElement, hud: HTMLElement, s
       scene.add(trainView.root);
       trainModel = "glb";
     });
+  });
+  // ステージの始まりの覆い（NORI-76）：覆いが消えるまで列車を選ぶ画面を隠し、消えたら出す
+  byId("train-choice").hidden = true;
+  const cover = startStageCover(quality, () => {
+    if (chooser.chosen === null) byId("train-choice").hidden = false;
   });
   // Blender の山3種と駅（NORI-59）：読めたものだけ差しかえる（読めなければ今の形のまま）
   void (async () => {
@@ -205,6 +211,9 @@ export const startStage2 = async (canvas: HTMLCanvasElement, hud: HTMLElement, s
   let windowStart = performance.now();
   const projected = new THREE.Vector3();
   window.__nori = {
+    get cover() {
+      return cover.info;
+    },
     fpsSamples,
     get carModel() {
       return trainModel;
@@ -257,11 +266,13 @@ export const startStage2 = async (canvas: HTMLCanvasElement, hud: HTMLElement, s
     const frameSeconds = fastForward(SIM.fixedDt)?.frameSeconds ?? Math.min(0.25, (now - lastTime) / 1000);
     lastTime = now;
     input = mergeInputs([keyboard.read(), touch.read(), ...gamepads.read()]);
+    // 覆いの間は刻みを進めない（描くことと FPS を数えることは続ける。NORI-76）
+    const canStep = cover.update(frames, fpsSamples.length);
     // 列車を選ぶまでは時間を進めない（描画だけ続ける）
-    const { alpha } =
+    const { alpha, steps } =
       chooser.chosen === null
-        ? { alpha: 1 }
-        : stepper.advance(frameSeconds, () => {
+        ? { alpha: 1, steps: 0 }
+        : stepper.advance(canStep ? frameSeconds : 0, () => {
             previous = current;
             current = game.step(current, drivenInput(current, input));
           });
@@ -299,6 +310,8 @@ export const startStage2 = async (canvas: HTMLCanvasElement, hud: HTMLElement, s
     placeCamera(pose, 1 - Math.exp(-CAMERA.followSharpness * frameSeconds));
     sun.position.set(pose.x + 20, pose.y + 40, pose.z + 10);
     sun.target.position.set(pose.x, pose.y, pose.z);
+
+    cover.stepped(frames, steps);
 
     renderer.render(scene, camera);
 

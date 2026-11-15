@@ -13,7 +13,11 @@ const watchErrors = (page: Page) => {
 };
 
 const waitFrames = (page: Page) =>
-  page.waitForFunction(() => (window.__nori?.frames ?? 0) > 5, undefined, { timeout: 60_000 });
+  page.waitForFunction(
+    () => (window.__nori?.frames ?? 0) > 5 && window.__nori?.cover?.state === "gone",
+    undefined,
+    { timeout: 60_000 },
+  );
 
 for (const [name, query] of [
   ["ステージ1", "./?stage=1"],
