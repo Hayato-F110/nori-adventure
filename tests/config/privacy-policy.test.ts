@@ -38,9 +38,9 @@ describe("NORI-38 一覧 7：ポリシーの決まった文", () => {
   const ja = [...quoted(rowOf("iOS の注意"), "日本語"), ...quoted(rowOf("プライバシー"), "日本語")];
   const en = [...quoted(rowOf("iOS の注意"), "英語"), ...quoted(rowOf("プライバシー"), "英語")];
 
-  it("ルールの表から、日本語の文 3 つと英語の文 3 つが読める", () => {
-    expect(ja).toHaveLength(3);
-    expect(en).toHaveLength(3);
+  it("ルールの表から、日本語の文 4 つと英語の文 4 つが読める", () => {
+    expect(ja).toHaveLength(4);
+    expect(en).toHaveLength(4);
   });
 
   it.each([...ja, ...en].map((s) => [s]))("ポリシーに入っている：%s", (sentence) => {

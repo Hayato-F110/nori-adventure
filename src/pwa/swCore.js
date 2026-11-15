@@ -47,7 +47,11 @@ export async function respond(cacheStorage, version, key, request, fetchFn) {
   return hit === undefined ? fetchFn(request) : hit;
 }
 
-/** activate：消すキャッシュの名前（自分の頭で始まり、今の版でないもの） */
+/**
+ * activate：消すキャッシュの名前。自分の頭＋版の形（16 進の小文字 16 文字）にちょうど合い、今の版でないもの。
+ * 同じ公開の場所（hayato-f110.github.io）に、名前が nori-adventure- で始まる別のアプリを置いても、そのキャッシュは消さない
+ */
 export function keysToDelete(keys, version) {
-  return keys.filter((key) => key.startsWith(CACHE_PREFIX) && key !== cacheName(version));
+  const ours = new RegExp(`^${CACHE_PREFIX}[0-9a-f]{16}$`);
+  return keys.filter((key) => ours.test(key) && key !== cacheName(version));
 }

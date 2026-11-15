@@ -106,9 +106,21 @@ describe("NORI-38 一覧 5：fetch で何を返すか", () => {
 });
 
 describe("NORI-38 一覧 5：activate で消すキャッシュ", () => {
-  it("名前が nori-adventure- で始まり今の版でないものだけを消す。頭の違うものは残す", () => {
-    const keys = [`nori-adventure-${VERSION}`, "nori-adventure-old", "other-app-1", "nori-adventurer-1"];
-    expect(keysToDelete(keys, VERSION)).toEqual(["nori-adventure-old"]);
+  it("名前が nori-adventure- ＋ 16 進 16 文字に合い、今の版でないものだけを消す", () => {
+    const old = "nori-adventure-fedcba9876543210";
+    const keys = [`nori-adventure-${VERSION}`, old, "other-app-1", "nori-adventurer-1"];
+    expect(keysToDelete(keys, VERSION)).toEqual([old]);
+  });
+
+  it.each([
+    ["nori-adventure-online-1"],
+    ["nori-adventure-old"],
+    ["nori-adventure-0123456789ABCDEF"], // 大文字の 16 進
+    [`nori-adventure-${VERSION}0`], // 17 文字
+    ["nori-adventure-0123456789abcde"], // 15 文字
+    ["nori-adventure-ghijklmnopqrstuv"], // 16 文字だが 16 進でない
+  ])("頭が同じでも版の形でないもの（%s）は残す（同じ公開の場所のほかのアプリのキャッシュ）", (key) => {
+    expect(keysToDelete([key], VERSION)).toEqual([]);
   });
 });
 
@@ -147,5 +159,25 @@ describe("NORI-38 一覧 5：作った sw.js", () => {
       `${SCOPE}index.html`,
       `${SCOPE}assets/a.js`,
     ]);
+  });
+
+  it("activate を動かすと、古い版だけが消え、今の版とほかのキャッシュは残る", async () => {
+    const handlers = new Map<string, (e: unknown) => void>();
+    const caches = new FakeCaches();
+    const old = "nori-adventure-fedcba9876543210";
+    for (const name of [cacheName(VERSION), old, "nori-adventure-online-1", "other-app-1"]) {
+      await caches.open(name);
+    }
+    const self = {
+      registration: { scope: SCOPE },
+      addEventListener: (type: string, fn: (e: unknown) => void) => handlers.set(type, fn),
+    };
+    new Function("self", "caches", "fetch", sw)(self, caches, async () => "通信");
+    let waited: Promise<unknown> = Promise.resolve();
+    handlers.get("activate")?.({ waitUntil: (p: Promise<unknown>) => (waited = p) });
+    await waited;
+    expect((await caches.keys()).sort()).toEqual(
+      [cacheName(VERSION), "nori-adventure-online-1", "other-app-1"].sort(),
+    );
   });
 });
