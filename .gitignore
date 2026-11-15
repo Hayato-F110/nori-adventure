@@ -9,6 +9,8 @@ nori-kickoff.md
 CLAUDE.local.md
 .claude/settings.local.json
 .claude/worktrees/
+# サブエージェントの報告の自動保存（Hook save-agent-report。作業の記録で、公開しない）
+.claude/agent-reports/
 
 # ---- 秘密情報（最重要） ----
 .env
