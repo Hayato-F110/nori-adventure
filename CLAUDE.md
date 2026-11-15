@@ -27,7 +27,7 @@
 
 ### 必ず止まってオーナーの承認をもらう
 
-1. ファイル・ブランチの削除、履歴の書き換え（`rm -rf`、`git push --force`、`git reset --hard` など）。**例外**：CI が緑で main にマージした作業ブランチは、承認なしで削除してよい（ローカルは `git branch -d`、リモートは `git push origin --delete`。2026-11-04 承認）。その作業場所（`.claude/worktrees/<名前>`）も、`git worktree remove`（`--force` なし）で消してよい。中の `node_modules` が本体へのジャンクション（つなぎ）なら、先に `cmd /c rmdir`（`/s` なし）でつなぎだけを外し、本体の `node_modules` の数が変わらないことを確かめる（2026-11-13 承認）。ジャンクションでない本物のフォルダが残っているときは、消す前に承認をもらう
+1. ファイル・ブランチの削除、履歴の書き換え（`rm -rf`、`git push --force`、`git reset --hard` など）。**例外**：CI が緑で main にマージした作業ブランチは、承認なしで削除してよい（ローカルは `git branch -d`、リモートは `git push origin --delete`。2026-11-04 承認）。その作業場所（`.claude/worktrees/<名前>`）も、`git worktree remove`（`--force` なし）で消してよい。中の `node_modules` が本体へのジャンクション（つなぎ）なら、先に `cmd /c rmdir`（`/s` なし）でつなぎだけを外し、本体の `node_modules` の数が変わらないことを確かめる（2026-11-13 承認）。ジャンクションでない本物のフォルダが残っているときは、消す前に承認をもらう。仕組み（2026-11-15 にオーナーが承認。`rm -f` で1つのファイルを承認なしで消したため）：Hook `guard-delete` が、消す操作・履歴を書き換える操作（`rm`・`Remove-Item`・`git branch -D`・`git push --force`・`git reset --hard`・`git clean` など。つないだ2つ目以降も）を見つけると、オーナーに確認の画面を出す。上の例外は通す
 2. 秘密情報（APIキー、トークン、`.env`）に関わる操作。見つけたらすぐ止まって知らせる
 3. お金がかかる操作、外部サービスへの登録・契約
 4. リポジトリの公開範囲の変更、公開範囲が広がる設定の変更

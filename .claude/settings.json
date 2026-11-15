@@ -29,6 +29,12 @@
             "command": "node",
             "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/guard-long-foreground.mjs"],
             "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "node",
+            "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/guard-delete.mjs"],
+            "timeout": 10
           }
         ]
       },
@@ -177,6 +183,8 @@
       "Bash(rm -rf*)",
       "Bash(rm -r *)",
       "Bash(rm -fr*)",
+      "Bash(rm *)",
+      "Bash(rm -f*)",
       "Bash(git reset --hard*)",
       "Bash(git clean*)",
       "Bash(git branch -D*)",
