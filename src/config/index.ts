@@ -651,6 +651,18 @@ export const LOOK = {
   qualityButtonSize: 72,
 } as const;
 
+/** ステージの始まりの覆い（NORI-76。docs/game-rules.md「ステージの始まりの待ちと、タイトルでの画質の判定」） */
+export const START = {
+  /** 素材が決まらなくても、ページを開いてからこの秒で覆いを外す */
+  maxWaitSeconds: 10,
+  /** 覆いの丸の直径・間（px）と、1 周の秒 */
+  dotSize: 24,
+  dotGap: 16,
+  dotCycleSeconds: 1.2,
+  /** 覆いが薄くなって消える秒 */
+  fadeSeconds: 0.3,
+} as const;
+
 /** 保護者の方への入口（プライバシーポリシー。NORI-54）。押し続けたときだけ開く */
 export const PARENT = {
   holdSeconds: 2,
@@ -813,4 +825,5 @@ export const CONFIG = {
   CITY_SKY,
   SOUND,
   PWA,
+  START,
 } as const;

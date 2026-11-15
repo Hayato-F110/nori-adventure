@@ -11,9 +11,16 @@ export type QualityConfig = {
   readonly lowFpsSeconds: number;
 };
 
-export const createQualityGovernor = (config: QualityConfig, initial: QualityChoice = "auto") => {
+/**
+ * initialQuality：「自動」で始めるときの最初の画質（NORI-76。覚えた判定の結果）。既定は高
+ */
+export const createQualityGovernor = (
+  config: QualityConfig,
+  initial: QualityChoice = "auto",
+  initialQuality: Quality = "high",
+) => {
   let choice: QualityChoice = initial;
-  let quality: Quality = initial === "low" ? "low" : "high";
+  let quality: Quality = initial === "auto" ? initialQuality : initial;
   let slowSeconds = 0;
   return {
     get quality() {
@@ -71,5 +78,30 @@ export const saveQualityChoice = (storage: StorageLike | null, choice: QualityCh
     storage?.setItem(QUALITY_STORAGE_KEY, choice);
   } catch {
     // 覚えられないときは、次に開いたとき「自動」になるだけ
+  }
+};
+
+/**
+ * 画質の判定の結果を覚える場所（NORI-76。ブラウザの sessionStorage の名前。タブ・アプリを閉じると消える）。
+ * タイトルかステージで1回判定したら、次のステージは判定を待たない
+ */
+export const JUDGED_STORAGE_KEY = "nori-adventure.judged";
+
+/** 覚えた判定の結果を読む。何もない・知らない値・読めないときは null */
+export const loadJudged = (storage: StorageLike | null): Quality | null => {
+  try {
+    const v = storage?.getItem(JUDGED_STORAGE_KEY);
+    return v === "high" || v === "low" ? v : null;
+  } catch {
+    return null;
+  }
+};
+
+/** 判定の結果を覚える。覚えられなくても止まらない（次のステージで判定し直すだけ） */
+export const saveJudged = (storage: StorageLike | null, quality: Quality): void => {
+  try {
+    storage?.setItem(JUDGED_STORAGE_KEY, quality);
+  } catch {
+    // 覚えられないときは、ステージごとに判定する
   }
 };

@@ -28,6 +28,10 @@ export type QualityControlDeps = {
   resize(): void;
   /** 前に選んだ画質（覚えていなければ "auto"） */
   initial: QualityChoice;
+  /** 覚えた判定の結果（NORI-76。sessionStorage。なければ null）。「自動」のときだけ使い、判定を待たない */
+  remembered?: Quality | null;
+  /** 「自動」で判定が済んだとき・自動で低へ下げたときに、その画質を知らせる（覚えるため。NORI-76） */
+  onJudged?: (quality: Quality) => void;
   /**
    * 高画質で、まわりの光（昼の空の HDRI）を使うか（既定は使う）。月面（ステージ5）は空の光がないので false：
    * 素材は貼るが、光は単色のときと同じ（空の光 LOOK.hemiPlain）にして、色の計算の前提を保つ（NORI-29）
@@ -49,11 +53,12 @@ export type QualityControl = {
 
 export const createQualityControl = (deps: QualityControlDeps): QualityControl => {
   const { renderer, scene, sun, hemi } = deps;
-  const governor = createQualityGovernor(LOOK, deps.initial);
+  const remembered = deps.initial === "auto" ? (deps.remembered ?? null) : null;
+  const governor = createQualityGovernor(LOOK, deps.initial, remembered ?? "high");
   let lookState: LookState = "loading";
   let loaded: Look | null | undefined;
-  // 自分で選んだ画質なら、最初の判定を待たない
-  let judged = deps.initial !== "auto";
+  // 自分で選んだ画質か、判定の結果を覚えていれば、最初の判定を待たない（NORI-76）
+  let judged = deps.initial !== "auto" || remembered !== null;
 
   const usePlain = () => {
     deps.applyLook(null);
@@ -91,8 +96,12 @@ export const createQualityControl = (deps: QualityControlDeps): QualityControl =
     }
     if (resize) deps.resize();
   };
-  // 前に「低」を選んでいたら、最初から低で描く（画面の大きさは、このあと各ステージが合わせる）
-  if (governor.quality === "low") setRendering("low", false);
+  // 「低」で始めるとき（選んだ低・覚えた低）は、最初から低で描き、素材の読み込みを待たずに単色に決める
+  // （画面の大きさは、このあと各ステージが合わせる。NORI-76「低で始めるとき」）
+  if (governor.quality === "low") {
+    setRendering("low", false);
+    usePlain();
+  }
 
   return {
     get quality() {
@@ -114,10 +123,12 @@ export const createQualityControl = (deps: QualityControlDeps): QualityControl =
       if (governor.quality === "high" && governor.push(fps) === "low") {
         usePlain();
         setRendering("low");
+        deps.onJudged?.("low");
       }
       if (!judged && seconds >= LOOK.settleSeconds + LOOK.lowFpsSeconds) {
         judged = true;
         tryApplyLook();
+        if (governor.choice === "auto") deps.onJudged?.(governor.quality);
       }
     },
     select(choice) {
