@@ -13,6 +13,8 @@ import { attachShot, luminanceAt, ratio } from "./luminance";
 const MIN_CONTRAST = 3; // LOOK.minStarContrast と同じ（ほし・ゴールと道）
 const FIRST_STATION = STAGE2.stations[0] ?? 150;
 const FAST = 20;
+// NORI-73（2026-11-16）：見た目のテストは高画質で描くので 1 コマが重い（遅い CI で約 1.6 秒）。描くコマを減らすため、駅までを 60 刻み/コマで走る
+const LOOK_FAST = 60;
 const skipFps = Boolean(process.env["NORI_SKIP_FPS"]);
 
 const watchErrors = (page: Page) => {
@@ -161,7 +163,7 @@ for (const [mode, quality] of [
 ] as const) {
   test(`ステージ2の見た目（${mode}）：駅の旗が土手より目立つ`, async ({ page }, testInfo) => {
     test.setTimeout(150_000);
-    await checkLook(page, testInfo, quality, FAST);
+    await checkLook(page, testInfo, quality, LOOK_FAST);
   });
 }
 
@@ -186,12 +188,16 @@ const checkLook = async (
   await chooseQuality(page, quality);
   await installFirstStationDriver(page, stepsPerFrame);
   const startedAt = Date.now();
+  const since = () => (Date.now() - startedAt) / 1000;
   await ready(page);
+  // NORI-73（R4-73-2）：列車を選んだ時刻と、from・to を読んだ時刻を記録に残し、1 コマの実際の秒を出せるようにする
+  const clickedAt = since();
   // 一覧 2：選ぶ前の刻み 0 のコマを数えに入れないよう、刻みが 1 以上になってから読む
   await page.waitForFunction(() => (window.__nori?.train?.()?.tick ?? 0) >= 1, undefined, {
     timeout: 60_000,
   });
   const from = await tickAndFrames(page);
+  const fromAt = since();
   // 一覧 1：選んだ画質のまま（CI でも高画質の版が高画質で測る）
   expect(await page.evaluate(() => window.__nori?.quality)).toBe(quality);
   // NORI-76：覆いが外れてから測る
@@ -207,8 +213,9 @@ const checkLook = async (
   });
   // 子どもが旗を見て止まるときの見え方で測る：1つ目の駅まで走って止まる
   await waitStoppedAtFirstStation(page);
-  const stoppedAt = (Date.now() - startedAt) / 1000;
+  const stoppedAt = since();
   const to = await tickAndFrames(page);
+  const toAt = since();
   const perFrame = (to.tick - from.tick) / Math.max(1, to.frames - from.frames);
   const stopped = await train(page);
   expect(Math.abs((stopped?.train.distance ?? 0) - FIRST_STATION)).toBeLessThanOrEqual(6);
@@ -235,6 +242,7 @@ const checkLook = async (
   const before = (await tickAndFrames(page)).tick;
   const shot = await attachShot(page, testInfo, `stage2-look-${quality}`);
   const after = (await tickAndFrames(page)).tick;
+  const shotAt = since();
   const { track } = createStage2Game();
   const camera = (stopped?.train.distance ?? FIRST_STATION) - STAGE2.cameraDistance;
   const flagEnd = FIRST_STATION + STAGE2.stationStopLength / 2;
@@ -248,7 +256,14 @@ const checkLook = async (
     bed,
     points,
     perFrame,
+    clickedAt,
+    fromAt,
     stoppedAt,
+    toAt,
+    shotAt,
+    // 1 コマの実際の秒と、止まってから撮るまでの実際の秒（NORI-73 の計算と照らし合わせる）
+    secondsPerFrame: (toAt - fromAt) / Math.max(1, to.frames - from.frames),
+    stopToShot: shotAt - stoppedAt,
     stopDistance: stopped?.train.distance,
     from,
     to,
@@ -257,8 +272,8 @@ const checkLook = async (
     passing,
   };
   await testInfo.attach("contrast", { body: JSON.stringify(record), contentType: "application/json" });
-  // 一覧 2：早送りが効いている（早送りなしは 1 コマ 5 刻み以下）
-  expect(perFrame, JSON.stringify(record)).toBeGreaterThanOrEqual(19);
+  // 一覧 2：早送りが効いている（1 コマ 60 刻み。早送りなしは 5 刻み以下、前の 20 では 20）
+  expect(perFrame, JSON.stringify(record)).toBeGreaterThanOrEqual(LOOK_FAST - 1);
   for (const d of passing) {
     expect(
       d >= camera - 2 && d <= flagEnd + 2,
