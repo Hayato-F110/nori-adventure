@@ -1,5 +1,5 @@
 import { expect, type Page, test, type TestInfo } from "@playwright/test";
-import { QUALITY_STORAGE_KEY } from "../src/render/quality";
+import { chooseQuality, openStage, waitLook, waitTicks, watchErrors } from "./common";
 import {
   approachStopped,
   holdStartCover,
@@ -17,24 +17,6 @@ const FAST = 20; // stage-clear.spec.ts と同じ早送り
 // 輪と空の明るさの比 3 以上（高画質・低画質）。スクリーンショット・コンソールエラー・FPS。
 const MIN_CONTRAST = 3; // LOOK.minStarContrast と同じ（ほし・ゴールと背景）
 const skipFps = Boolean(process.env["NORI_SKIP_FPS"]);
-
-const watchErrors = (page: Page) => {
-  const errors: string[] = [];
-  page.on("console", (m) => {
-    if (m.type() === "error") errors.push(m.text());
-  });
-  page.on("pageerror", (e) => errors.push(e.message));
-  return errors;
-};
-
-const ready = async (page: Page) => {
-  await page.goto("./?stage=3");
-  await page.waitForFunction(
-    () => (window.__nori?.frames ?? 0) > 5 && window.__nori?.cover?.state === "gone",
-    undefined,
-    { timeout: 60_000 },
-  );
-};
 
 test("ステージ3：操縦して輪をくぐると、上の表示の数が増える", async ({ page }, testInfo) => {
   test.setTimeout(180_000);
@@ -108,10 +90,7 @@ test("ステージ3：操縦して輪をくぐると、上の表示の数が増�
   await page.screenshot({ path: testInfo.outputPath("02-ring.png") });
 
   // 手を離すと水平に戻る（約 0.6 秒）。ゲームの 1.5 秒（90 刻み）待つ
-  const ringTick = await page.evaluate(() => window.__nori?.plane?.()?.tick ?? 0);
-  await page.waitForFunction((t) => (window.__nori?.plane?.()?.tick ?? 0) >= t + 90, ringTick, {
-    timeout: 60_000,
-  });
+  await waitTicks(page, 90);
   const s = await page.evaluate(() => window.__nori?.plane?.());
   expect(Math.abs(s?.plane.bank ?? 1)).toBeLessThan(1e-6);
   expect(Math.abs(s?.plane.pitch ?? 1)).toBeLessThan(1e-6);
@@ -136,13 +115,6 @@ for (const [mode, quality, name, ring] of LOOK_CASES) {
   });
 }
 
-/** 選んだ画質を保存して開く（e2e/quality.spec.ts と同じ口）。自動の切り替えに頼らない */
-const chooseQuality = (page: Page, quality: "high" | "low") =>
-  page.addInitScript((o) => window.localStorage.setItem(o.name, o.value), {
-    name: QUALITY_STORAGE_KEY,
-    value: quality,
-  });
-
 const checkLook = async (page: Page, testInfo: TestInfo, quality: "high" | "low", ring: number) => {
   const errors = watchErrors(page);
   await chooseQuality(page, quality);
@@ -153,7 +125,7 @@ const checkLook = async (page: Page, testInfo: TestInfo, quality: "high" | "low"
     climbGain: 0.2,
     stepsPerFrame: FAST,
   });
-  await ready(page);
+  await openStage(page, "./?stage=3");
   await page.waitForFunction(approachStopped, undefined, { timeout: 120_000 });
 
   // 止まったあとの状態（一覧 2）：水平、輪まで 60 m 以下、まだくぐっていない
@@ -186,11 +158,7 @@ const checkLook = async (page: Page, testInfo: TestInfo, quality: "high" | "low"
 
   // 止まったあとに、モデル・素材（高画質は山の木も）を待つ。止めても描画は続くので、止まった画面に出る
   await page.waitForFunction(() => window.__nori?.carModel === "glb", undefined, { timeout: 30_000 });
-  await page.waitForFunction(
-    () => window.__nori?.look !== "loading" && window.__nori?.cover?.state === "gone",
-    undefined,
-    { timeout: 60_000 },
-  );
+  await waitLook(page);
   if (quality === "high") {
     await page.waitForFunction(() => window.__nori?.trees === "model", undefined, { timeout: 30_000 });
   }
@@ -262,17 +230,13 @@ test("ステージ3の景色：ほかの飛行機・気球・鳥・木がある"
     climbGain: 0.2,
     stepsPerFrame: FAST,
   });
-  await ready(page);
+  await openStage(page, "./?stage=3");
   const phase = (n: number) =>
     page.waitForFunction((k) => (globalThis as { __noriSkyPhase?: number }).__noriSkyPhase === k, n, {
       timeout: 120_000,
     });
   await phase(1);
-  await page.waitForFunction(
-    () => window.__nori?.look !== "loading" && window.__nori?.cover?.state === "gone",
-    undefined,
-    { timeout: 60_000 },
-  );
+  await waitLook(page);
   await page.waitForFunction(() => window.__nori?.skyScenery?.().planeModel === "glb", undefined, {
     timeout: 30_000,
   });
@@ -314,7 +278,7 @@ test("ステージ3：CPU を4倍遅くしても 30fps 以上", { tag: "@fps" },
   test.skip(skipFps, "GPU のない CI では FPS を測らない");
   test.setTimeout(120_000);
   const cdp = await page.context().newCDPSession(page);
-  await ready(page);
+  await openStage(page, "./?stage=3");
   await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 });
   await page.keyboard.down("ArrowLeft");
   const start = await page.evaluate(() => window.__nori?.fpsSamples.length ?? 0);

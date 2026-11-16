@@ -641,6 +641,8 @@ export const LOOK = {
   /** 色（16進の文字列）。ほし・道の明るさの比（minStarContrast）はこれらで決まる */
   starColor: "#ffd23f",
   starEmissive: "#e0a800",
+  /** ほしの自ら光る強さ（倍）。回るほしの太陽から外れた面でも、高画質で道との比 3 以上（NORI-77「## 計算」） */
+  starEmissiveIntensity: 1.75,
   plainRoadColor: "#3a3e48",
   /** 道の白線：幅と、道の端からの距離（中央線は引かない。ほしとまぎれるため） */
   roadLineWidth: 0.25,

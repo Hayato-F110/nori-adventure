@@ -1,4 +1,4 @@
-import { expect, type Page, test } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import { BOSS, ROVER, SIM, STAGE1, STAGE2, STAGE5, TRAIN } from "../src/config";
 import { friendStarPositions, pathPoint } from "../src/core/stage5Layout";
 import {
@@ -9,20 +9,12 @@ import {
   installTrainDriver,
   startDriving,
 } from "./driver";
+import { openStage, watchErrors } from "./common";
 
 // NORI-37：運転役（e2e/driver.ts）でステージをクリアまで走る。キーを押さず、刻みごとに入力を決めるので毎回同じ結果。
 // 完了条件（Jira）：CI で全ステージの E2E が通る。使った入力の記録は、リプレイ・自動録画（NORI-42）に使う。
 // NORI-66：CI（約 3 fps）でもゲームの時間を実時間どおりに進める早送り。60 刻み/秒 ÷ 3 fps = 20 刻み/フレーム
 const FAST = 20;
-
-const watchErrors = (page: Page) => {
-  const errors: string[] = [];
-  page.on("console", (m) => {
-    if (m.type() === "error") errors.push(m.text());
-  });
-  page.on("pageerror", (e) => errors.push(e.message));
-  return errors;
-};
 
 test("ステージ1：運転役が道すじどおりに走ると、チェックポイントを3つ通ってゴールする", async ({
   page,
@@ -41,12 +33,7 @@ test("ステージ1：運転役が道すじどおりに走ると、チェック�
     slowAngle: 0.6,
     slowThrottle: 0.5,
   });
-  await page.goto("./?stage=1");
-  await page.waitForFunction(
-    () => (window.__nori?.frames ?? 0) > 5 && window.__nori?.cover?.state === "gone",
-    undefined,
-    { timeout: 60_000 },
-  );
+  await openStage(page, "./?stage=1");
   await page.waitForFunction(() => window.__nori?.state().course.finishTick !== null, undefined, {
     timeout: 240_000,
     polling: 500,
@@ -77,12 +64,7 @@ test("ステージ2：運転役が駅ごとにブレーキで止まると、3つ
     slowSpeed: STAGE2.stationStopSpeed / 2,
     stepsPerFrame: FAST,
   });
-  await page.goto("./?stage=2");
-  await page.waitForFunction(
-    () => (window.__nori?.frames ?? 0) > 5 && window.__nori?.cover?.state === "gone",
-    undefined,
-    { timeout: 60_000 },
-  );
+  await openStage(page, "./?stage=2");
   // 乗る列車を選ぶまで時間は進まない（NORI-59）
   await page.locator('#train-choice button[data-train="train"]').click();
   await page.waitForFunction(() => window.__nori?.train?.()?.finishTick !== null, undefined, {
@@ -103,12 +85,7 @@ test("ステージ3：運転役が輪を順に目指すと、ゴールの輪を�
   test.setTimeout(300_000);
   const errors = watchErrors(page);
   await installPlaneDriver(page, { steerGain: 2, climbGain: 0.2, stepsPerFrame: FAST });
-  await page.goto("./?stage=3");
-  await page.waitForFunction(
-    () => (window.__nori?.frames ?? 0) > 5 && window.__nori?.cover?.state === "gone",
-    undefined,
-    { timeout: 60_000 },
-  );
+  await openStage(page, "./?stage=3");
   await page.waitForFunction(() => window.__nori?.plane?.()?.finishTick !== null, undefined, {
     timeout: 240_000,
     polling: 500,
@@ -126,12 +103,7 @@ test("ステージ4：運転役がたからばこへ向かうと、たからば�
   test.setTimeout(300_000);
   const errors = watchErrors(page);
   await installSubDriver(page, { steerGain: 2, climbGain: 0.3, stepsPerFrame: FAST });
-  await page.goto("./?stage=4");
-  await page.waitForFunction(
-    () => (window.__nori?.frames ?? 0) > 5 && window.__nori?.cover?.state === "gone",
-    undefined,
-    { timeout: 60_000 },
-  );
+  await openStage(page, "./?stage=4");
   await page.waitForFunction(() => window.__nori?.sub?.()?.finishTick !== null, undefined, {
     timeout: 240_000,
     polling: 500,
@@ -171,12 +143,7 @@ test("ステージ5：運転役が道すじを走り、なかよしの星をボ�
   });
   // NORI-70（初見レビュー 29-49）：動きを減らす設定の端末で、紙ふぶきを止めてエンディングを出すこと
   await page.emulateMedia({ reducedMotion: "reduce" });
-  await page.goto("./?stage=5");
-  await page.waitForFunction(
-    () => (window.__nori?.frames ?? 0) > 5 && window.__nori?.cover?.state === "gone",
-    undefined,
-    { timeout: 60_000 },
-  );
+  await openStage(page, "./?stage=5");
 
   // NORI-70（初見レビュー 29-29・R2-29-23）：上の表示。走り出す前は、ほし 0・なかよしのメーター（5 つの丸）に色なし。
   // 時間はゲームの時計（走り出す前も進む）なので、同じ瞬間に読んだ刻みの秒（切り捨て）と比べる

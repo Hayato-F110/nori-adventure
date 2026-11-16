@@ -3,7 +3,7 @@ import { LOOK, SIM, STAGE2, TRAIN } from "../src/config";
 import { createStage2Game } from "../src/core/stage2";
 import { offsetOnTrack, passingTrainDistance } from "../src/core/stage2Layout";
 import { wrapDistance } from "../src/core/track";
-import { QUALITY_STORAGE_KEY } from "../src/render/quality";
+import { chooseQuality, chooseTrain, openStage, waitLook, watchErrors } from "./common";
 import { installTrainDriver } from "./driver";
 import { attachShot, luminanceAt, ratio } from "./luminance";
 
@@ -17,31 +17,10 @@ const FAST = 20;
 const LOOK_FAST = 60;
 const skipFps = Boolean(process.env["NORI_SKIP_FPS"]);
 
-const watchErrors = (page: Page) => {
-  const errors: string[] = [];
-  page.on("console", (m) => {
-    if (m.type() === "error") errors.push(m.text());
-  });
-  page.on("pageerror", (e) => errors.push(e.message));
-  return errors;
-};
-
-/** 開いて、乗る列車を選ぶ（NORI-59。選ぶまで時間は進まない） */
-const ready = async (page: Page, choice: string = "train") => {
-  await page.goto("./?stage=2");
-  await page.waitForFunction(
-    () => (window.__nori?.frames ?? 0) > 5 && window.__nori?.cover?.state === "gone",
-    undefined,
-    { timeout: 60_000 },
-  );
-  await expect(page.locator("#train-choice button")).toHaveCount(3);
-  // 選ぶ前は時間が止まっている
-  expect(await page.evaluate(() => window.__nori?.train?.()?.tick)).toBe(0);
-  await page.locator(`#train-choice button[data-train="${choice}"]`).click();
-  const clickedAt = Date.now();
-  await expect(page.locator("#train-choice")).toBeHidden();
-  expect(await page.evaluate(() => window.__nori?.trainChoice?.())).toBe(choice);
-  return clickedAt;
+/** 開いて、乗る列車を選ぶ（NORI-59。選ぶまで時間は進まない）。クリックした時刻を返す */
+const openAndChoose = async (page: Page, choice = "train") => {
+  await openStage(page, "./?stage=2");
+  return chooseTrain(page, choice);
 };
 
 /**
@@ -86,7 +65,7 @@ test("ステージ2の景色：すれ違う電車が刻みに合わせて逆向�
   test.setTimeout(240_000);
   const errors = watchErrors(page);
   await installFirstStationDriver(page, FAST);
-  await ready(page, "train-bullet");
+  await openAndChoose(page, "train-bullet");
   /** 読み取り口を1回読む。描いた刻み・距離がなければ落とす（NORI-74 の前は位置だけを返していた） */
   const passing = async () => {
     const p = await page.evaluate(() => window.__nori?.passingTrain?.());
@@ -138,7 +117,7 @@ const driveAndStop = async (page: Page, testInfo: TestInfo, choice: string) => {
   test.setTimeout(180_000);
   const errors = watchErrors(page);
   await installFirstStationDriver(page, FAST);
-  await ready(page, choice);
+  await openAndChoose(page, choice);
   expect(await page.evaluate(() => window.__nori?.stage)).toBe(2);
   await expect(page.locator("#status")).toBeVisible();
   await expect(page.locator("#star-count")).toBeHidden(); // ほしは置かない
@@ -169,13 +148,6 @@ for (const [mode, quality] of [
   });
 }
 
-/** 選んだ画質を保存して開く（e2e/quality.spec.ts と同じ口）。自動の切り替えに頼らない */
-const chooseQuality = (page: Page, quality: "high" | "low") =>
-  page.addInitScript((o) => window.localStorage.setItem(o.name, o.value), {
-    name: QUALITY_STORAGE_KEY,
-    value: quality,
-  });
-
 /** 刻みとコマの数を、同じ 1 回の evaluate で読む（間にコマが入らない） */
 const tickAndFrames = (page: Page) =>
   page.evaluate(() => ({ tick: window.__nori?.train?.()?.tick ?? 0, frames: window.__nori?.frames ?? 0 }));
@@ -188,7 +160,7 @@ const checkLook = async (page: Page, testInfo: TestInfo, quality: "high" | "low"
   const startedAt = Date.now();
   const since = (t: number = Date.now()) => (t - startedAt) / 1000;
   // NORI-73（R4-73-2）：列車を選んだ時刻と、from・to を読んだ時刻を記録に残し、1 コマの実際の秒を出せるようにする
-  const clickedAt = since(await ready(page));
+  const clickedAt = since(await openAndChoose(page));
   // 一覧 2：選ぶ前の刻み 0 のコマを数えに入れないよう、刻みが 1 以上になってから読む
   await page.waitForFunction(() => (window.__nori?.train?.()?.tick ?? 0) >= 1, undefined, {
     timeout: 60_000,
@@ -203,11 +175,7 @@ const checkLook = async (page: Page, testInfo: TestInfo, quality: "high" | "low"
   // 一覧 1：選んだ画質のまま（CI でも高画質の版が高画質で測る）
   expect(await page.evaluate(() => window.__nori?.quality)).toBe(quality);
   // NORI-76：覆いが外れてから測る
-  await page.waitForFunction(
-    () => window.__nori?.look !== "loading" && window.__nori?.cover?.state === "gone",
-    undefined,
-    { timeout: 60_000 },
-  );
+  await waitLook(page);
   expect(await page.evaluate(() => window.__nori?.look)).toBe(quality === "low" ? "plain" : "textured");
   // 木（NORI-26）：高画質は Blender の木、低画質は今の簡単な木
   await page.waitForFunction((q) => window.__nori?.trees === (q === "low" ? "simple" : "model"), quality, {
@@ -295,7 +263,7 @@ test("ステージ2：CPU を4倍遅くしても 30fps 以上", { tag: "@fps" },
   test.skip(skipFps, "GPU のない CI では FPS を測らない");
   test.setTimeout(120_000);
   const cdp = await page.context().newCDPSession(page);
-  await ready(page);
+  await openAndChoose(page);
   await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 });
   await page.keyboard.down("ArrowUp");
   const start = await page.evaluate(() => window.__nori?.fpsSamples.length ?? 0);

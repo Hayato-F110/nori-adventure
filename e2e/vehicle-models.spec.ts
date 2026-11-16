@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { expect, test } from "@playwright/test";
+import { watchErrors } from "./common";
 
 // NORI-20〜23 完了条件：5台の GLB がブラウザで読み込め、並べて表示できる。コンソールエラーなし。
 // ?models の確認用の画面（ゲームは始めない）。スクリーンショットを残す。FPS は手元だけ（NORI_SKIP_FPS=1 で省く）
@@ -11,11 +12,7 @@ const names = manifest.models.map((m) => m.name);
 const MIN_AVERAGE_FPS = 55;
 
 test("乗り物のモデルを並べて表示する（?models）", { tag: "@fps" }, async ({ page }, testInfo) => {
-  const consoleErrors: string[] = [];
-  page.on("console", (message) => {
-    if (message.type() === "error") consoleErrors.push(message.text());
-  });
-  page.on("pageerror", (error) => consoleErrors.push(error.message));
+  const consoleErrors = watchErrors(page);
 
   await page.goto("./?models");
   await page.waitForFunction(

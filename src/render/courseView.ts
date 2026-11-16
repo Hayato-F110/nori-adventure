@@ -78,6 +78,7 @@ export const createCourseView = (stars: readonly Point[], config: CourseViewConf
     color: LOOK.starColor,
     // 自ら少し光らせて、まわりの光（HDRI・AgX）が弱いところでも道との差を保つ（NORI-56）
     emissive: LOOK.starEmissive,
+    emissiveIntensity: LOOK.starEmissiveIntensity,
     roughness: 0.35,
     metalness: 0,
   });
