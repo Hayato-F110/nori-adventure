@@ -27,7 +27,11 @@ const watchErrors = (page: Page) => {
 /** 開いて、乗る列車を選ぶ（NORI-59。選ぶまで時間は進まない） */
 const ready = async (page: Page, choice: string = "train") => {
   await page.goto("./?stage=2");
-  await page.waitForFunction(() => (window.__nori?.frames ?? 0) > 5, undefined, { timeout: 60_000 });
+  await page.waitForFunction(
+    () => (window.__nori?.frames ?? 0) > 5 && window.__nori?.cover?.state === "gone",
+    undefined,
+    { timeout: 60_000 },
+  );
   await expect(page.locator("#train-choice button")).toHaveCount(3);
   // 選ぶ前は時間が止まっている
   expect(await page.evaluate(() => window.__nori?.train?.()?.tick)).toBe(0);
@@ -190,7 +194,12 @@ const checkLook = async (
   const from = await tickAndFrames(page);
   // 一覧 1：選んだ画質のまま（CI でも高画質の版が高画質で測る）
   expect(await page.evaluate(() => window.__nori?.quality)).toBe(quality);
-  await page.waitForFunction(() => window.__nori?.look !== "loading", undefined, { timeout: 60_000 });
+  // NORI-76：覆いが外れてから測る
+  await page.waitForFunction(
+    () => window.__nori?.look !== "loading" && window.__nori?.cover?.state === "gone",
+    undefined,
+    { timeout: 60_000 },
+  );
   expect(await page.evaluate(() => window.__nori?.look)).toBe(quality === "low" ? "plain" : "textured");
   // 木（NORI-26）：高画質は Blender の木、低画質は今の簡単な木
   await page.waitForFunction((q) => window.__nori?.trees === (q === "low" ? "simple" : "model"), quality, {

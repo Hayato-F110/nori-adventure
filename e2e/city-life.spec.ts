@@ -21,7 +21,11 @@ test("ステージ1：ほかの車・自転車・バイク・人が自作モデ�
 }, testInfo) => {
   const errors = watchErrors(page);
   await page.goto("./?stage=1");
-  await page.waitForFunction(() => (window.__nori?.frames ?? 0) > 5, undefined, { timeout: 60_000 });
+  await page.waitForFunction(
+    () => (window.__nori?.frames ?? 0) > 5 && window.__nori?.cover?.state === "gone",
+    undefined,
+    { timeout: 60_000 },
+  );
   await page.waitForFunction(() => window.__nori?.cityLife?.().models === 7, undefined, { timeout: 30_000 });
 
   const read = () => page.evaluate(() => window.__nori?.cityLife?.().poses);

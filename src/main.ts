@@ -23,6 +23,8 @@ import { createFollowCamera } from "./render/followCamera";
 import { loadLook, surfacesFor } from "./render/look";
 import type { Quality } from "./render/quality";
 import { startQuality } from "./render/qualityControl";
+import { createTitleJudge, type TitleJudgeState } from "./render/titleJudge";
+import { type CoverInfo, startStageCover } from "./render/stageCover";
 import { createStatusView } from "./render/statusView";
 import { loadTreeModels } from "./render/trees";
 import { createParentLink } from "./input/parentLink";
@@ -33,8 +35,15 @@ import { startSound } from "./render/sound";
 
 declare global {
   interface Window {
+    /** タイトルの裏の判定（NORI-76。?stage=1&judge のときだけ）。タイトルが読む */
+    __noriJudge?: {
+      readonly state: TitleJudgeState;
+      readonly result: Quality | null;
+      info: () => { look: string; shadow: boolean; pixelRatio: number; drawn: number };
+      dispose: () => void;
+    };
     /** E2E 用：タイトル画面で星を付けたステージ（NORI-30） */
-    __noriTitle?: { cleared: number[] };
+    __noriTitle?: { cleared: number[]; judge?: import("./render/titleJudgeFrame").TitleJudgeInfo };
     /** E2E テストと開発用の読み取り口（状態を書き換える手段は置かない） */
     __nori?: {
       fpsSamples: number[];
@@ -107,6 +116,10 @@ declare global {
         flag: { x: number; y: number; z: number };
         bed: { x: number; y: number; z: number };
       }[];
+      /** ステージ1のカメラの位置・向きと、場面に置いたものの数（NORI-76） */
+      view?: () => { position: number[]; direction: number[]; drawables: number };
+      /** ステージの始まりの覆い（NORI-76）。E2E が読む */
+      cover?: CoverInfo;
       /** 見た目（NORI-56）：素材を読む前 "loading"・貼った "textured"・単色 "plain" */
       look: "loading" | "textured" | "plain";
       /** 木（NORI-26）："simple"（今の簡単な木）か "model"（Blender の木） */
@@ -124,6 +137,8 @@ const hud = document.querySelector<HTMLDivElement>("#hud");
 if (canvas === null || hud === null) throw new Error("index.html に #game と #hud が必要です");
 const params = new URLSearchParams(location.search);
 const showDebug = params.has("debug");
+// タイトルの裏で画質を判定する形（NORI-76）：ステージ1を描くだけで、ゲームは進めない
+const judgeMode = params.has("judge");
 
 // 保護者の方への入口（NORI-54）：どのステージでも左上に。2秒押し続けて離すとポリシーを開く
 const parentLink = document.querySelector<HTMLAnchorElement>("#parent");
@@ -140,6 +155,9 @@ const route = parseRoute(location.search);
 if (route.kind === "title") {
   const { startTitle } = await import("./render/titleScreen");
   window.__noriTitle = { cleared: startTitle() };
+  // 画質の判定を、タイトルの裏で前もって1回だけ行う（NORI-76）
+  const { startTitleJudge } = await import("./render/titleJudgeFrame");
+  window.__noriTitle.judge = startTitleJudge(import.meta.env.BASE_URL);
   // タイトルでも消音できる（音は鳴らさない。NORI-31）
   const { startSoundButton } = await import("./render/sound");
   startSoundButton();
@@ -149,7 +167,8 @@ if (route.kind === "title") {
 // ?models：乗り物のモデルを並べて見る確認用の画面（NORI-20〜23）。ゲームは始めない
 if (route.kind === "models") {
   hud.hidden = true;
-  for (const id of ["touch", "status"]) document.getElementById(id)?.setAttribute("hidden", "");
+  for (const id of ["touch", "status", "start-cover"])
+    document.getElementById(id)?.setAttribute("hidden", "");
   const { startModelGallery } = await import("./render/modelGallery");
   await startModelGallery(canvas, import.meta.env.BASE_URL);
   // ここで止める（下のゲームの起動に進まない）。確認用の画面は描き続ける
@@ -243,14 +262,46 @@ void (async () => {
 // ---- 見た目と画質（NORI-56）。最初は単色で始め、素材は「読めた」かつ「最初の画質の判定が済んだ」あとに貼る ----
 // 遅い端末で「単色 → 素材 → 単色」と2回変わるのを防ぐ（見た目が変わるのは多くて1回。NORI-56 のレビュー）
 // 画質はボタンで選べる（NORI-58）。選んだ画質はこの端末の中に覚える
-const quality = startQuality({
-  renderer,
-  scene,
-  sun,
-  hemi,
-  applyLook: (look) => city.applyLook(look),
-  resize: () => resize(),
-});
+const quality = startQuality(
+  {
+    renderer,
+    scene,
+    sun,
+    hemi,
+    applyLook: (look) => city.applyLook(look),
+    resize: () => resize(),
+  },
+  judgeMode,
+);
+// ステージの始まりの覆い（NORI-76）：素材を貼るか単色に決まるまで、ゲームを進めない
+const cover = startStageCover(quality);
+// タイトルの裏の判定（NORI-76。docs/game-rules.md「タイトルでの測り方」）。判定の形のときだけ使う
+const titleJudge = createTitleJudge(LOOK);
+if (judgeMode) {
+  for (const id of ["touch", "status", "quality", "sound", "parent", "start-cover", "hud"]) {
+    document.getElementById(id)?.setAttribute("hidden", "");
+  }
+  window.__noriJudge = {
+    get state() {
+      return titleJudge.state;
+    },
+    get result() {
+      return titleJudge.result;
+    },
+    info: () => ({
+      look: quality.lookState,
+      shadow: renderer.shadowMap.enabled,
+      pixelRatio: renderer.getPixelRatio(),
+      drawn: frames,
+    }),
+    // 読み取りの口の例外（privacy-reviewer の指摘）：タイトルが判定のあとに片付けるための口。描画の準備を捨てるだけで、
+    // ゲームの状態は変えない。?judge のページにだけ出す
+    dispose() {
+      renderer.dispose();
+      renderer.forceContextLoss();
+    },
+  };
+}
 void loadLook({
   base: import.meta.env.BASE_URL,
   renderer,
@@ -262,6 +313,7 @@ void loadLook({
   // 切り替えの前に、Blender の木のシェーダーを裏で用意しておく（切り替えで一瞬止まらないように。NORI-26）
   if (look !== null) city.trees.prepare(look);
   quality.lookLoaded(look);
+  if (look === null) titleJudge.skip();
 });
 
 // まず箱の車で始め、GLB が読めたら差しかえる（読み込みを待たせない。読めなければ箱のまま）
@@ -352,10 +404,22 @@ const projected = new THREE.Vector3();
 /** 太陽を置く基準（車の位置。毎フレーム作り直さない） */
 const focusPoint = new THREE.Vector3();
 window.__nori = {
+  get cover() {
+    return cover.info;
+  },
   fpsSamples,
   carModel: "box",
   frames: 0,
   state: () => structuredClone(current),
+  // カメラの位置・向きと、場面に置いたものの数（NORI-76：タイトルの裏の判定の絵がステージ1と同じかを E2E で比べる）
+  view: () => {
+    const dir = camera.getWorldDirection(new THREE.Vector3());
+    return {
+      position: [camera.position.x, camera.position.y, camera.position.z],
+      direction: [dir.x, dir.y, dir.z],
+      drawables: scene.children.length,
+    };
+  },
   cityLife: () => ({ poses: game.traffic.poses(current.traffic), models: cityLife.models }),
   get look() {
     return quality.lookState;
@@ -388,7 +452,9 @@ const frame = (now: number) => {
 
   // キーボード・タッチ・ゲームパッドを足して、-1〜1 に収める（docs/game-rules.md「入力」）
   input = mergeInputs([keyboard.read(), touch.read(), ...gamepads.read()]);
-  const { alpha } = stepper.advance(frameSeconds, () => {
+  // 覆いの間は刻みを進めない（描くことと FPS を数えることは続ける。NORI-76）
+  const canStep = !judgeMode && cover.update(frames, fpsSamples.length);
+  const { alpha, steps } = stepper.advance(canStep ? frameSeconds : 0, () => {
     previous = current;
     current = game.step(current, drivenInput(current, input));
     // 復活の刻みは、前の位置との間を補間しない（途中の位置を一瞬描かない）
@@ -436,7 +502,11 @@ const frame = (now: number) => {
   sun.position.set(pose.x + CITY_SKY.sunOffset.x, CITY_SKY.sunOffset.y, pose.z + CITY_SKY.sunOffset.z);
   sun.target.position.set(pose.x, 0, pose.z);
 
+  cover.stepped(frames, steps);
+
   renderer.render(scene, camera);
+  // 判定の形：素材を貼った絵を描き始めたら数え始める
+  if (judgeMode && quality.lookState === "textured") titleJudge.start();
 
   frames++;
   windowFrames++;
@@ -445,6 +515,7 @@ const frame = (now: number) => {
     fpsSamples.push(Math.round(fps * 10) / 10);
     // 遅い端末では低画質へ（「自動」のときだけ。自動では上げ直さない）
     quality.sample(fps, fpsSamples.length);
+    if (judgeMode) titleJudge.sample(fps);
     windowFrames = 0;
     windowStart = now;
     if (showDebug) {

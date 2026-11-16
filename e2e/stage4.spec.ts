@@ -22,7 +22,11 @@ const watchErrors = (page: Page) => {
 
 const ready = async (page: Page) => {
   await page.goto("./?stage=4");
-  await page.waitForFunction(() => (window.__nori?.frames ?? 0) > 5, undefined, { timeout: 60_000 });
+  await page.waitForFunction(
+    () => (window.__nori?.frames ?? 0) > 5 && window.__nori?.cover?.state === "gone",
+    undefined,
+    { timeout: 60_000 },
+  );
 };
 
 test("ステージ4：操縦して生きものに近づくと、上の表示の数が増える", async ({ page }, testInfo) => {
@@ -109,7 +113,11 @@ const checkLook = async (page: Page, testInfo: TestInfo, quality: "high" | "low"
   // 止まったあとに、潜水艇の GLB・海の生きもの7種類・素材を待つ（止めても描画は続く）
   await page.waitForFunction(() => window.__nori?.carModel === "glb", undefined, { timeout: 30_000 });
   await page.waitForFunction(() => window.__nori?.seaModels === 7, undefined, { timeout: 30_000 });
-  await page.waitForFunction(() => window.__nori?.look !== "loading", undefined, { timeout: 60_000 });
+  await page.waitForFunction(
+    () => window.__nori?.look !== "loading" && window.__nori?.cover?.state === "gone",
+    undefined,
+    { timeout: 60_000 },
+  );
   expect(await page.evaluate(() => window.__nori?.quality)).toBe(quality);
   const frames = await page.evaluate(() => window.__nori?.frames ?? 0);
   await page.waitForFunction((n) => (window.__nori?.frames ?? 0) >= n + 2, frames, { timeout: 30_000 });
@@ -175,7 +183,11 @@ for (const quality of ["high", "low"] as const) {
       );
       await page.waitForFunction(() => window.__nori?.carModel === "glb", undefined, { timeout: 30_000 });
       await page.waitForFunction(() => window.__nori?.seaModels === 7, undefined, { timeout: 30_000 });
-      await page.waitForFunction(() => window.__nori?.look !== "loading", undefined, { timeout: 60_000 });
+      await page.waitForFunction(
+        () => window.__nori?.look !== "loading" && window.__nori?.cover?.state === "gone",
+        undefined,
+        { timeout: 60_000 },
+      );
       const frames = await page.evaluate(() => window.__nori?.frames ?? 0);
       await page.waitForFunction((n) => (window.__nori?.frames ?? 0) >= n + 2, frames, { timeout: 30_000 });
       const info = await page.evaluate(() => {
