@@ -1,5 +1,5 @@
 import { expect, type Page, test, type TestInfo } from "@playwright/test";
-import { SIM, STAGE2, TRAIN } from "../src/config";
+import { LOOK, SIM, STAGE2, TRAIN } from "../src/config";
 import { createStage2Game } from "../src/core/stage2";
 import { offsetOnTrack, passingTrainDistance } from "../src/core/stage2Layout";
 import { wrapDistance } from "../src/core/track";
@@ -10,7 +10,7 @@ import { attachShot, luminanceAt, ratio } from "./luminance";
 // NORI-26：ステージ2（山道・列車）。テストの一覧の 7・8 と、見た目の完了条件（Jira）。
 // ?stage=2 で開き、すすむで走って1つ目の駅（150 m）に止まると、上の表示の1つ目の旗に色が付く。
 // 旗と土手の明るさの比 3 以上（高画質・低画質）。スクリーンショット・コンソールエラー・FPS。
-const MIN_CONTRAST = 3; // LOOK.minStarContrast と同じ（ほし・ゴールと道）
+const MIN_CONTRAST = LOOK.minStarContrast; // ほし・ゴールと道（値は src/config から。/code-review の指摘）
 const FIRST_STATION = STAGE2.stations[0] ?? 150;
 const FAST = 20;
 // NORI-73（2026-11-16）：見た目のテストは高画質で描くので 1 コマが重い（遅い CI で約 1.6 秒）。描くコマを減らすため、駅までを 60 刻み/コマで走る
@@ -58,14 +58,14 @@ const installFirstStationDriver = (page: Page, stepsPerFrame?: number) =>
   });
 
 /** 1つ目の駅に着いて止まった（nextStation が 1、速さ 0）のを、刻みで待つ */
-const waitStoppedAtFirstStation = (page: Page) =>
+const waitStoppedAtFirstStation = (page: Page, timeout = 200_000) =>
   page.waitForFunction(
     () => {
       const s = window.__nori?.train?.();
       return s !== undefined && s.nextStation === 1 && Math.abs(s.train.speed) < 1e-6;
     },
     undefined,
-    { timeout: 200_000, polling: 200 },
+    { timeout, polling: 200 },
   );
 
 const train = (page: Page) => page.evaluate(() => window.__nori?.train?.());
@@ -195,6 +195,11 @@ const checkLook = async (page: Page, testInfo: TestInfo, quality: "high" | "low"
   });
   const from = await tickAndFrames(page);
   const fromAt = since();
+  // 見た目・木・止まるのを待つ間に上限で切れても秒が残るように、走り出した時点の記録を先に添付する（/code-review の指摘）
+  await testInfo.attach("progress", {
+    body: JSON.stringify({ quality, clickedAt, fromAt, from }),
+    contentType: "application/json",
+  });
   // 一覧 1：選んだ画質のまま（CI でも高画質の版が高画質で測る）
   expect(await page.evaluate(() => window.__nori?.quality)).toBe(quality);
   // NORI-76：覆いが外れてから測る
@@ -208,13 +213,9 @@ const checkLook = async (page: Page, testInfo: TestInfo, quality: "high" | "low"
   await page.waitForFunction((q) => window.__nori?.trees === (q === "low" ? "simple" : "model"), quality, {
     timeout: 30_000,
   });
-  // 止まるのを待つ間に上限で切れても秒が残るように、走る前の記録を先に添付する（/code-review の指摘）
-  await testInfo.attach("progress", {
-    body: JSON.stringify({ quality, clickedAt, fromAt, from }),
-    contentType: "application/json",
-  });
-  // 子どもが旗を見て止まるときの見え方で測る：1つ目の駅まで走って止まる
-  await waitStoppedAtFirstStation(page);
+  // 子どもが旗を見て止まるときの見え方で測る：1つ目の駅まで走って止まる。
+  // テストの上限 150 秒より前に切れるようにして、遅かったのがこの待ちだと分かるようにする（/code-review の指摘）
+  await waitStoppedAtFirstStation(page, 100_000);
   const stoppedAt = since();
   const to = await tickAndFrames(page);
   const toAt = since();
@@ -250,11 +251,13 @@ const checkLook = async (page: Page, testInfo: TestInfo, quality: "high" | "low"
   const { track } = createStage2Game();
   const camera = (stopped?.train.distance ?? FIRST_STATION) - STAGE2.cameraDistance;
   const flagEnd = FIRST_STATION + STAGE2.stationStopLength / 2;
-  // 早送り 60 では 1 コマで 8 m 進むので、両端だけでなく、撮影の間のすべての刻みで確かめる（/code-review の指摘）
-  const passingAll = Array.from({ length: Math.max(1, after - before + 1) }, (_, i) =>
-    passingTrainDistance(track.length, before + i),
+  // 早送り 60 では 1 コマで 8 m 進むので、両端だけでなく、撮影の間のすべての刻みで確かめる。
+  // すれ違う電車は前の刻みとの間で描く（ほぼ 1 刻み前）ので、before − 1 から見る（/code-review の指摘）
+  const first = before - 1;
+  const passingAll = Array.from({ length: after - first + 1 }, (_, i) =>
+    passingTrainDistance(track.length, first + i),
   );
-  const passing = [passingAll[0] ?? 0, passingAll[passingAll.length - 1] ?? 0];
+  const passing = { first: passingAll.at(0), last: passingAll.at(-1) };
   const [flag = 0, bed = 0] = await luminanceAt(page, points, shot);
   const contrast = ratio(flag, bed);
   const record = {
@@ -283,7 +286,7 @@ const checkLook = async (page: Page, testInfo: TestInfo, quality: "high" | "low"
   // 一覧 2：早送りが効いている（1 コマ 60 刻み。早送りなしは 5 刻み以下、前の 20 では 20）
   expect(perFrame, JSON.stringify(record)).toBeGreaterThanOrEqual(LOOK_FAST - 1);
   const between = passingAll.findIndex((d) => d >= camera - 2 && d <= flagEnd + 2);
-  expect(between, `すれ違う電車がカメラと旗の間（刻み ${before + between}）：${JSON.stringify(record)}`).toBe(
+  expect(between, `すれ違う電車がカメラと旗の間（刻み ${first + between}）：${JSON.stringify(record)}`).toBe(
     -1,
   );
   expect(contrast, JSON.stringify(record)).toBeGreaterThanOrEqual(MIN_CONTRAST);
