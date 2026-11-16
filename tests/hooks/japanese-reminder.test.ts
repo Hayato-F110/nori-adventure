@@ -2,6 +2,7 @@
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 import { describe, expect, it } from "vitest";
 
 const root = path.resolve(import.meta.dirname, "../..");
@@ -137,26 +138,73 @@ describe("一覧 3：効き目を数える道具", () => {
   ];
   const jsonl = lines.map((l) => JSON.stringify(l)).join("\n");
 
-  it("japanese-reply の止めだけを、道具の前と応答の終わりに分けて数え、割合も出す", async () => {
-    const { countBlocks } = (await import(counter)) as {
-      countBlocks: (jsonl: string) => {
-        beforeTool: number;
-        atStop: number;
-        toolCalls: number;
-        stops: number;
-        beforeToolRate: number;
-        atStopRate: number;
-      };
+  type Counts = { beforeTool: number; atStop: number; toolCalls: number; stops: number };
+  // Windows でも読めるよう、file:// の URL で読み込む（/code-review の指摘）
+  const load = async () =>
+    (await import(pathToFileURL(counter).href)) as {
+      countBlocks: (jsonl: string, until?: number) => Counts;
+      summarize: (c: Counts[]) => Counts & { beforeToolRate: number; atStopRate: number };
+      PRE: string;
+      STOP: string;
     };
-    const c = countBlocks(jsonl);
+
+  it("japanese-reply の止めだけを、道具の前と応答の終わりに分けて数え、割合も出す", async () => {
+    const { countBlocks, summarize } = await load();
+    const c = summarize([countBlocks(jsonl)]);
     expect(c).toMatchObject({ beforeTool: 2, atStop: 1, toolCalls: 5, stops: 3 });
     expect(c.beforeToolRate).toBeCloseTo(2 / 5);
     expect(c.atStopRate).toBeCloseTo(1 / 3);
+  });
+
+  it("結果が配列の形でも数え、目印を引用しただけの失敗（テストの失敗の出力など）は数えない", async () => {
+    const { countBlocks } = await load();
+    const arrayForm = user([
+      { type: "tool_result", is_error: true, content: [{ type: "text", text: preBlock("Bash").content }] },
+    ]);
+    const quoted = user([
+      {
+        type: "tool_result",
+        is_error: true,
+        content: `FAIL tests/hooks/x.test.ts\n${preBlock("Edit").content}`,
+      },
+    ]);
+    // 2 つを別々に数える（合わせて数えると、片方ずつの誤りが打ち消し合って通ってしまう）
+    expect(countBlocks(JSON.stringify(arrayForm)).beforeTool).toBe(1);
+    expect(countBlocks(JSON.stringify(quoted)).beforeTool).toBe(0);
+  });
+
+  it("--until の時刻より後の行が出たら、そこから先（時刻のない行も）を数えない", async () => {
+    const { countBlocks } = await load();
+    const timed = [
+      { ...user([preBlock("Edit")]), timestamp: "2026-11-16T10:00:00Z" },
+      { ...user([preBlock("Edit")]), timestamp: "2026-11-16T12:00:00Z" },
+      { type: "system", subtype: "stop_hook_summary" },
+    ];
+    const c = countBlocks(timed.map((l) => JSON.stringify(l)).join("\n"), Date.parse("2026-11-16T11:00:00Z"));
+    expect(c).toMatchObject({ beforeTool: 1, stops: 0 });
+  });
+
+  it("目印は japanese-reply.mjs の知らせと同じ文から作る", async () => {
+    const { PRE, STOP } = await load();
+    const reply = readFileSync(path.join(root, ".claude/hooks/japanese-reply.mjs"), "utf8");
+    expect(PRE).toBe("japanese-reply.mjs]: 道具を呼ぶ前に止めました");
+    expect(STOP).toBe("japanese-reply.mjs]: 止めました：この回の文章に");
+    expect(reply).toContain("`${BEFORE_TOOL_MARK}：直前の文が英語だけです");
+    expect(reply).toContain("`${STOP_MARK}、英語だけの行があります");
   });
 
   it("記録のファイルを渡すと、数を JSON で出す", () => {
     const r = spawnSync("node", [counter, "-"], { input: jsonl, encoding: "utf8" });
     expect(r.status).toBe(0);
     expect(JSON.parse(r.stdout)).toMatchObject({ beforeTool: 2, atStop: 1, toolCalls: 5, stops: 3 });
+  });
+
+  it.each([
+    ["読めない時刻", ["-", "--until", "2026-11-16 25:00"]],
+    ["時刻がない", ["-", "--until"]],
+  ])("--until の%s：数えずに止まる（終了コード 1）", (_, args) => {
+    const r = spawnSync("node", [counter, ...args], { input: jsonl, encoding: "utf8" });
+    expect(r.status).toBe(1);
+    expect(r.stdout).toBe("");
   });
 });
