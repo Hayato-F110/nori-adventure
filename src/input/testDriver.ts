@@ -12,6 +12,8 @@ export type TestDriver = {
   record: InputFrame[];
   /** E2E の早送り：1フレームに進める刻みの数（NORI-66。fastForward）。なければ早送りしない */
   stepsPerFrame?: number;
+  /** E2E の口：true の間はステージの始まりの覆いを外さない（NORI-76。遅い CI で確かめの途中に外れないように） */
+  holdCover?: boolean;
 };
 
 declare global {

@@ -13,6 +13,8 @@ export type StartGateOptions = {
   fadeSeconds?: number;
   /** 動きを減らす設定の端末では、外すとすぐ消す */
   reducedMotion?: boolean;
+  /** E2E の口：true の間は覆ったまま（外し始める前だけ効く）。遅い CI で確かめの途中に外れないようにする */
+  hold?: () => boolean;
 };
 
 export type StartGateResult = {
@@ -38,7 +40,8 @@ export const createStartGate = (options: StartGateOptions) => {
     update(look: LookState): StartGateResult {
       const t = now();
       let startedNow = false;
-      if (state === "covered" && (look !== "loading" || t >= maxWaitSeconds * 1000)) {
+      const held = state === "covered" && options.hold?.() === true;
+      if (!held && state === "covered" && (look !== "loading" || t >= maxWaitSeconds * 1000)) {
         state = options.reducedMotion === true ? "gone" : "fading";
         fadeStart = t;
         startedNow = true;

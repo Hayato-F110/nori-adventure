@@ -101,3 +101,34 @@ describe("NORI-76 一覧 1：覆いの決まり", () => {
     expect(START.maxWaitSeconds).toBe(10);
   });
 });
+
+// PR #81 の CI の失敗（E1）から：遅い CI では、E2E が覆いを確かめている途中で覆いが外れた。
+// E2E のときだけ、運転役の holdCover で覆いを止めておく（今の freeze と同じ考え方。入れていなければ何も変わらない）
+describe("E2E の口：覆いを止めておく（hold）", () => {
+  it("hold が true の間は、素材が決まっても、上限の秒をすぎても覆ったまま。進めない", () => {
+    const c = clock();
+    let hold = true;
+    const gate = createStartGate({ now: c.now, hold: () => hold });
+    for (const [ms, look] of [
+      [1000, "textured"],
+      [START.maxWaitSeconds * 1000 + 5000, "plain"],
+    ] as const) {
+      c.at(ms);
+      expect(gate.update(look)).toMatchObject({ state: "covered", canStep: false, startedNow: false });
+    }
+    hold = false;
+    c.at(START.maxWaitSeconds * 1000 + 6000);
+    expect(gate.update("textured")).toMatchObject({ state: "fading", canStep: true, startedNow: true });
+  });
+
+  it("外し始めたあとに hold を true にしても、戻さない", () => {
+    const c = clock();
+    let hold = false;
+    const gate = createStartGate({ now: c.now, hold: () => hold });
+    c.at(1000);
+    expect(gate.update("textured").state).toBe("fading");
+    hold = true;
+    c.at(1100);
+    expect(gate.update("textured").state).toBe("fading");
+  });
+});

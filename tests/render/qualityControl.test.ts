@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { LOOK } from "../../src/config";
 import type { Look } from "../../src/render/look";
 import type { QualityChoice } from "../../src/render/quality";
-import { createQualityControl } from "../../src/render/qualityControl";
+import { createQualityControl, qualityChoiceFor } from "../../src/render/qualityControl";
 
 // docs/game-rules.md「見た目」「画質を選ぶ」（NORI-56・NORI-58）：画質と、素材・影・画素の倍率のつながり
 const setup = (initial: QualityChoice = "auto") => {
@@ -244,5 +244,26 @@ describe("NORI-76 一覧 4：覚えた結果で始める・覚え直す", () => 
     goSlow(control);
     expect(control.quality).toBe("low");
     expect(judged).toEqual(["low"]);
+  });
+});
+
+// PR #81 の /code-review（2026-11-16）：タイトルの裏の判定の枠でも自動の見張りが動き、遅い端末では測る途中で低へ落ちていた
+// （安い絵を測って「高」と判定する／素材より先に低へ落ちると判定が始まらない）。判定の枠では画質を「高」に固定する
+describe("タイトルの判定の枠：画質を高に固定する（docs/game-rules.md「タイトルの試しの絵」）", () => {
+  it.each(["auto", "low", "high"] as const)("保存した画質が %s でも、判定の枠では high", (stored) => {
+    expect(qualityChoiceFor(true, stored)).toBe("high");
+  });
+
+  it.each(["auto", "low", "high"] as const)("判定の枠でなければ、保存した画質 %s のまま", (stored) => {
+    expect(qualityChoiceFor(false, stored)).toBe(stored);
+  });
+
+  it("高に固定すると、遅い FPS が続いても低へ下げず、素材を貼ったまま", () => {
+    const { control, applied } = setup(qualityChoiceFor(true, "auto"));
+    control.lookLoaded(look);
+    goSlow(control);
+    expect(control.quality).toBe("high");
+    expect(control.lookState).toBe("textured");
+    expect(applied.at(-1)).toBe(look);
   });
 });

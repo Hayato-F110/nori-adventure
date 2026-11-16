@@ -1,5 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
-import { installConstantDriver } from "./driver";
+import { holdStartCover, installConstantDriver, releaseStartCover } from "./driver";
 import { luminanceAt } from "./luminance";
 
 // NORI-76：ステージの始まりの覆いと、タイトルでの画質の判定。テストの一覧は docs/test-plans/NORI-76.md（E1・E2・E3・E5）。
@@ -66,6 +66,8 @@ test.describe("E1：ステージの覆い（タッチの端末）", () => {
       test.setTimeout(180_000);
       const errors = collectErrors(page);
       await installConstantDriver(page, INPUTS, { stepsPerFrame: FAST });
+      // PR #81 の CI：遅い CI では、下の確かめの途中で覆いが外れた（画質が低に決まる・10 秒の上限）。止めて確かめ、最後に外す
+      await holdStartCover(page);
       await installProbe(page);
       await page.goto(`./?stage=${stage}`);
       await page.waitForFunction(() => (window.__nori?.frames ?? 0) > 5, undefined, { timeout: 60_000 });
@@ -96,6 +98,23 @@ test.describe("E1：ステージの覆い（タッチの端末）", () => {
       expect(covered?.samples).toBeGreaterThanOrEqual(2);
       expect(covered?.tick).toBe(0);
       expect(covered?.time).toBe("0");
+
+      // 止めている間は、素材が決まってから 3 コマ描いても覆ったまま・刻み 0（1回の読み取りで見る）
+      const held = await (
+        await page.waitForFunction(
+          (s) => {
+            const n = window.__nori;
+            const g = globalThis as { __noriLookSeenAt?: number };
+            if (n === undefined || n.look === "loading") return null;
+            g.__noriLookSeenAt ??= n.frames;
+            if (n.frames < g.__noriLookSeenAt + 3) return null;
+            return { state: n.cover?.state, tick: globalThis.__noriCoverProbe?.(s).tick ?? -1 };
+          },
+          stage,
+          { timeout: 60_000 },
+        )
+      ).jsonValue();
+      expect(held).toEqual({ state: "covered", tick: 0 });
 
       // 覆いの見た目：画面全体・不透明・タイトルと同じグラデーション
       const style = await page.evaluate(() => {
@@ -134,7 +153,8 @@ test.describe("E1：ステージの覆い（タッチの端末）", () => {
         contentType: "image/png",
       });
 
-      // 覆いが消えたあと
+      // 覆いが消えたあと（止めていたのを外す）
+      await releaseStartCover(page);
       await page.waitForFunction(() => window.__nori?.cover?.state === "gone", undefined, {
         timeout: 60_000,
       });
@@ -181,14 +201,37 @@ test.describe("E2：タイトルで判定し、次のステージで待たない
     const errors = collectErrors(page);
     await page.goto("./");
     // 判定の枠が測っている間：ステージ1と同じ絵を、高画質の設定で描いている
-    await page.waitForFunction(
-      () => {
-        const j = window.__noriTitle?.judge;
-        return j?.state === "measuring" && j.look === "textured";
-      },
-      undefined,
-      { timeout: 60_000 },
-    );
+    try {
+      await page.waitForFunction(
+        () => {
+          const j = window.__noriTitle?.judge;
+          return j?.state === "measuring" && j.look === "textured";
+        },
+        undefined,
+        { timeout: 60_000 },
+      );
+    } catch (e) {
+      // PR #81 の CI で、ここが 60 秒で落ちた（記録が足りず原因が分からなかった）。判定の状態と、枠の中の様子を残す
+      const frame = page.frames().find((f) => f.url().includes("judge"));
+      await testInfo.attach("judge-wait-state.json", {
+        body: JSON.stringify({
+          judge: await page.evaluate(() => window.__noriTitle?.judge),
+          frameUrl: frame?.url() ?? null,
+          inFrame:
+            (await frame
+              ?.evaluate(() => ({
+                look: window.__nori?.look,
+                frames: window.__nori?.frames,
+                fpsSamples: window.__nori?.fpsSamples,
+                judge: window.__noriJudge?.info(),
+                visibility: document.visibilityState,
+              }))
+              .catch((err: unknown) => String(err))) ?? null,
+        }),
+        contentType: "application/json",
+      });
+      throw e;
+    }
     const judgeFrame = page.frames().find((f) => f.url().includes("judge"));
     expect(judgeFrame, "判定の枠がない").toBeDefined();
     const inFrame = await judgeFrame?.evaluate(() => ({

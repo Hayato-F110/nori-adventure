@@ -2,7 +2,8 @@
 // タイトルでの画質の判定」）。画質が「自動」で、結果をまだ覚えていないときだけ、ステージ1のページを判定の形
 // （?stage=1&judge）で、タイトルの不透明な画面の裏の枠（iframe）に開く。済んだら結果を sessionStorage に書き、
 // 描画の準備を捨ててから枠を外す。判定の途中でステージを選んだら、ページごと離れるので何も書かない。
-import { loadJudged, loadQualityChoice, saveJudged } from "./quality";
+import { START } from "../config";
+import { JUDGED_STORAGE_KEY, loadJudged, loadQualityChoice, saveJudged } from "./quality";
 import { sessionStorageOrNull } from "./qualityControl";
 
 export type TitleJudgeInfo = {
@@ -26,7 +27,7 @@ type JudgeWindow = Window & {
   };
 };
 
-const POLL_MS = 250;
+const POLL_MS = START.judgePollSeconds * 1000;
 
 const localStorageOrNull = (): Storage | null => {
   try {
@@ -56,7 +57,7 @@ export const startTitleJudge = (base: string): TitleJudgeInfo => {
   if (session === null) return skip("no-storage");
   try {
     // 読み書きできるか（プライベートブラウズなどで例外になるときは、ステージごとに判定する）
-    session.getItem("nori-adventure.judged");
+    session.getItem(JUDGED_STORAGE_KEY);
   } catch {
     return skip("no-storage");
   }

@@ -32,6 +32,8 @@ export const startStageCover = (quality: StageCoverQuality, onGone?: () => void)
   const element = document.getElementById("start-cover");
   const gate = createStartGate({
     reducedMotion: window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+    // E2E の口：運転役の holdCover が true の間は覆ったまま（入れていなければ何も変わらない）
+    hold: () => globalThis.__noriDriver?.holdCover === true,
   });
   const info: CoverInfo = {
     state: "covered",

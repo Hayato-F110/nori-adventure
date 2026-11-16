@@ -663,6 +663,8 @@ export const START = {
   dotCycleSeconds: 1.2,
   /** 覆いが薄くなって消える秒 */
   fadeSeconds: 0.3,
+  /** タイトルが、裏の判定の枠の結果を読みに行く間隔（秒） */
+  judgePollSeconds: 0.25,
 } as const;
 
 /** 保護者の方への入口（プライバシーポリシー。NORI-54）。押し続けたときだけ開く */

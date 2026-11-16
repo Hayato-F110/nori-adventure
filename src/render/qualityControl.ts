@@ -200,6 +200,13 @@ export const sessionStorageOrNull = (): Storage | null => {
 };
 
 /**
+ * タイトルの裏の判定の枠（NORI-76）では、画質を「高」に固定する（自動の見張りで測る途中に低へ落とさない。
+ * docs/game-rules.md「タイトルの試しの絵」）。それ以外は保存した画質のまま
+ */
+export const qualityChoiceFor = (judgeMode: boolean, stored: QualityChoice): QualityChoice =>
+  judgeMode ? "high" : stored;
+
+/**
  * 各ステージの起動で使う：覚えた画質を読み、画質の切り替えを作り、右上のボタン（#quality）につなぐ。
  * 自動で低へ下げたときも、ボタンの絵を合わせる
  */
@@ -210,9 +217,9 @@ export const startQuality = (
 ): QualityControl & { readonly source: QualitySource; readonly loadedSamples: number | null } => {
   const storage = browserStorage();
   const session = sessionStorageOrNull();
-  const initial = loadQualityChoice(storage);
-  // 判定の結果を覚えていれば使い（判定を待たない）、判定したら覚える（NORI-76）
-  const remembered = judgeMode ? "high" : loadJudged(session);
+  const initial = qualityChoiceFor(judgeMode, loadQualityChoice(storage));
+  // 判定の結果を覚えていれば使い（判定を待たない）、判定したら覚える（NORI-76）。判定の枠は高に固定なので読まない
+  const remembered = judgeMode ? null : loadJudged(session);
   const source: QualitySource = initial !== "auto" ? "chosen" : remembered !== null ? "memory" : "measured";
   let seconds = 0;
   let loadedSamples: number | null = null;
