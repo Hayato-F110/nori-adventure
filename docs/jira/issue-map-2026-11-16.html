@@ -1,0 +1,319 @@
+<!doctype html>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>のりもの 課題のつながり</title>
+<meta name="claude:viewport-fit-sides" content="cover" />
+<style>
+  /* 構成：見出し → 図（横にはみ出す分は図の枠の中だけで動かす） → つながりの表 → 状態の見方 */
+  :root {
+    --bg: #f6f7f4;
+    --surface: #ffffff;
+    --fg: #1f2622;
+    --muted: #5b665f;
+    --line: #d6dbd4;
+    --accent: #2f6b4f;
+    --font-head: "Zen Kaku Gothic New", "Hiragino Sans", "Noto Sans JP", sans-serif;
+    --font-body: "Noto Sans JP", "Hiragino Sans", "Yu Gothic", sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #151a17;
+      --surface: #1d241f;
+      --fg: #e6ebe7;
+      --muted: #a3ada6;
+      --line: #33403a;
+      --accent: #7cc4a0;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #151a17;
+    --surface: #1d241f;
+    --fg: #e6ebe7;
+    --muted: #a3ada6;
+    --line: #33403a;
+    --accent: #7cc4a0;
+    color-scheme: dark;
+  }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--font-body);
+    line-height: 1.7;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    padding-block: 28px 48px;
+  }
+  main {
+    max-width: 1100px;
+    margin: 0 auto;
+    display: grid;
+    gap: 28px;
+  }
+  h1 {
+    font-family: var(--font-head);
+    font-size: 1.6rem;
+    margin: 0;
+    text-wrap: balance;
+  }
+  h2 {
+    font-family: var(--font-head);
+    font-size: 1.15rem;
+    margin: 0 0 10px;
+  }
+  .lead {
+    color: var(--muted);
+    margin: 6px 0 0;
+    max-width: 65ch;
+  }
+  .figure {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 16px;
+    overflow-x: auto;
+  }
+  .figure pre.mermaid {
+    margin: 0;
+    min-width: 880px;
+    background: transparent;
+  }
+  .tablewrap {
+    overflow-x: auto;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--surface);
+  }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    min-width: 640px;
+    font-size: 0.92rem;
+  }
+  th,
+  td {
+    text-align: left;
+    padding: 9px 12px;
+    border-bottom: 1px solid var(--line);
+    vertical-align: top;
+  }
+  th {
+    color: var(--muted);
+    font-weight: 600;
+    font-size: 0.82rem;
+    letter-spacing: 0.04em;
+  }
+  tr:last-child td {
+    border-bottom: 0;
+  }
+  code,
+  .key {
+    font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+    font-size: 0.88em;
+    white-space: nowrap;
+  }
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 18px;
+    color: var(--muted);
+    font-size: 0.9rem;
+  }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
+    display: inline-block;
+    border: 1px solid var(--line);
+  }
+  .s-doing {
+    background: #f2c94c;
+  }
+  .s-todo {
+    background: #cfd8dc;
+  }
+  .s-next {
+    background: #9ec5e8;
+  }
+  .s-done {
+    background: #8fd19e;
+  }
+  .note {
+    color: var(--muted);
+    font-size: 0.86rem;
+  }
+</style>
+
+<main>
+  <header>
+    <h1>のりもの 課題のつながり</h1>
+    <p class="lead">
+      2026-11-16
+      午前の時点。スプリント3（11/14〜11/18）とスプリント4（11/19〜11/23）の課題で、今日の作業に関わるものの順番と、指摘や項目の受け渡しを示します。矢印は「左が済んでから右」か「左から右へ回した」を表します。
+    </p>
+  </header>
+
+  <section class="legend" aria-label="状態の見方">
+    <span class="chip"><span class="dot s-doing"></span>進行中</span>
+    <span class="chip"><span class="dot s-todo"></span>未着手（スプリント3）</span>
+    <span class="chip"><span class="dot s-next"></span>スプリント4</span>
+    <span class="chip">実線：先に済ませる順番</span>
+    <span class="chip">点線：指摘・項目を回した／守る仕組み</span>
+  </section>
+
+  <section class="figure" aria-label="課題のつながりの図">
+    <pre class="mermaid">
+flowchart LR
+  subgraph S3["スプリント3（〜11/18）"]
+    direction LR
+    N76["NORI-76<br/>覆いと画質の判定<br/>PR #81 CI 待ち"]:::doing
+    N77["NORI-77<br/>E2E の共通の部品"]:::doing
+    N79["NORI-79<br/>StageGame と毎コマの骨組み"]:::todo
+    N78["NORI-78<br/>Hook：PR 前のレビュー<br/>承認の刈り取りの表"]:::doing
+    N73["NORI-73<br/>たまに落ちる E2E"]:::doing
+    N38["NORI-38<br/>PWA（版の切り替えの実機）"]:::doing
+    N39["NORI-39<br/>v1.0 リリース（11/18）"]:::todo
+    N72["NORI-72<br/>記録・ふりかえり"]:::doing
+    OTHERS["NORI-32・33・34<br/>NORI-57・64"]:::todo
+  end
+  subgraph S4["スプリント4（11/19〜）"]
+    direction LR
+    N80["NORI-80<br/>判定の見張りの上限<br/>v1.1"]:::next
+    N42["NORI-42<br/>プレイ映像の自動録画"]:::next
+    VIDEO["NORI-41・46・65<br/>紹介動画まわり"]:::next
+  end
+
+  N76 -->|"同じ E2E ファイル。マージ後に始める"| N77
+  N76 -->|"起動のファイル 5 つ。マージ後"| N79
+  N77 -->|"整えた E2E で動きが変わらないか見る"| N79
+  N79 --> N39
+  N76 --> N39
+  N38 --> N39
+  N39 --> N80
+  N79 -->|"録画の口を 1 か所に足せる"| N42
+
+  N76 -.->|"E6：たまに落ちる E2E"| N73
+  N76 -.->|"/code-review の 3：見張りの上限"| N80
+  N76 -.->|"/code-review の 6・7：写しのまとめ"| N79
+  N77 -.->|"落ちにくい部品"| N73
+  N78 -.->|"PR の前にレビューを守らせる"| N77
+  N78 -.->|"PR の前にレビューを守らせる"| N79
+
+  classDef doing fill:#f2c94c,stroke:#8a6d12,color:#1f2622
+  classDef todo fill:#cfd8dc,stroke:#607d8b,color:#1f2622
+  classDef next fill:#9ec5e8,stroke:#2f5f8a,color:#1f2622
+</pre>
+  </section>
+
+  <section aria-label="図の読み方">
+    <p>
+      <strong>実線（先に済ませる順番）</strong>：NORI-76 → NORI-77 → NORI-79 → NORI-39（v1.0）→
+      NORI-80（v1.1）。NORI-79 のあとに NORI-42（自動録画）。
+    </p>
+    <p>
+      <strong>点線（指摘や項目を回したもの）</strong>：NORI-76 から NORI-73・80・79 へ。NORI-78 の Hook
+      が、NORI-77・79 の PR を守ります。
+    </p>
+  </section>
+
+  <section>
+    <h2>つながりの中身</h2>
+    <div class="tablewrap">
+      <table>
+        <thead>
+          <tr>
+            <th>から</th>
+            <th>へ</th>
+            <th>種類</th>
+            <th>中身</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="key">NORI-76</td>
+            <td class="key">NORI-77</td>
+            <td>順番</td>
+            <td>
+              PR #81 が E2E のほぼ全部（17 ファイル）を変えている。重ねた PR
+              を作らない決まりなので、マージのあとに始める
+            </td>
+          </tr>
+          <tr>
+            <td class="key">NORI-76</td>
+            <td class="key">NORI-79</td>
+            <td>順番</td>
+            <td>PR #81 が起動のファイル 5 つを変えている。同じ理由でマージのあと</td>
+          </tr>
+          <tr>
+            <td class="key">NORI-77</td>
+            <td class="key">NORI-79</td>
+            <td>順番</td>
+            <td>先に E2E を整えておくと、骨組みをまとめたときに動きが変わっていないことを確かめやすい</td>
+          </tr>
+          <tr>
+            <td class="key">NORI-76・79・38</td>
+            <td class="key">NORI-39</td>
+            <td>順番</td>
+            <td>v1.0 は覆い・骨組みの整理・PWA のあとに出す（期限 11/18）</td>
+          </tr>
+          <tr>
+            <td class="key">NORI-39</td>
+            <td class="key">NORI-80</td>
+            <td>順番</td>
+            <td>見張りの上限は v1.0 のあと、スプリント4で v1.1 として出す（タグとリリースノート）</td>
+          </tr>
+          <tr>
+            <td class="key">NORI-79</td>
+            <td class="key">NORI-42</td>
+            <td>順番</td>
+            <td>毎コマの処理が 1 か所になれば、録画の口を 5 か所でなく 1 か所に足せる</td>
+          </tr>
+          <tr>
+            <td class="key">NORI-76</td>
+            <td class="key">NORI-73</td>
+            <td>項目を回した</td>
+            <td>NORI-76 の刈り取りの表の「E6 の確かめない範囲：たまに落ちる E2E」</td>
+          </tr>
+          <tr>
+            <td class="key">NORI-76</td>
+            <td class="key">NORI-80</td>
+            <td>指摘を回した</td>
+            <td>PR #81 の /code-review の 3（判定の枠の見張りに上限がない）</td>
+          </tr>
+          <tr>
+            <td class="key">NORI-76</td>
+            <td class="key">NORI-79</td>
+            <td>指摘を回した</td>
+            <td>/code-review の 6・7（保存の入口の関数と型の写し。Jira のコメント 10129）</td>
+          </tr>
+          <tr>
+            <td class="key">NORI-77</td>
+            <td class="key">NORI-73</td>
+            <td>効く</td>
+            <td>実際の時間に頼る部品をまとめて直すと、たまに落ちる E2E が減る</td>
+          </tr>
+          <tr>
+            <td class="key">NORI-78</td>
+            <td class="key">NORI-77・79</td>
+            <td>守る仕組み</td>
+            <td>コードを変える PR は、出す前に /code-review を呼んだかを Hook が見る</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note">
+      NORI-32（バランス）・33（家族のテスト）・34（性能）・57（リプレイ）・64（太陽と雲）・72（記録）は、上の流れとは別に進む課題です。NORI-38
+      は、次に公開したあとにオーナーが版の切り替えを実機で見ると閉じられます。
+    </p>
+  </section>
+</main>
+<!-- 図（mermaid の文）を開いたときに絵にする。開くときに通信が要る（版は固定） -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.min.js"></script>
+<script>
+  mermaid.initialize({ startOnLoad: true, securityLevel: "strict" });
+</script>
