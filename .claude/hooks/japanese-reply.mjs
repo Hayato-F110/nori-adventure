@@ -72,6 +72,8 @@ export const textsBeforeThisTool = (jsonl) => {
 
 /** 道具を呼ぶ直前の Hook が止めたときの知らせの書き出し（下の main と同じ文） */
 export const BEFORE_TOOL_MARK = "道具を呼ぶ前に止めました";
+/** 応答の終わりで止めたときの知らせの書き出し（tools/dev/count-japanese-blocks.mjs が数える目印。NORI-82） */
+export const STOP_MARK = "止めました：この回の文章に";
 
 /**
  * 前回この Hook が動いたあと（stop_hook_summary のあと）に、道具を呼ぶ直前の Hook がもう止めた行を集める。
@@ -135,7 +137,7 @@ const main = async () => {
       ? `${BEFORE_TOOL_MARK}：直前の文が英語だけです（返答はすべて日本語の決まり）。\n` +
           list +
           "\n同じ内容を日本語で書き直してから、もう一度この道具を呼んでください。\n"
-      : "止めました：この回の文章に、英語だけの行があります（返答はすべて日本語の決まり）。\n" +
+      : `${STOP_MARK}、英語だけの行があります（返答はすべて日本語の決まり）。\n` +
           list +
           "\n上の英語の行だけを、日本語で短く言い直して送ってください（途中の行は直せないため）。報告の全体はくり返さないでください。\n",
   );
