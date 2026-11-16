@@ -6,7 +6,17 @@ import { browserStorage, loadCleared } from "./progress";
 /** ゲームの画面の部品を隠して、タイトルを出す。出した星の番号を返す（E2E の確かめ用） */
 export const startTitle = (): number[] => {
   // 保護者の方への入口（#parent）は隠さない（タイトルからもポリシーへ行ける）
-  for (const id of ["game", "hud", "status", "touch", "quality", "goal", "rotate", "train-choice"]) {
+  for (const id of [
+    "game",
+    "hud",
+    "status",
+    "touch",
+    "quality",
+    "goal",
+    "rotate",
+    "train-choice",
+    "start-cover",
+  ]) {
     document.getElementById(id)?.setAttribute("hidden", "");
   }
   const title = document.getElementById("title");

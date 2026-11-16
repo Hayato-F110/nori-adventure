@@ -2,10 +2,11 @@ import { expect, type Page, test, type TestInfo } from "@playwright/test";
 import { QUALITY_STORAGE_KEY } from "../src/render/quality";
 import {
   approachStopped,
+  holdStartCover,
   installPlaneApproachDriver,
   installPlaneDriver,
   installSkyPlaneDriver,
-  startDriving,
+  releaseStartCover,
 } from "./driver";
 import { attachShot, luminanceAt, ratio } from "./luminance";
 
@@ -28,27 +29,73 @@ const watchErrors = (page: Page) => {
 
 const ready = async (page: Page) => {
   await page.goto("./?stage=3");
-  await page.waitForFunction(() => (window.__nori?.frames ?? 0) > 5, undefined, { timeout: 60_000 });
+  await page.waitForFunction(
+    () => (window.__nori?.frames ?? 0) > 5 && window.__nori?.cover?.state === "gone",
+    undefined,
+    { timeout: 60_000 },
+  );
 };
 
 test("ステージ3：操縦して輪をくぐると、上の表示の数が増える", async ({ page }, testInfo) => {
   test.setTimeout(180_000);
   const errors = watchErrors(page);
-  // NORI-69：本物の時間でキーを押す代わりに、運転役＋早送りで1つ目の輪をくぐり、くぐったら手を離す
+  // NORI-69：本物の時間でキーを押す代わりに、運転役＋早送りで1つ目の輪をくぐり、くぐったら手を離す。
+  // NORI-76（PR #81 の CI）：waitForGo は、待った刻みの数で道すじが変わり、160〜265 刻み待つと輪のまわりを回り続ける
+  // （作業用の計算。待つ刻み 0 なら 220 刻みでくぐる）。代わりに覆いを止めて（刻み 0 のまま）始めの画面を確かめ、外す
   await installPlaneDriver(page, {
     steerGain: 2,
     climbGain: 0.2,
     stepsPerFrame: FAST,
-    waitForGo: true,
     releaseAfterRings: 1,
   });
-  await ready(page);
+  await holdStartCover(page);
+  await page.goto("./?stage=3");
+  await page.waitForFunction(
+    () => (window.__nori?.frames ?? 0) > 5 && window.__nori?.cover?.state === "covered",
+    undefined,
+    { timeout: 60_000 },
+  );
   expect(await page.evaluate(() => window.__nori?.stage)).toBe(3);
+  // 止めている間は、素材が決まってから 3 コマ描いても刻み 0（運転役がいつも刻み 0 から動く前提）
+  const heldTick = await (
+    await page
+      .waitForFunction(
+        () => {
+          const n = window.__nori;
+          const g = globalThis as { __noriLookSeenAt?: number };
+          if (n === undefined || n.look === "loading") return null;
+          g.__noriLookSeenAt ??= n.frames;
+          // 刻みの数（0）をそのまま返すと、偽の値なので待ち続ける。物にして返す
+          return n.frames >= g.__noriLookSeenAt + 3 ? { tick: n.plane?.()?.tick ?? -1 } : null;
+        },
+        undefined,
+        { timeout: 60_000 },
+      )
+      .catch(async (e: unknown) => {
+        // 2026-11-16、手元で 2 つ同時に流した回に、ここが 60 秒で落ちた（1 つずつでは 5 秒で素材つき）。落ちたら状態を残す
+        await testInfo.attach("held-wait-state.json", {
+          body: JSON.stringify(
+            await page.evaluate(() => ({
+              look: window.__nori?.look,
+              quality: window.__nori?.quality,
+              frames: window.__nori?.frames,
+              fpsSamples: window.__nori?.fpsSamples,
+              cover: window.__nori?.cover,
+              tick: window.__nori?.plane?.()?.tick,
+              visibility: document.visibilityState,
+            })),
+          ),
+          contentType: "application/json",
+        });
+        throw e;
+      })
+  ).jsonValue();
+  expect(heldTick).toEqual({ tick: 0 });
   await expect(page.locator("#star-count")).toHaveText("0");
   await expect(page.locator("#flags")).toBeHidden(); // 旗は使わない
   await page.screenshot({ path: testInfo.outputPath("01-start.png") });
 
-  await startDriving(page);
+  await releaseStartCover(page);
   // 輪をくぐった数と上の表示が同じになることを、同じ瞬間に（ブラウザの中で）比べる
   await page.waitForFunction(
     () => {
@@ -139,7 +186,11 @@ const checkLook = async (page: Page, testInfo: TestInfo, quality: "high" | "low"
 
   // 止まったあとに、モデル・素材（高画質は山の木も）を待つ。止めても描画は続くので、止まった画面に出る
   await page.waitForFunction(() => window.__nori?.carModel === "glb", undefined, { timeout: 30_000 });
-  await page.waitForFunction(() => window.__nori?.look !== "loading", undefined, { timeout: 60_000 });
+  await page.waitForFunction(
+    () => window.__nori?.look !== "loading" && window.__nori?.cover?.state === "gone",
+    undefined,
+    { timeout: 60_000 },
+  );
   if (quality === "high") {
     await page.waitForFunction(() => window.__nori?.trees === "model", undefined, { timeout: 30_000 });
   }
@@ -217,7 +268,11 @@ test("ステージ3の景色：ほかの飛行機・気球・鳥・木がある"
       timeout: 120_000,
     });
   await phase(1);
-  await page.waitForFunction(() => window.__nori?.look !== "loading", undefined, { timeout: 60_000 });
+  await page.waitForFunction(
+    () => window.__nori?.look !== "loading" && window.__nori?.cover?.state === "gone",
+    undefined,
+    { timeout: 60_000 },
+  );
   await page.waitForFunction(() => window.__nori?.skyScenery?.().planeModel === "glb", undefined, {
     timeout: 30_000,
   });

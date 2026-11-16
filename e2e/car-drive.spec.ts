@@ -64,7 +64,11 @@ test("車が12秒走り、FPS とコンソールエラーを記録する", { tag
     slowThrottle: SLOW_THROTTLE,
   });
   await page.goto("./?stage=1&debug");
-  await page.waitForFunction(() => (window.__nori?.frames ?? 0) > 5, undefined, { timeout: 60_000 });
+  await page.waitForFunction(
+    () => (window.__nori?.frames ?? 0) > 5 && window.__nori?.cover?.state === "gone",
+    undefined,
+    { timeout: 60_000 },
+  );
   await page.screenshot({ path: testInfo.outputPath("01-start.png") });
 
   const start = await snapshot(page);

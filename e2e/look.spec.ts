@@ -15,8 +15,16 @@ const skipFps = Boolean(process.env["NORI_SKIP_FPS"]);
 
 const ready = async (page: Page) => {
   await page.goto("./?stage=1");
-  await page.waitForFunction(() => (window.__nori?.frames ?? 0) > 5, undefined, { timeout: 60_000 });
-  await page.waitForFunction(() => window.__nori?.look !== "loading", undefined, { timeout: 60_000 });
+  await page.waitForFunction(
+    () => (window.__nori?.frames ?? 0) > 5 && window.__nori?.cover?.state === "gone",
+    undefined,
+    { timeout: 60_000 },
+  );
+  await page.waitForFunction(
+    () => window.__nori?.look !== "loading" && window.__nori?.cover?.state === "gone",
+    undefined,
+    { timeout: 60_000 },
+  );
 };
 
 // 高画質（素材を貼る）と低画質（単色）の両方で、ほし・道が見分けやすいこと。
