@@ -3,6 +3,7 @@ import { SIM, STAGE2, TRAIN } from "../src/config";
 import { createStage2Game } from "../src/core/stage2";
 import { offsetOnTrack, passingTrainDistance } from "../src/core/stage2Layout";
 import { wrapDistance } from "../src/core/track";
+import { QUALITY_STORAGE_KEY } from "../src/render/quality";
 import { installTrainDriver } from "./driver";
 import { attachShot, luminanceAt, ratio } from "./luminance";
 
@@ -151,31 +152,54 @@ const driveAndStop = async (page: Page, testInfo: TestInfo, choice: string) => {
   expect(errors).toEqual([]);
 };
 
-for (const mode of ["高画質", "低画質"] as const) {
+// NORI-73：前は画質を CPU を 20 倍遅くして自動で下げ（実際の時間で最大 90 秒）、駅まで早送りなしで走った。
+// 遅い CI で上限 150 秒をこえて落ちた。画質は保存して選び（ステージ3の見た目と同じ）、駅までは早送りで走る。
+// 明るさは止まったあとの画面で測るので、早送りで測る 2 点の位置は変わらない。テストの一覧は docs/test-plans/NORI-73.md
+for (const [mode, quality] of [
+  ["高画質", "high"],
+  ["低画質", "low"],
+] as const) {
   test(`ステージ2の見た目（${mode}）：駅の旗が土手より目立つ`, async ({ page }, testInfo) => {
     test.setTimeout(150_000);
-    await checkLook(page, testInfo, mode);
+    await checkLook(page, testInfo, quality, FAST);
   });
 }
 
-const checkLook = async (page: Page, testInfo: TestInfo, mode: "高画質" | "低画質") => {
+/** 選んだ画質を保存して開く（e2e/quality.spec.ts と同じ口）。自動の切り替えに頼らない */
+const chooseQuality = (page: Page, quality: "high" | "low") =>
+  page.addInitScript((o) => window.localStorage.setItem(o.name, o.value), {
+    name: QUALITY_STORAGE_KEY,
+    value: quality,
+  });
+
+/** 刻みとコマの数を、同じ 1 回の evaluate で読む（間にコマが入らない） */
+const tickAndFrames = (page: Page) =>
+  page.evaluate(() => ({ tick: window.__nori?.train?.()?.tick ?? 0, frames: window.__nori?.frames ?? 0 }));
+
+const checkLook = async (
+  page: Page,
+  testInfo: TestInfo,
+  quality: "high" | "low",
+  stepsPerFrame: number | undefined,
+) => {
   const errors = watchErrors(page);
-  await installFirstStationDriver(page);
-  if (mode === "低画質") {
-    const cdp = await page.context().newCDPSession(page);
-    await cdp.send("Emulation.setCPUThrottlingRate", { rate: 20 });
-    await ready(page);
-    await page.waitForFunction(() => window.__nori?.quality === "low", undefined, { timeout: 90_000 });
-    await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 });
-  } else {
-    await ready(page);
-  }
+  await chooseQuality(page, quality);
+  await installFirstStationDriver(page, stepsPerFrame);
+  const startedAt = Date.now();
+  await ready(page);
+  // 一覧 2：選ぶ前の刻み 0 のコマを数えに入れないよう、刻みが 1 以上になってから読む
+  await page.waitForFunction(() => (window.__nori?.train?.()?.tick ?? 0) >= 1, undefined, {
+    timeout: 60_000,
+  });
+  const from = await tickAndFrames(page);
+  // 一覧 1：選んだ画質のまま（CI でも高画質の版が高画質で測る）
+  expect(await page.evaluate(() => window.__nori?.quality)).toBe(quality);
+  // NORI-76：覆いが外れてから測る
   await page.waitForFunction(
     () => window.__nori?.look !== "loading" && window.__nori?.cover?.state === "gone",
     undefined,
     { timeout: 60_000 },
   );
-  const quality = await page.evaluate(() => window.__nori?.quality);
   expect(await page.evaluate(() => window.__nori?.look)).toBe(quality === "low" ? "plain" : "textured");
   // 木（NORI-26）：高画質は Blender の木、低画質は今の簡単な木
   await page.waitForFunction((q) => window.__nori?.trees === (q === "low" ? "simple" : "model"), quality, {
@@ -183,9 +207,13 @@ const checkLook = async (page: Page, testInfo: TestInfo, mode: "高画質" | "�
   });
   // 子どもが旗を見て止まるときの見え方で測る：1つ目の駅まで走って止まる
   await waitStoppedAtFirstStation(page);
+  const stoppedAt = (Date.now() - startedAt) / 1000;
+  const to = await tickAndFrames(page);
+  const perFrame = (to.tick - from.tick) / Math.max(1, to.frames - from.frames);
+  const stopped = await train(page);
+  expect(Math.abs((stopped?.train.distance ?? 0) - FIRST_STATION)).toBeLessThanOrEqual(6);
   // カメラが追いつくまで、ゲームの 1.5 秒（90 刻み）待つ
-  const stoppedTick = await page.evaluate(() => window.__nori?.train?.()?.tick ?? 0);
-  await page.waitForFunction((t) => (window.__nori?.train?.()?.tick ?? 0) >= t + 90, stoppedTick, {
+  await page.waitForFunction((t) => (window.__nori?.train?.()?.tick ?? 0) >= t + 90, to.tick, {
     timeout: 60_000,
   });
 
@@ -203,14 +231,41 @@ const checkLook = async (page: Page, testInfo: TestInfo, mode: "高画質" | "�
     expect(p.y).toBeGreaterThanOrEqual(2);
     expect(p.y).toBeLessThanOrEqual(viewport.height - 3);
   }
+  // 撮影のすぐ前後で刻みを読み、すれ違う電車が線路の上でカメラと旗の間にいないことを確かめる（一覧 1・計算）
+  const before = (await tickAndFrames(page)).tick;
   const shot = await attachShot(page, testInfo, `stage2-look-${quality}`);
+  const after = (await tickAndFrames(page)).tick;
+  const { track } = createStage2Game();
+  const camera = (stopped?.train.distance ?? FIRST_STATION) - STAGE2.cameraDistance;
+  const flagEnd = FIRST_STATION + STAGE2.stationStopLength / 2;
+  const passing = [before, after].map((t) => passingTrainDistance(track.length, t));
   const [flag = 0, bed = 0] = await luminanceAt(page, points, shot);
   const contrast = ratio(flag, bed);
-  await testInfo.attach("contrast", {
-    body: JSON.stringify({ quality, contrast, flag, bed, points }),
-    contentType: "application/json",
-  });
-  expect(contrast).toBeGreaterThanOrEqual(MIN_CONTRAST);
+  const record = {
+    quality,
+    contrast,
+    flag,
+    bed,
+    points,
+    perFrame,
+    stoppedAt,
+    stopDistance: stopped?.train.distance,
+    from,
+    to,
+    before,
+    after,
+    passing,
+  };
+  await testInfo.attach("contrast", { body: JSON.stringify(record), contentType: "application/json" });
+  // 一覧 2：早送りが効いている（早送りなしは 1 コマ 5 刻み以下）
+  expect(perFrame, JSON.stringify(record)).toBeGreaterThanOrEqual(19);
+  for (const d of passing) {
+    expect(
+      d >= camera - 2 && d <= flagEnd + 2,
+      `すれ違う電車がカメラと旗の間：${JSON.stringify(record)}`,
+    ).toBe(false);
+  }
+  expect(contrast, JSON.stringify(record)).toBeGreaterThanOrEqual(MIN_CONTRAST);
   expect(errors).toEqual([]);
 };
 
