@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { LOOK } from "../../src/config";
 import type { Look } from "../../src/render/look";
 import type { QualityChoice } from "../../src/render/quality";
-import { createQualityControl } from "../../src/render/qualityControl";
+import { createQualityControl, qualityChoiceFor } from "../../src/render/qualityControl";
 
 // docs/game-rules.md「見た目」「画質を選ぶ」（NORI-56・NORI-58）：画質と、素材・影・画素の倍率のつながり
 const setup = (initial: QualityChoice = "auto") => {
@@ -156,5 +156,114 @@ describe("まわりの光（HDRI）を使わないステージ", () => {
     expect(control.lookState).toBe("textured");
     expect(scene.environment).toBeNull();
     expect(hemi.intensity).toBe(LOOK.hemiPlain);
+  });
+});
+
+// NORI-76 一覧 4（docs/test-plans/NORI-76.md）：結果を覚えているステージ・ステージで判定したとき・低で始めるとき
+describe("NORI-76 一覧 4：覚えた結果で始める・覚え直す", () => {
+  const setup76 = (initial: QualityChoice, remembered: "high" | "low" | null) => {
+    const renderer = {
+      pixelRatio: 2,
+      shadowMap: { enabled: true },
+      setPixelRatio(r: number) {
+        this.pixelRatio = r;
+      },
+    };
+    const applied: (Look | null)[] = [];
+    const judged: string[] = [];
+    const sun = new THREE.DirectionalLight();
+    sun.castShadow = true;
+    const control = createQualityControl({
+      renderer: renderer as unknown as THREE.WebGLRenderer,
+      scene: new THREE.Scene(),
+      sun,
+      hemi: new THREE.HemisphereLight(),
+      highPixelRatio: 2,
+      applyLook: (l) => applied.push(l),
+      resize: () => undefined,
+      initial,
+      remembered,
+      onJudged: (q) => judged.push(q),
+    });
+    return { control, renderer, sun, applied, judged };
+  };
+
+  it("自動で high を覚えていれば、判定を待たずに、素材が読めた時点で textured", () => {
+    const { control, applied } = setup76("auto", "high");
+    expect(control.lookState).toBe("loading");
+    control.lookLoaded(look);
+    expect(control.lookState).toBe("textured");
+    expect(applied).toEqual([look]);
+  });
+
+  it("自動で low を覚えていれば、素材を待たずに初めから plain・倍率 1・影なし。選び方は auto のまま", () => {
+    const { control, renderer, sun } = setup76("auto", "low");
+    expect(control.lookState).toBe("plain");
+    expect(control.quality).toBe("low");
+    expect(control.choice).toBe("auto");
+    expect(renderer.pixelRatio).toBe(LOOK.lowPixelRatio);
+    expect(renderer.shadowMap.enabled).toBe(false);
+    expect(sun.castShadow).toBe(false);
+  });
+
+  it("ボタンで「低」を選んで始めたときも、素材を待たずに初めから plain", () => {
+    const { control } = setup76("low", null);
+    expect(control.lookState).toBe("plain");
+  });
+
+  it("覚えていなければ今と同じ（4 秒まで loading）。判定が済んだら、その時点の画質を覚える", () => {
+    const { control, judged } = setup76("auto", null);
+    control.lookLoaded(look);
+    for (let s = 1; s < LOOK.settleSeconds + LOOK.lowFpsSeconds; s++) control.sample(60, s);
+    expect(control.lookState).toBe("loading");
+    expect(judged).toEqual([]);
+    control.sample(60, LOOK.settleSeconds + LOOK.lowFpsSeconds);
+    expect(control.lookState).toBe("textured");
+    expect(judged).toEqual(["high"]);
+  });
+
+  it("覚えていない自動で遅ければ、判定のときに low を覚える", () => {
+    const { control, judged } = setup76("auto", null);
+    control.lookLoaded(look);
+    goSlow(control);
+    expect(judged).toContain("low");
+    expect(judged.at(-1)).toBe("low");
+  });
+
+  it.each(["high", "low"] as const)("ボタンで %s を選んでいれば、覚えた結果を使わず、書かない", (q) => {
+    const { control, judged } = setup76(q, q === "high" ? "low" : "high");
+    expect(control.quality).toBe(q);
+    control.lookLoaded(look);
+    judgeFast(control);
+    expect(judged).toEqual([]);
+  });
+
+  it("覚えた high で始め、遊んでいる間に自動で低へ下げたら low を覚え直す", () => {
+    const { control, judged } = setup76("auto", "high");
+    control.lookLoaded(look);
+    goSlow(control);
+    expect(control.quality).toBe("low");
+    expect(judged).toEqual(["low"]);
+  });
+});
+
+// PR #81 の /code-review（2026-11-16）：タイトルの裏の判定の枠でも自動の見張りが動き、遅い端末では測る途中で低へ落ちていた
+// （安い絵を測って「高」と判定する／素材より先に低へ落ちると判定が始まらない）。判定の枠では画質を「高」に固定する
+describe("タイトルの判定の枠：画質を高に固定する（docs/game-rules.md「タイトルの試しの絵」）", () => {
+  it.each(["auto", "low", "high"] as const)("保存した画質が %s でも、判定の枠では high", (stored) => {
+    expect(qualityChoiceFor(true, stored)).toBe("high");
+  });
+
+  it.each(["auto", "low", "high"] as const)("判定の枠でなければ、保存した画質 %s のまま", (stored) => {
+    expect(qualityChoiceFor(false, stored)).toBe(stored);
+  });
+
+  it("高に固定すると、遅い FPS が続いても低へ下げず、素材を貼ったまま", () => {
+    const { control, applied } = setup(qualityChoiceFor(true, "auto"));
+    control.lookLoaded(look);
+    goSlow(control);
+    expect(control.quality).toBe("high");
+    expect(control.lookState).toBe("textured");
+    expect(applied.at(-1)).toBe(look);
   });
 });

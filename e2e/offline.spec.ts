@@ -55,6 +55,15 @@ test("通信を止めても、タイトル・ポリシー・ステージ1〜5が
   await page.evaluate(() => navigator.serviceWorker.ready.then(() => true));
   await page.reload();
   expect(await page.evaluate(() => navigator.serviceWorker.controller !== null)).toBe(true);
+  // タイトルの裏の画質の判定（NORI-76）が済むか、判定しないと決まるまで待つ（裏の枠が読み込む最中に通信を止めない）
+  await page.waitForFunction(
+    () => {
+      const s = window.__noriTitle?.judge?.state;
+      return s === "done" || s === "skipped";
+    },
+    undefined,
+    { timeout: 90_000 },
+  );
 
   // ブラウザが解決したあとの参照（base つき。一覧 2 の確かめない範囲）
   const hrefs = await page.evaluate(() => ({
@@ -114,7 +123,11 @@ test("通信を止めても、タイトル・ポリシー・ステージ1〜5が
 
     // 読み終わりを待つ（読めないと箱のまま遊べてしまうので、通信なしで本物のモデル・素材まで出ることを見る）
     await page.waitForFunction(() => window.__nori?.carModel === "glb", undefined, { timeout: 60_000 });
-    await page.waitForFunction(() => window.__nori?.look !== "loading", undefined, { timeout: 60_000 });
+    await page.waitForFunction(
+      () => window.__nori?.look !== "loading" && window.__nori?.cover?.state === "gone",
+      undefined,
+      { timeout: 60_000 },
+    );
     if (stage === 1) {
       await page.waitForFunction(() => window.__nori?.cityLife?.().models === 7, undefined, {
         timeout: 60_000,

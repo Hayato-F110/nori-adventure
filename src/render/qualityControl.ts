@@ -6,12 +6,15 @@ import { LOOK } from "../config";
 import type { Look } from "./look";
 import {
   createQualityGovernor,
+  loadJudged,
   loadQualityChoice,
   nextQualityChoice,
   type Quality,
   type QualityChoice,
+  saveJudged,
   saveQualityChoice,
 } from "./quality";
+import type { QualitySource } from "./stageCover";
 
 export type LookState = "loading" | "textured" | "plain";
 
@@ -28,6 +31,10 @@ export type QualityControlDeps = {
   resize(): void;
   /** 前に選んだ画質（覚えていなければ "auto"） */
   initial: QualityChoice;
+  /** 覚えた判定の結果（NORI-76。sessionStorage。なければ null）。「自動」のときだけ使い、判定を待たない */
+  remembered?: Quality | null;
+  /** 「自動」で判定が済んだとき・自動で低へ下げたときに、その画質を知らせる（覚えるため。NORI-76） */
+  onJudged?: (quality: Quality) => void;
   /**
    * 高画質で、まわりの光（昼の空の HDRI）を使うか（既定は使う）。月面（ステージ5）は空の光がないので false：
    * 素材は貼るが、光は単色のときと同じ（空の光 LOOK.hemiPlain）にして、色の計算の前提を保つ（NORI-29）
@@ -49,11 +56,12 @@ export type QualityControl = {
 
 export const createQualityControl = (deps: QualityControlDeps): QualityControl => {
   const { renderer, scene, sun, hemi } = deps;
-  const governor = createQualityGovernor(LOOK, deps.initial);
+  const remembered = deps.initial === "auto" ? (deps.remembered ?? null) : null;
+  const governor = createQualityGovernor(LOOK, deps.initial, remembered ?? "high");
   let lookState: LookState = "loading";
   let loaded: Look | null | undefined;
-  // 自分で選んだ画質なら、最初の判定を待たない
-  let judged = deps.initial !== "auto";
+  // 自分で選んだ画質か、判定の結果を覚えていれば、最初の判定を待たない（NORI-76）
+  let judged = deps.initial !== "auto" || remembered !== null;
 
   const usePlain = () => {
     deps.applyLook(null);
@@ -91,8 +99,12 @@ export const createQualityControl = (deps: QualityControlDeps): QualityControl =
     }
     if (resize) deps.resize();
   };
-  // 前に「低」を選んでいたら、最初から低で描く（画面の大きさは、このあと各ステージが合わせる）
-  if (governor.quality === "low") setRendering("low", false);
+  // 「低」で始めるとき（選んだ低・覚えた低）は、最初から低で描き、素材の読み込みを待たずに単色に決める
+  // （画面の大きさは、このあと各ステージが合わせる。NORI-76「低で始めるとき」）
+  if (governor.quality === "low") {
+    setRendering("low", false);
+    usePlain();
+  }
 
   return {
     get quality() {
@@ -114,10 +126,12 @@ export const createQualityControl = (deps: QualityControlDeps): QualityControl =
       if (governor.quality === "high" && governor.push(fps) === "low") {
         usePlain();
         setRendering("low");
+        deps.onJudged?.("low");
       }
       if (!judged && seconds >= LOOK.settleSeconds + LOOK.lowFpsSeconds) {
         judged = true;
         tryApplyLook();
+        if (governor.choice === "auto") deps.onJudged?.(governor.quality);
       }
     },
     select(choice) {
@@ -176,18 +190,47 @@ const browserStorage = (): Storage | null => {
   }
 };
 
+/** ブラウザの sessionStorage（NORI-76。タブ・アプリを閉じると消える）。使えないときは null */
+export const sessionStorageOrNull = (): Storage | null => {
+  try {
+    return window.sessionStorage;
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * タイトルの裏の判定の枠（NORI-76）では、画質を「高」に固定する（自動の見張りで測る途中に低へ落とさない。
+ * docs/game-rules.md「タイトルの試しの絵」）。それ以外は保存した画質のまま
+ */
+export const qualityChoiceFor = (judgeMode: boolean, stored: QualityChoice): QualityChoice =>
+  judgeMode ? "high" : stored;
+
 /**
  * 各ステージの起動で使う：覚えた画質を読み、画質の切り替えを作り、右上のボタン（#quality）につなぐ。
  * 自動で低へ下げたときも、ボタンの絵を合わせる
  */
 export const startQuality = (
-  deps: Omit<QualityControlDeps, "initial" | "highPixelRatio">,
-): QualityControl => {
+  deps: Omit<QualityControlDeps, "initial" | "highPixelRatio" | "remembered" | "onJudged">,
+  /** タイトルの裏で判定するとき（NORI-76）：判定を待たずに高画質の素材を貼り、結果は書かない（書くのはタイトル） */
+  judgeMode = false,
+): QualityControl & { readonly source: QualitySource; readonly loadedSamples: number | null } => {
   const storage = browserStorage();
+  const session = sessionStorageOrNull();
+  const initial = qualityChoiceFor(judgeMode, loadQualityChoice(storage));
+  // 判定の結果を覚えていれば使い（判定を待たない）、判定したら覚える（NORI-76）。判定の枠は高に固定なので読まない
+  const remembered = judgeMode ? null : loadJudged(session);
+  const source: QualitySource = initial !== "auto" ? "chosen" : remembered !== null ? "memory" : "measured";
+  let seconds = 0;
+  let loadedSamples: number | null = null;
   const control = createQualityControl({
     ...deps,
     highPixelRatio: Math.min(window.devicePixelRatio, LOOK.highPixelRatioMax),
-    initial: loadQualityChoice(storage),
+    initial,
+    remembered,
+    onJudged: (q) => {
+      if (!judgeMode) saveJudged(session, q);
+    },
   });
   const element = document.getElementById("quality");
   const button =
@@ -202,9 +245,17 @@ export const startQuality = (
     get lookState() {
       return control.lookState;
     },
-    lookLoaded: (look) => control.lookLoaded(look),
-    sample(fps, seconds) {
-      control.sample(fps, seconds);
+    source,
+    get loadedSamples() {
+      return loadedSamples;
+    },
+    lookLoaded: (look) => {
+      loadedSamples = seconds;
+      control.lookLoaded(look);
+    },
+    sample(fps, s) {
+      seconds = s;
+      control.sample(fps, s);
       button?.update();
     },
     select(q) {

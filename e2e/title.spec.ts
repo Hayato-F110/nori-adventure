@@ -47,7 +47,11 @@ test("タイトル：車のボタンを押すと ?stage=1 が開き、車のス�
   await titleReady(page);
   await page.locator('#title [data-stage="1"]').click();
   await expect(page).toHaveURL(/\?stage=1$/);
-  await page.waitForFunction(() => (window.__nori?.frames ?? 0) > 5, undefined, { timeout: 60_000 });
+  await page.waitForFunction(
+    () => (window.__nori?.frames ?? 0) > 5 && window.__nori?.cover?.state === "gone",
+    undefined,
+    { timeout: 60_000 },
+  );
   await expect(page.locator("#title")).toBeHidden();
   expect(errors).toEqual([]);
 });
@@ -59,7 +63,11 @@ test("クリア：たからばこに着くと紙ふぶき、3 秒後に3つの�
   const errors = watchErrors(page);
   await installSubDriver(page, { steerGain: 2, climbGain: 0.3, stepsPerFrame: FAST });
   await page.goto("./?stage=4");
-  await page.waitForFunction(() => (window.__nori?.frames ?? 0) > 5, undefined, { timeout: 60_000 });
+  await page.waitForFunction(
+    () => (window.__nori?.frames ?? 0) > 5 && window.__nori?.cover?.state === "gone",
+    undefined,
+    { timeout: 60_000 },
+  );
   await expect(page.locator("#clear")).toBeHidden();
 
   // NORI-69：本物の時間でキーを押す代わりに、運転役＋早送りでたからばこへ向かう（stage-clear.spec.ts と同じ）。

@@ -20,7 +20,11 @@ const collectErrors = (page: Page) => {
 };
 
 const waitStarted = (page: Page) =>
-  page.waitForFunction(() => (window.__nori?.frames ?? 0) > 5, undefined, { timeout: 60_000 });
+  page.waitForFunction(
+    () => (window.__nori?.frames ?? 0) > 5 && window.__nori?.cover?.state === "gone",
+    undefined,
+    { timeout: 60_000 },
+  );
 
 // ゲーム内の時間で待つ（遅い CI でも同じだけ進める）
 const waitTicks = async (page: Page, ticks: number) => {

@@ -242,6 +242,7 @@ body {
   .rotate {
     position: fixed;
     inset: 0;
+    z-index: 26; /* ステージの始まりの覆い（25）の上。待つ間に横にしてもらう（NORI-76 の kids-ui-reviewer） */
     display: grid;
     place-items: center;
     background: rgb(0 0 0 / 45%);
@@ -293,6 +294,7 @@ body {
   position: fixed;
   top: calc(12px + env(safe-area-inset-top, 0px));
   right: calc(12px + env(safe-area-inset-right, 0px));
+  z-index: 30; /* ステージの始まりの覆い（25）の上で押せる。NORI-76 */
   width: var(--quality-button);
   height: var(--quality-button);
   padding: 10px;
@@ -618,5 +620,61 @@ body {
 @media (max-width: 700px) {
   .status {
     top: calc(24px + var(--quality-button) + env(safe-area-inset-top, 0px));
+  }
+}
+
+/* ---- ステージの始まりの覆い（NORI-76。docs/game-rules.md「ステージの始まりの待ちと、タイトルでの画質の判定」）---- */
+/* 値は START と同じ（tests/render/startCover.test.ts で一致を確かめる）。音・画質・保護者のボタン（30）の下、ハンドル・上の表示の上 */
+.start-cover {
+  position: fixed;
+  inset: 0;
+  z-index: 25;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  background: linear-gradient(#9fd8ff, #dff3ff);
+  opacity: 1;
+  transition: opacity 0.3s ease-out;
+}
+
+.start-cover.fading {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.start-cover-dot {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #1f6fd1;
+  animation: start-cover-dot 1.2s ease-in-out infinite;
+}
+
+.start-cover-dot:nth-child(2) {
+  animation-delay: 0.4s;
+}
+
+.start-cover-dot:nth-child(3) {
+  animation-delay: 0.8s;
+}
+
+@keyframes start-cover-dot {
+  0%,
+  100% {
+    transform: scale(0.6);
+  }
+  50% {
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .start-cover-dot {
+    animation: none;
+  }
+
+  .start-cover {
+    transition: none;
   }
 }

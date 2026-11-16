@@ -15,6 +15,22 @@ export type FastForwardOption = {
   waitForGo?: boolean;
 };
 
+/**
+ * NORI-76：ステージの始まりの覆いを止めておく（src/render/startGate.ts の hold）。運転役を入れたあと、page.goto の前に呼ぶ。
+ * 止めている間は刻みが 0 のまま。遅い CI でも、覆いの確かめや「始めの画面」を撮り終える前に覆いが外れない。
+ * waitForGo と違い、外したあとは運転役が刻み 0 から動くので、待った時間で走る道すじが変わらない
+ */
+export const holdStartCover = (page: Page) =>
+  page.addInitScript(() => {
+    if (globalThis.__noriDriver !== undefined) globalThis.__noriDriver.holdCover = true;
+  });
+
+/** holdStartCover で止めた覆いを外す（次の描画から外し始める） */
+export const releaseStartCover = (page: Page) =>
+  page.evaluate(() => {
+    if (globalThis.__noriDriver !== undefined) globalThis.__noriDriver.holdCover = false;
+  });
+
 /** waitForGo の運転役を走り出させる */
 export const startDriving = (page: Page) =>
   page.evaluate(() => {

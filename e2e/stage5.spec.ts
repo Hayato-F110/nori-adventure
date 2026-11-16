@@ -20,9 +20,17 @@ const watchErrors = (page: Page) => {
 
 const ready = async (page: Page) => {
   await page.goto("./?stage=5");
-  await page.waitForFunction(() => (window.__nori?.frames ?? 0) > 5, undefined, { timeout: 60_000 });
+  await page.waitForFunction(
+    () => (window.__nori?.frames ?? 0) > 5 && window.__nori?.cover?.state === "gone",
+    undefined,
+    { timeout: 60_000 },
+  );
   // 高画質の素材（月の砂・焼き付けた陰）を読み終わってから測る
-  await page.waitForFunction(() => window.__nori?.look !== "loading", undefined, { timeout: 60_000 });
+  await page.waitForFunction(
+    () => window.__nori?.look !== "loading" && window.__nori?.cover?.state === "gone",
+    undefined,
+    { timeout: 60_000 },
+  );
 };
 
 /** 今の刻みから n 刻み進むまで待つ（実際の時間で待たない） */
