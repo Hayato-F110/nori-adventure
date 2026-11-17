@@ -8,7 +8,7 @@ const carState = (page: Page) =>
   page.evaluate(() => {
     const s = window.__nori?.state();
     if (!s) throw new Error("window.__nori がありません");
-    return { speed: s.car.speed, steer: s.car.steer, tick: s.tick };
+    return { speed: s.car.speed, steer: s.car.steer, tick: s.tick, x: s.car.x, z: s.car.z };
   });
 
 // ゲーム内の時間で待つ（遅い CI でも同じだけ進める）。上限は前と同じ 90 秒
@@ -100,22 +100,14 @@ test("PC（タッチなし）では、タッチのボタンを出さない", asy
 test("ステージ1：運転役なしで、キー（ArrowUp）を押している間に車が前に進む", async ({ page }) => {
   const errors = watchErrors(page);
   await openStage(page, "./?stage=1");
-  const before = await page.evaluate(() => {
-    const car = window.__nori?.state().car;
-    if (!car) throw new Error("window.__nori がありません");
-    return { speed: car.speed, x: car.x, z: car.z };
-  });
+  const before = await carState(page);
   // キーを押す前は止まっている（動いたのがキーのおかげだと言えるように。/code-review の指摘）
   expect(before.speed).toBe(0);
   await page.keyboard.down("ArrowUp");
-  let after: { speed: number; x: number; z: number };
+  let after: Awaited<ReturnType<typeof carState>>;
   try {
     await waitTicks(page, 60, TICK_TIMEOUT);
-    after = await page.evaluate(() => {
-      const car = window.__nori?.state().car;
-      if (!car) throw new Error("window.__nori がありません");
-      return { speed: car.speed, x: car.x, z: car.z };
-    });
+    after = await carState(page);
   } finally {
     await page.keyboard.up("ArrowUp");
   }

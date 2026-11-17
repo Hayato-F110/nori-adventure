@@ -27,7 +27,11 @@ export const shotOrNote = async (
     info.annotations.push({ type: "撮り直した", description: `${options.path}：1 回目 ${message(first)}` });
     return image;
   } catch (e) {
-    info.annotations.push({ type: "撮れなかった", description: `${options.path}：2 回目 ${message(e)}` });
+    // 原因が分かっていないので、2 回の文を両方残す（/code-review 2 回目の指摘）
+    info.annotations.push({
+      type: "撮れなかった",
+      description: `${options.path}：1 回目 ${message(first)}／2 回目 ${message(e)}`,
+    });
     return null;
   }
 };

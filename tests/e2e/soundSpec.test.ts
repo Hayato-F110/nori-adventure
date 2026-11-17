@@ -4,9 +4,12 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-/** 行のコメント（// …）と囲みのコメント（/* … *\/）を除く。文字列の中の // は、この検査では使っていない */
-export const stripComments = (s: string): string =>
-  s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:])\/\/.*$/gm, "$1");
+/**
+ * 行のコメント（// …）と囲みのコメント（/* … *\/）を除く。行の頭か空白のあとに始まるものだけを除き、
+ * 文字列の中の "a//b"・"https://…"・"e2e/*.png" は残す（/code-review 2 回目の指摘）
+ */
+const stripComments = (s: string): string =>
+  s.replace(/(^|\s)\/\*[\s\S]*?\*\//g, "$1").replace(/(^|\s)\/\/.*$/gm, "$1");
 
 const src = stripComments(readFileSync(new URL("../../e2e/sound.spec.ts", import.meta.url), "utf8"));
 
@@ -37,6 +40,12 @@ describe("stripComments（この検査の部品）", () => {
     expect(s).not.toContain("waitForTimeout");
     expect(s).toContain("a();");
     expect(s).toContain('b("https://x");');
+  });
+
+  it("文字列の中の // や /* は消さない（その先のコードを見落とさない）", () => {
+    const s = stripComments('c("a//b"); d("e2e/*.png"); waitForTimeout(1); e("*/");');
+    expect(s).toContain("waitForTimeout(1)");
+    expect(s).toContain('c("a//b");');
   });
 
   it("待ちの setTimeout( は見つけ、test.setTimeout( は見つけない", () => {

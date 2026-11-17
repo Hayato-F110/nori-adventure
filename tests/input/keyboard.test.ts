@@ -63,11 +63,12 @@ describe("キーボードの入力：矢印キーと W・A・S・D が、すす�
 
   it("扱うキーは既定の動き（スクロール）を止め、ほかのキー（Space）は無視して止めない", () => {
     const { input, send } = setup();
-    expect(send("keydown", "ArrowDown").defaultPrevented).toBe(true);
-    expect(send("keydown", "KeyW").defaultPrevented).toBe(true);
+    // Space だけを押す（ほかのキーと打ち消し合わないように。/code-review 2 回目の指摘）
     const space = send("keydown", "Space");
     expect(space.defaultPrevented).toBe(false);
-    expect(input.read()).toEqual({ throttle: 0, steer: 0 }); // ArrowDown と KeyW で 0。Space は数えない
+    expect(input.read()).toEqual({ throttle: 0, steer: 0 });
+    expect(send("keydown", "ArrowDown").defaultPrevented).toBe(true);
+    expect(send("keydown", "KeyW").defaultPrevented).toBe(true);
   });
 
   it("dispose のあとは送っても変わらない", () => {
