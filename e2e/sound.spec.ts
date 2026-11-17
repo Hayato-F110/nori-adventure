@@ -1,4 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
+import { SOUND } from "../src/config";
 
 // NORI-31：効果音と BGM（docs/game-rules.md「効果音と BGM」）。テストの一覧の 8・9
 const watchErrors = (page: Page) => {
@@ -13,7 +14,10 @@ const watchErrors = (page: Page) => {
 const pressed = (page: Page) => page.locator("#sound").getAttribute("aria-pressed");
 
 for (const [name, url, ready] of [
-  ["タイトル", "./", () => window.__noriTitle !== undefined],
+  // NORI-84 一覧 4：タイトルは __noriTitle を入れたあとに判定の部品・音の部品を読み込み、それからボタンに保存した
+  // 状態を書いて __noriSound を入れる（src/main.ts:156-163、src/render/sound.ts:37・44）。__noriTitle で待つと、
+  // ボタンの準備の前に読み・押してしまう。ステージは __nori より前に startSound を呼ぶので、今の待ちでよい
+  ["タイトル", "./", () => window.__noriSound !== undefined],
   [
     "ステージ1",
     "./?stage=1",
@@ -34,8 +38,14 @@ for (const [name, url, ready] of [
     "./?stage=4",
     () => (window.__nori?.frames ?? 0) > 5 && window.__nori?.cover?.state === "gone",
   ],
+  // NORI-84（R2-84-5）：ルールは「全部の画面で消せる」。ステージ5がなかった
+  [
+    "ステージ5",
+    "./?stage=5",
+    () => (window.__nori?.frames ?? 0) > 5 && window.__nori?.cover?.state === "gone",
+  ],
 ] as const) {
-  test(`${name}：消音のボタンがあり（64 px 以上）、押すと消音、読み込み直しても消音のまま`, async ({
+  test(`${name}：消音のボタンがあり（${SOUND.buttonSize} px 以上）、押すと消音、読み込み直しても消音のまま`, async ({
     page,
   }) => {
     const errors = watchErrors(page);
@@ -43,7 +53,10 @@ for (const [name, url, ready] of [
     await page.waitForFunction(ready, undefined, { timeout: 60_000 });
     const button = page.locator("#sound");
     await expect(button).toBeVisible();
-    expect((await button.boundingBox())?.width ?? 0).toBeGreaterThanOrEqual(64);
+    // NORI-84（R2-84-6）：ルールの大きさ（SOUND.buttonSize、72 px）で見る。前は 64 px 以上で、ルールより緩かった
+    const box = await button.boundingBox();
+    expect(box?.width ?? 0).toBeGreaterThanOrEqual(SOUND.buttonSize);
+    expect(box?.height ?? 0).toBeGreaterThanOrEqual(SOUND.buttonSize);
     expect(await pressed(page)).toBe("true");
     await button.click();
     expect(await pressed(page)).toBe("false");
