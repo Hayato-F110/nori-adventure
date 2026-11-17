@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { QUALITY_STORAGE_KEY } from "../src/render/quality";
+import { JUDGED_STORAGE_KEY, QUALITY_STORAGE_KEY } from "../src/render/quality";
 import { openStage, waitStarted, watchErrors } from "./common";
 
 // NORI-58：画質を選ぶ（docs/game-rules.md「画質を選ぶ」）。右上のボタンで 低 → 高 → 自動、開き直しても覚えている。
@@ -96,23 +96,34 @@ test("自動：遅い端末では、ステージで判定して低になる", as
       },
     );
   } finally {
-    // 落ちても、覆いと画質の様子を残す
-    const state = await page.evaluate(() => ({
-      cover: window.__nori?.cover,
-      quality: window.__nori?.quality,
-      look: window.__nori?.look,
-      judged: sessionStorage.getItem("nori-adventure.judged"),
-    }));
-    await testInfo.attach("auto-low", {
-      body: JSON.stringify({ coverGoneSeconds: goneAt === 0 ? null : (goneAt - openedAt) / 1000, ...state }),
-      contentType: "application/json",
-    });
-    await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 });
+    // CPU の遅さを先に戻す（下の記録が失敗しても、戻し忘れない。/code-review の 1）
+    await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 }).catch(() => undefined);
+    // 落ちても、覆いと画質の様子を残す。記録の失敗で、もとの失敗を隠さない（/code-review の 1）
+    const state = await page
+      .evaluate(
+        (k) => ({
+          cover: window.__nori?.cover,
+          quality: window.__nori?.quality,
+          look: window.__nori?.look,
+          judged: sessionStorage.getItem(k),
+        }),
+        JUDGED_STORAGE_KEY,
+      )
+      .catch((e: unknown) => ({ readError: String(e) }));
+    await testInfo
+      .attach("auto-low", {
+        body: JSON.stringify({
+          coverGoneSeconds: goneAt === 0 ? null : (goneAt - openedAt) / 1000,
+          ...state,
+        }),
+        contentType: "application/json",
+      })
+      .catch(() => undefined);
   }
   expect(await page.evaluate(() => window.__nori?.cover?.source)).toBe("measured");
   expect(await page.evaluate(() => window.__nori?.quality)).toBe("low");
   expect(await page.evaluate(() => window.__nori?.look)).toBe("plain");
-  expect(await page.evaluate(() => sessionStorage.getItem("nori-adventure.judged"))).toBe("low");
+  expect(await page.evaluate((k) => sessionStorage.getItem(k), JUDGED_STORAGE_KEY)).toBe("low");
   await expect(page.locator("#quality")).toHaveAttribute("data-auto", "true");
   expect(errors).toEqual([]);
 });

@@ -69,24 +69,19 @@ const tickNow = (page: Page) =>
     );
   });
 
-/** ゲームの刻みで n 刻み待つ（実際の秒で待たない。遅い CI でもゲームの中では同じだけ進む） */
+/**
+ * ゲームの刻みで n 刻み待つ（実際の秒で待たない。遅い CI でもゲームの中では同じだけ進む）。
+ * 刻みは tickNow の 1 か所だけで読む（写しを作らない。/code-review の 6）。
+ * ステージ2は列車を選ぶまで刻みが 0 のまま進まないので、chooseTrain のあとに呼ぶ（/code-review の 2）
+ */
 export const waitTicks = async (page: Page, n: number, timeout = 60_000) => {
   const from = await tickNow(page);
-  await page.waitForFunction(
-    (target) => {
-      const g = window.__nori;
-      const t =
-        g?.train?.()?.tick ??
-        g?.plane?.()?.tick ??
-        g?.sub?.()?.tick ??
-        g?.rover?.()?.tick ??
-        g?.state?.()?.tick ??
-        0;
-      return t >= target;
-    },
-    from + n,
-    { timeout },
-  );
+  await expect
+    .poll(() => tickNow(page), {
+      timeout,
+      message: `刻みが ${from} から ${n} 進まない（ステージ2なら、列車を選ぶ前に呼んでいないか）`,
+    })
+    .toBeGreaterThanOrEqual(from + n);
 };
 
 /**

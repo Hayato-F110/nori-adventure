@@ -1,14 +1,10 @@
 import { expect, test } from "@playwright/test";
+import { LOOK } from "../src/config";
 import { openStage } from "./common";
 
 // NORI-56：リアル寄りの見た目で FPS を保つ（docs/game-rules.md「見た目」）。手元の PC だけで測る（NORI_SKIP_FPS=1 で省く）。
 // NORI-77（一覧 2）：look.spec.ts から分けた（look.spec.ts は CPU を遅くせず、実際の秒で待たない）。
-// 実際の速さが要る E2E なので、早送りしない。数値は src/config の LOOK と同じ（ここに写す）
-const LOOK = {
-  targetFps: 55,
-  throttledFps: 30,
-  cpuThrottle: 4,
-};
+// 実際の速さが要る E2E なので、早送りしない。数値は src/config の LOOK から読む（写すと、直したときにずれる）
 const skipFps = Boolean(process.env["NORI_SKIP_FPS"]);
 
 test("見た目：手元の PC で FPS を保つ", { tag: "@fps" }, async ({ page }, testInfo) => {

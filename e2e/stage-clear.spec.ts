@@ -9,7 +9,7 @@ import {
   installTrainDriver,
   startDriving,
 } from "./driver";
-import { openStage, watchErrors } from "./common";
+import { chooseTrain, openStage, watchErrors } from "./common";
 
 // NORI-37：運転役（e2e/driver.ts）でステージをクリアまで走る。キーを押さず、刻みごとに入力を決めるので毎回同じ結果。
 // 完了条件（Jira）：CI で全ステージの E2E が通る。使った入力の記録は、リプレイ・自動録画（NORI-42）に使う。
@@ -65,8 +65,8 @@ test("ステージ2：運転役が駅ごとにブレーキで止まると、3つ
     stepsPerFrame: FAST,
   });
   await openStage(page, "./?stage=2");
-  // 乗る列車を選ぶまで時間は進まない（NORI-59）
-  await page.locator('#train-choice button[data-train="train"]').click();
+  // 乗る列車を選ぶまで時間は進まない（NORI-59）。選ぶ前の刻み 0 も chooseTrain が確かめる
+  await chooseTrain(page);
   await page.waitForFunction(() => window.__nori?.train?.()?.finishTick !== null, undefined, {
     timeout: 240_000,
     polling: 500,

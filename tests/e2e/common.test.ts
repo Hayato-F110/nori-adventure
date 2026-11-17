@@ -19,15 +19,18 @@ describe("一覧 1：共通の部品", () => {
     }
   });
 
-  const NAMES = [
-    "watchErrors",
-    "collectErrors",
-    "ready",
-    "waitStarted",
-    "waitFrames",
-    "waitTicks",
-    "chooseQuality",
-  ];
+  // common.ts が export する名前はすべて見る（部品を足したら、検査も自動で広がる。/code-review の 7）。
+  // それに、前に写しで使われていた別の名前を足す
+  const exported = [...read("common.ts").matchAll(/export (?:const|async function|function) (\w+)/g)].map(
+    (m) => m[1] ?? "",
+  );
+  const NAMES = [...new Set([...exported, "collectErrors", "ready", "waitFrames"])];
+
+  it("common.ts の export を読めている（読めないと、下の検査が何も見ない）", () => {
+    expect(exported).toEqual(
+      expect.arrayContaining(["watchErrors", "openStage", "waitTicks", "chooseTrain"]),
+    );
+  });
 
   it.each(specs)("%s：共通の部品を自分で定義していない（const・function の両方）", (f) => {
     const src = read(f);

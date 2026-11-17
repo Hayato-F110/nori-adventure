@@ -1,14 +1,11 @@
 import { expect, type Page, test, type TestInfo } from "@playwright/test";
+import { LOOK } from "../src/config";
 import { chooseQuality, openStage, waitTicks, watchErrors } from "./common";
 import { luminanceAt, ratio } from "./luminance";
 
 // NORI-56：リアル寄りの見た目（docs/game-rules.md「見た目」）。
 // 素材は同じオリジンだけから読み、子どもに大事なもの（ほし・道）が見分けやすく、FPS を保つ。コンソールエラーなし。
-// FPS は e2e/look-fps.spec.ts で測る（NORI-77 の一覧 2）。数値は src/config の LOOK と同じ（ここに写す）
-const LOOK = {
-  minStarContrast: 3,
-  minRoadGrassContrast: 1.5,
-};
+// FPS は e2e/look-fps.spec.ts で測る（NORI-77 の一覧 2）。数値は src/config の LOOK から読む（写すと、直したときにずれる）
 
 // 高画質（素材を貼る）と低画質（単色）の両方で、ほし・道が見分けやすいこと。
 // NORI-77（一覧 2）：画質は CPU を遅くして自動で下げるのでなく、選んで開く（CI でも高画質の版は高画質で測る）
