@@ -1,13 +1,18 @@
 import { expect, type Page, test } from "@playwright/test";
+import { SOUND } from "../src/config";
 import { openStage, waitStarted, watchErrors } from "./common";
 
 // NORI-31：効果音と BGM（docs/game-rules.md「効果音と BGM」）。テストの一覧の 8・9
 
 const pressed = (page: Page) => page.locator("#sound").getAttribute("aria-pressed");
 
-// 開いたあと（読み込み直したあと）に待つもの。タイトルは覆いがないので、タイトルの準備を待つ
+// 開いたあと（読み込み直したあと）に待つもの。タイトルは覆いがないので、消音のボタンの準備を待つ。
+// NORI-84 一覧 4：タイトルは __noriTitle を入れたあとに判定の部品・音の部品を読み込み、startSoundButton が
+// ボタンに保存した状態を書いてから __noriSound を入れる（src/main.ts のタイトルの分かれ道、src/render/sound.ts の
+// startSoundButton）。__noriTitle で待つと、ボタンの準備の前に読み・押してしまう。
+// ステージは __nori を入れる前に startSound を呼ぶので、waitStarted でよい
 const titleReady = (page: Page) =>
-  page.waitForFunction(() => window.__noriTitle !== undefined, undefined, { timeout: 60_000 });
+  page.waitForFunction(() => window.__noriSound !== undefined, undefined, { timeout: 60_000 });
 
 for (const [name, url, ready] of [
   ["タイトル", "./", titleReady],
@@ -15,8 +20,10 @@ for (const [name, url, ready] of [
   ["ステージ2", "./?stage=2", waitStarted],
   ["ステージ3", "./?stage=3", waitStarted],
   ["ステージ4", "./?stage=4", waitStarted],
+  // NORI-84（R2-84-5）：ルールは「全部の画面で消せる」。ステージ5がなかった
+  ["ステージ5", "./?stage=5", waitStarted],
 ] as const) {
-  test(`${name}：消音のボタンがあり（64 px 以上）、押すと消音、読み込み直しても消音のまま`, async ({
+  test(`${name}：消音のボタンがあり（${SOUND.buttonSize} px 以上）、押すと消音、読み込み直しても消音のまま`, async ({
     page,
   }) => {
     const errors = watchErrors(page);
@@ -24,7 +31,10 @@ for (const [name, url, ready] of [
     await ready(page);
     const button = page.locator("#sound");
     await expect(button).toBeVisible();
-    expect((await button.boundingBox())?.width ?? 0).toBeGreaterThanOrEqual(64);
+    // NORI-84（R2-84-6）：ルールの大きさ（SOUND.buttonSize、72 px）で見る。前は 64 px 以上で、ルールより緩かった
+    const box = await button.boundingBox();
+    expect(box?.width ?? 0).toBeGreaterThanOrEqual(SOUND.buttonSize);
+    expect(box?.height ?? 0).toBeGreaterThanOrEqual(SOUND.buttonSize);
     expect(await pressed(page)).toBe("true");
     await button.click();
     expect(await pressed(page)).toBe("false");

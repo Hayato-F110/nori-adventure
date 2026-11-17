@@ -36,6 +36,16 @@ const INPUTS = {
   5: { throttle: 1, steer: 0 },
 };
 
+/**
+ * ブラウザの中で動く：ステージの覆い（cover）ができていて、外れ始めた（fading か gone）。
+ * `window.__nori?.cover?.state !== "covered"` と書くと、ステージのコードが届く前（__nori がない間）にも成り立ち、
+ * 覆いの途中の値（look が null）を読んでしまう（NORI-84 一覧 1）
+ */
+const coverStarted = () => {
+  const s = window.__nori?.cover?.state;
+  return s !== undefined && s !== "covered";
+};
+
 /** 部品の中心の点 */
 const centerOf = async (page: Page, selector: string) => {
   const box = await page.locator(selector).boundingBox();
@@ -192,16 +202,49 @@ test.describe("E2：タイトルで判定し、次のステージで待たない
     test.setTimeout(180_000);
     const errors = watchErrors(page);
     await page.goto("./");
-    // 判定の枠が測っている間：ステージ1と同じ絵を、高画質の設定で描いている
+    // 判定の枠が測っている間：ステージ1と同じ絵を、高画質の設定で描いている。
+    // NORI-84 一覧 2：「測っている」の確認・枠の中身・画面の中央を、タイトルのページの 1 回の呼び出しでまとめて読む。
+    // 呼び出しの途中には、枠を外すタイトルの見回り（0.25 秒ごと）が割り込めない。別の呼び出しに分けると、
+    // 間に判定が済んで枠が外れ、Frame was detached で落ちた（PR #90 の CI）
+    let inFrame:
+      | {
+          info: { look: string; shadow: boolean; pixelRatio: number };
+          view: { drawables: number; position: number[]; direction: number[] };
+          center: boolean;
+        }
+      | null
+      | undefined;
     try {
-      await page.waitForFunction(
+      const handle = await page.waitForFunction(
         () => {
           const j = window.__noriTitle?.judge;
-          return j?.state === "measuring" && j.look === "textured";
+          if (j?.state !== "measuring" || j.look !== "textured") return null;
+          const f = document.getElementById("title-judge") as HTMLIFrameElement | null;
+          // 枠の中も同じゲームのページなので、window の型（__noriJudge・__nori）がそのまま使える
+          const w = f?.contentWindow as typeof window | null | undefined;
+          const info = w?.__noriJudge?.info();
+          const view = w?.__nori?.view?.();
+          const canvas = f?.contentDocument?.querySelector("canvas") ?? null;
+          if (info === undefined || view === undefined || canvas === null) return null;
+          const e = document.elementFromPoint(window.innerWidth / 2, window.innerHeight / 2);
+          // 試しの canvas の参照をとっておく（片付けたあとに isContextLost を見る）。値を返すときだけ書く
+          (globalThis as { __keptCanvas?: HTMLCanvasElement | null }).__keptCanvas = canvas;
+          // 枠の中で作った値は、写してから返す
+          return {
+            info: { look: info.look, shadow: info.shadow, pixelRatio: info.pixelRatio },
+            view: {
+              drawables: view.drawables,
+              position: [...view.position],
+              direction: [...view.direction],
+            },
+            center: (e?.closest("#title") ?? null) !== null,
+          };
         },
         undefined,
         { timeout: 60_000 },
       );
+      inFrame = await handle.jsonValue();
+      await handle.dispose();
     } catch (e) {
       // PR #81 の CI で、ここが 60 秒で落ちた（記録が足りず原因が分からなかった）。判定の状態と、枠の中の様子を残す
       const frame = page.frames().find((f) => f.url().includes("judge"));
@@ -224,24 +267,8 @@ test.describe("E2：タイトルで判定し、次のステージで待たない
       });
       throw e;
     }
-    const judgeFrame = page.frames().find((f) => f.url().includes("judge"));
-    expect(judgeFrame, "判定の枠がない").toBeDefined();
-    const inFrame = await judgeFrame?.evaluate(() => ({
-      info: window.__noriJudge?.info(),
-      view: window.__nori?.view?.(),
-    }));
     expect(inFrame?.info).toMatchObject({ look: "textured", shadow: true, pixelRatio: 2 });
-    // 試しの canvas の参照をとっておく（片付けたあとに isContextLost を見る）
-    await page.evaluate(() => {
-      const f = document.getElementById("title-judge") as HTMLIFrameElement | null;
-      (globalThis as { __keptCanvas?: HTMLCanvasElement | null }).__keptCanvas =
-        f?.contentDocument?.querySelector("canvas") ?? null;
-    });
-    const center = await page.evaluate(() => {
-      const e = document.elementFromPoint(window.innerWidth / 2, window.innerHeight / 2);
-      return e?.closest("#title") !== null;
-    });
-    expect(center, "画面の中央はタイトルの部品").toBe(true);
+    expect(inFrame?.center, "測っている間、画面の中央はタイトルの部品").toBe(true);
 
     // 実際の速さが要る：判定が済むまで待つ（上限 60 秒。計算の節「タイトルで判定が済むまで」から）
     try {
@@ -282,9 +309,8 @@ test.describe("E2：タイトルで判定し、次のステージで待たない
 
     // 同じタブで ?stage=1：覚えた結果で、判定を待たない
     await page.goto("./?stage=1");
-    await page.waitForFunction(() => window.__nori?.cover?.state !== "covered", undefined, {
-      timeout: 60_000,
-    });
+    // NORI-84 一覧 1：cover ができてから、外れ始めるまで待つ（undefined も「covered でない」に入れない）
+    await page.waitForFunction(coverStarted, undefined, { timeout: 60_000 });
     const cover = await page.evaluate(() => window.__nori?.cover);
     expect(cover?.source).toBe("memory");
     expect(cover?.look).toBe(judged === "high" ? "textured" : "plain");
@@ -390,9 +416,8 @@ test.describe("E5：覚えた結果でステージ1〜5を始める", () => {
         test.setTimeout(120_000);
         await page.addInitScript(([k, v]) => sessionStorage.setItem(k, v), [JUDGED, remembered] as const);
         await page.goto(`./?stage=${stage}`);
-        await page.waitForFunction(() => window.__nori?.cover?.state !== "covered", undefined, {
-          timeout: 60_000,
-        });
+        // NORI-84 一覧 1：ステージのコードが届く前（__nori がない間）に抜けて、覆いの途中を読んでいた（PR #92 の CI）
+        await page.waitForFunction(coverStarted, undefined, { timeout: 60_000 });
         const cover = await page.evaluate(() => window.__nori?.cover);
         expect(cover?.source).toBe("memory");
         expect(cover?.look).toBe(remembered === "high" ? "textured" : "plain");
