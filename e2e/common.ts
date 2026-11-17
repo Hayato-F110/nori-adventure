@@ -55,33 +55,44 @@ export const openStage = async (
   if (options.look === true) await waitLook(page, options.timeout);
 };
 
-/** 今のステージの刻み（ステージ1は state、2 は train、3 は plane、4 は sub、5 は rover。NORI-77 の前提 7） */
-const tickNow = (page: Page) =>
-  page.evaluate(() => {
-    const n = window.__nori;
-    return (
-      n?.train?.()?.tick ??
-      n?.plane?.()?.tick ??
-      n?.sub?.()?.tick ??
-      n?.rover?.()?.tick ??
-      n?.state?.()?.tick ??
-      0
-    );
-  });
+/**
+ * ブラウザの中で動く：今のステージの刻みが min 以上なら { tick } を、まだなら null を返す
+ * （ステージ1は state、2 は train、3 は plane、4 は sub、5 は rover。NORI-77 の前提 7）。
+ * 刻みはここ 1 か所だけで読む（写しを作らない。/code-review の 6）。ステージがまだないときは 0 とみなさず null（2 回目の 2）
+ */
+const tickAtLeast = (min: number) => {
+  const n = window.__nori;
+  if (n === undefined) return null;
+  const t =
+    n.train?.()?.tick ??
+    n.plane?.()?.tick ??
+    n.sub?.()?.tick ??
+    n.rover?.()?.tick ??
+    n.state?.()?.tick ??
+    null;
+  return t !== null && t >= min ? { tick: t } : null;
+};
+
+/** 今のステージの刻み（ステージができるまで待つ） */
+const tickNow = async (page: Page, timeout: number) => {
+  const handle = await page.waitForFunction(tickAtLeast, -1, { timeout });
+  return (await handle.jsonValue())?.tick ?? 0;
+};
 
 /**
  * ゲームの刻みで n 刻み待つ（実際の秒で待たない。遅い CI でもゲームの中では同じだけ進む）。
- * 刻みは tickNow の 1 か所だけで読む（写しを作らない。/code-review の 6）。
+ * 描画ごとに見る（waitForFunction）ので、行きすぎるのは 1 コマ分まで（2 回目の 1）。
  * ステージ2は列車を選ぶまで刻みが 0 のまま進まないので、chooseTrain のあとに呼ぶ（/code-review の 2）
  */
 export const waitTicks = async (page: Page, n: number, timeout = 60_000) => {
-  const from = await tickNow(page);
-  await expect
-    .poll(() => tickNow(page), {
-      timeout,
-      message: `刻みが ${from} から ${n} 進まない（ステージ2なら、列車を選ぶ前に呼んでいないか）`,
-    })
-    .toBeGreaterThanOrEqual(from + n);
+  const from = await tickNow(page, timeout);
+  try {
+    await page.waitForFunction(tickAtLeast, from + n, { timeout });
+  } catch (e) {
+    throw new Error(`刻みが ${from} から ${n} 進まない（ステージ2なら、列車を選ぶ前に呼んでいないか）`, {
+      cause: e,
+    });
+  }
 };
 
 /**

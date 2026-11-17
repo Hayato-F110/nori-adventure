@@ -97,23 +97,31 @@ test("自動：遅い端末では、ステージで判定して低になる", as
     );
   } finally {
     // CPU の遅さを先に戻す（下の記録が失敗しても、戻し忘れない。/code-review の 1）
-    await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 }).catch(() => undefined);
-    // 落ちても、覆いと画質の様子を残す。記録の失敗で、もとの失敗を隠さない（/code-review の 1）
-    const state = await page
-      .evaluate(
-        (k) => ({
-          cover: window.__nori?.cover,
-          quality: window.__nori?.quality,
-          look: window.__nori?.look,
-          judged: sessionStorage.getItem(k),
-        }),
-        JUDGED_STORAGE_KEY,
-      )
-      .catch((e: unknown) => ({ readError: String(e) }));
+    // 戻せなかったら捨てずに記録に残す（2 回目の 7）
+    const resetError = await cdp
+      .send("Emulation.setCPUThrottlingRate", { rate: 1 })
+      .then(() => null)
+      .catch((e: unknown) => String(e));
+    // 落ちても、覆いと画質の様子を残す。記録の失敗で、もとの失敗を隠さない（/code-review の 1）。
+    // ページが止まっていても、読むのは 5 秒まで（テスト全体の上限まで待って、もとの失敗が「時間切れ」に変わらないように。2 回目の 8）
+    const read = page.evaluate(
+      (k) => ({
+        cover: window.__nori?.cover,
+        quality: window.__nori?.quality,
+        look: window.__nori?.look,
+        judged: sessionStorage.getItem(k),
+      }),
+      JUDGED_STORAGE_KEY,
+    );
+    const state = await Promise.race([
+      read,
+      new Promise<{ readError: string }>((r) => setTimeout(() => r({ readError: "5 秒で読めない" }), 5_000)),
+    ]).catch((e: unknown) => ({ readError: String(e) }));
     await testInfo
       .attach("auto-low", {
         body: JSON.stringify({
           coverGoneSeconds: goneAt === 0 ? null : (goneAt - openedAt) / 1000,
+          resetError,
           ...state,
         }),
         contentType: "application/json",
