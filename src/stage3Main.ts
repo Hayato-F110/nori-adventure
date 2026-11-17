@@ -15,6 +15,7 @@ import { createTouchInput, touchLayoutFor } from "./input/touch";
 import type { ModelManifest } from "./render/carModel";
 import { LIGHTMAPS, loadLook, surfacesFor } from "./render/look";
 import { startQuality } from "./render/qualityControl";
+import { startStageCover } from "./render/stageCover";
 import { createStage3View } from "./render/stage3View";
 import { createStatusView } from "./render/statusView";
 import { startClearFlow } from "./render/clearFlow";
@@ -76,6 +77,8 @@ export const startStage3 = async (canvas: HTMLCanvasElement, hud: HTMLElement, s
     applyLook: (look) => view.applyLook(look),
     resize: () => resize(),
   });
+  // ステージの始まりの覆い（NORI-76）：素材を貼るか単色に決まるまで、ゲームを進めない
+  const cover = startStageCover(quality);
   void loadLook({
     base: import.meta.env.BASE_URL,
     renderer,
@@ -195,6 +198,9 @@ export const startStage3 = async (canvas: HTMLCanvasElement, hud: HTMLElement, s
   const projected = new THREE.Vector3();
   const v3 = (v: THREE.Vector3) => ({ x: v.x, y: v.y, z: v.z });
   window.__nori = {
+    get cover() {
+      return cover.info;
+    },
     fpsSamples,
     get carModel() {
       return planeModel;
@@ -257,7 +263,9 @@ export const startStage3 = async (canvas: HTMLCanvasElement, hud: HTMLElement, s
         : 0;
     if (frozenAt === null) lastTime = realNow;
     input = mergeInputs([keyboard.read(), touch.read(), ...gamepads.read()]);
-    const { alpha } = stepper.advance(frameSeconds, () => {
+    // 覆いの間は刻みを進めない（描くことと FPS を数えることは続ける。NORI-76）
+    const canStep = cover.update(frames, fpsSamples.length);
+    const { alpha, steps } = stepper.advance(canStep ? frameSeconds : 0, () => {
       previous = current;
       current = game.step(current, drivenInput(current, input));
     });
@@ -296,6 +304,8 @@ export const startStage3 = async (canvas: HTMLCanvasElement, hud: HTMLElement, s
     placeCamera(p, 1 - Math.exp(-CAMERA.followSharpness * frameSeconds));
     sun.position.set(p.x + 20, p.y + 40, p.z + 10);
     sun.target.position.set(p.x, p.y, p.z);
+
+    cover.stepped(frames, steps);
 
     renderer.render(scene, camera);
 

@@ -1,5 +1,5 @@
 import { expect, type Page, test, type TestInfo } from "@playwright/test";
-import { QUALITY_STORAGE_KEY } from "../src/render/quality";
+import { chooseQuality, openStage, waitLook, watchErrors } from "./common";
 import { approachStopped, installSubApproachDriver, startDriving } from "./driver";
 import { attachShot, luminanceAt, peakLuminanceAt, ratio } from "./luminance";
 
@@ -10,20 +10,6 @@ const FAST = 20;
 // たからばこと水の明るさの比 3 以上（高画質・低画質）。スクリーンショット・コンソールエラー・FPS。
 const MIN_CONTRAST = 3; // LOOK.minStarContrast と同じ
 const skipFps = Boolean(process.env["NORI_SKIP_FPS"]);
-
-const watchErrors = (page: Page) => {
-  const errors: string[] = [];
-  page.on("console", (m) => {
-    if (m.type() === "error") errors.push(m.text());
-  });
-  page.on("pageerror", (e) => errors.push(e.message));
-  return errors;
-};
-
-const ready = async (page: Page) => {
-  await page.goto("./?stage=4");
-  await page.waitForFunction(() => (window.__nori?.frames ?? 0) > 5, undefined, { timeout: 60_000 });
-};
 
 test("ステージ4：操縦して生きものに近づくと、上の表示の数が増える", async ({ page }, testInfo) => {
   test.setTimeout(180_000);
@@ -38,7 +24,7 @@ test("ステージ4：操縦して生きものに近づくと、上の表示の�
     stepsPerFrame: FAST,
     waitForGo: true,
   });
-  await ready(page);
+  await openStage(page, "./?stage=4");
   expect(await page.evaluate(() => window.__nori?.stage)).toBe(4);
   await expect(page.locator("#star-count")).toHaveText("0");
   await expect(page.locator("#flags")).toBeHidden();
@@ -70,10 +56,7 @@ const checkLook = async (page: Page, testInfo: TestInfo, quality: "high" | "low"
   const errors = watchErrors(page);
   // 魚の群れ・あわ・きらきらを止める（止めた時刻は実際の時刻なので、動いたままだと画面が毎回変わる）
   await page.emulateMedia({ reducedMotion: "reduce" });
-  await page.addInitScript((o) => window.localStorage.setItem(o.name, o.value), {
-    name: QUALITY_STORAGE_KEY,
-    value: quality,
-  });
+  await chooseQuality(page, quality);
   await installSubApproachDriver(page, {
     creature: 0,
     target: "treasure",
@@ -86,7 +69,7 @@ const checkLook = async (page: Page, testInfo: TestInfo, quality: "high" | "low"
     climbGain: 0.3,
     stepsPerFrame: FAST,
   });
-  await ready(page);
+  await openStage(page, "./?stage=4");
   await page.waitForFunction(approachStopped, undefined, { timeout: 120_000 });
 
   // 止まったあとの状態（一覧 4）：たからばこの上 9 m まで 16 m 以下。実際のカメラからの距離も残す
@@ -109,7 +92,7 @@ const checkLook = async (page: Page, testInfo: TestInfo, quality: "high" | "low"
   // 止まったあとに、潜水艇の GLB・海の生きもの7種類・素材を待つ（止めても描画は続く）
   await page.waitForFunction(() => window.__nori?.carModel === "glb", undefined, { timeout: 30_000 });
   await page.waitForFunction(() => window.__nori?.seaModels === 7, undefined, { timeout: 30_000 });
-  await page.waitForFunction(() => window.__nori?.look !== "loading", undefined, { timeout: 60_000 });
+  await waitLook(page);
   expect(await page.evaluate(() => window.__nori?.quality)).toBe(quality);
   const frames = await page.evaluate(() => window.__nori?.frames ?? 0);
   await page.waitForFunction((n) => (window.__nori?.frames ?? 0) >= n + 2, frames, { timeout: 30_000 });
@@ -151,10 +134,7 @@ for (const quality of ["high", "low"] as const) {
     test.setTimeout(240_000);
     const STOPS = [26, 22, 19, 16] as const;
     await page.emulateMedia({ reducedMotion: "reduce" });
-    await page.addInitScript((o) => window.localStorage.setItem(o.name, o.value), {
-      name: QUALITY_STORAGE_KEY,
-      value: quality,
-    });
+    await chooseQuality(page, quality);
     await installSubApproachDriver(page, {
       creature: 0,
       target: "treasure",
@@ -165,7 +145,7 @@ for (const quality of ["high", "low"] as const) {
       climbGain: 0.3,
       stepsPerFrame: FAST,
     });
-    await ready(page);
+    await openStage(page, "./?stage=4");
     const rows: unknown[] = [];
     for (let k = 1; k <= STOPS.length; k++) {
       await page.waitForFunction(
@@ -175,7 +155,7 @@ for (const quality of ["high", "low"] as const) {
       );
       await page.waitForFunction(() => window.__nori?.carModel === "glb", undefined, { timeout: 30_000 });
       await page.waitForFunction(() => window.__nori?.seaModels === 7, undefined, { timeout: 30_000 });
-      await page.waitForFunction(() => window.__nori?.look !== "loading", undefined, { timeout: 60_000 });
+      await waitLook(page);
       const frames = await page.evaluate(() => window.__nori?.frames ?? 0);
       await page.waitForFunction((n) => (window.__nori?.frames ?? 0) >= n + 2, frames, { timeout: 30_000 });
       const info = await page.evaluate(() => {
@@ -221,7 +201,7 @@ test("ステージ4の見た目：生きもの（エイ）のきらきらがま�
     climbGain: 0.3,
     stepsPerFrame: FAST,
   });
-  await ready(page);
+  await openStage(page, "./?stage=4");
   await page.waitForFunction(() => window.__nori?.seaModels === 7, undefined, { timeout: 30_000 });
   // 止まってから、2コマ描くのを待つ（止めたあとも描画は続く）
   await page.waitForFunction(approachStopped, undefined, { timeout: 120_000 });
@@ -279,7 +259,7 @@ test("ステージ4：CPU を4倍遅くしても 30fps 以上", { tag: "@fps" },
   test.skip(skipFps, "GPU のない CI では FPS を測らない");
   test.setTimeout(120_000);
   const cdp = await page.context().newCDPSession(page);
-  await ready(page);
+  await openStage(page, "./?stage=4");
   await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 });
   await page.keyboard.down("ArrowLeft");
   const start = await page.evaluate(() => window.__nori?.fpsSamples.length ?? 0);

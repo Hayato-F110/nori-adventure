@@ -1,5 +1,6 @@
 import { writeFileSync } from "node:fs";
 import { expect, test } from "@playwright/test";
+import { openStage, watchErrors } from "./common";
 import { installCarDriver } from "./driver";
 import { maskGpu } from "./report-mask";
 
@@ -48,11 +49,7 @@ const snapshot = (page: import("@playwright/test").Page) =>
 test("車が12秒走り、FPS とコンソールエラーを記録する", { tag: "@fps" }, async ({ page }, testInfo) => {
   // 遅い環境ではゲーム内の時間が6秒進むまで走るので、テスト全体の上限を延ばす
   test.setTimeout((MAX_DRIVE_SECONDS + 60) * 1000);
-  const consoleErrors: string[] = [];
-  page.on("console", (message) => {
-    if (message.type() === "error") consoleErrors.push(message.text());
-  });
-  page.on("pageerror", (error) => consoleErrors.push(error.message));
+  const consoleErrors = watchErrors(page);
 
   // NORI-37：キーを押す代わりに、刻みごとに入力を決める運転役で走る（毎回同じ道すじ。たまに落ちた原因をなくす）
   await installCarDriver(page, {
@@ -63,8 +60,7 @@ test("車が12秒走り、FPS とコンソールエラーを記録する", { tag
     slowAngle: SLOW_ANGLE,
     slowThrottle: SLOW_THROTTLE,
   });
-  await page.goto("./?stage=1&debug");
-  await page.waitForFunction(() => (window.__nori?.frames ?? 0) > 5, undefined, { timeout: 60_000 });
+  await openStage(page, "./?stage=1&debug");
   await page.screenshot({ path: testInfo.outputPath("01-start.png") });
 
   const start = await snapshot(page);

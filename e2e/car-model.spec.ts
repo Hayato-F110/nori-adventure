@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { expect, test } from "@playwright/test";
+import { openStage, watchErrors } from "./common";
 
 // NORI-18 完了条件：1台分（car）が自動でゲームに読み込まれる。
 // manifest に car があれば GLB の車に差しかわり、なければ箱の車のまま。どちらもコンソールエラーなし。
@@ -10,16 +11,11 @@ const manifest = JSON.parse(
 const hasCar = manifest.models.some((m) => m.name === "car");
 
 test(`車のモデル：${hasCar ? "GLB を読み込む" : "箱の車のまま"}`, async ({ page }, testInfo) => {
-  const consoleErrors: string[] = [];
-  page.on("console", (message) => {
-    if (message.type() === "error") consoleErrors.push(message.text());
-  });
-  page.on("pageerror", (error) => consoleErrors.push(error.message));
+  const consoleErrors = watchErrors(page);
   const requests: string[] = [];
   page.on("request", (request) => requests.push(new URL(request.url()).pathname));
 
-  await page.goto("./?stage=1");
-  await page.waitForFunction(() => (window.__nori?.frames ?? 0) > 5, undefined, { timeout: 60_000 });
+  await openStage(page, "./?stage=1");
   // NORI-16：本番のビルド（preview）では、CSP の style-src に 'unsafe-inline' がない。違反があればコンソールエラーになる
   const csp = await page.locator('meta[http-equiv="Content-Security-Policy"]').getAttribute("content");
   expect(csp).toContain("style-src 'self';");

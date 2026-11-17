@@ -641,6 +641,8 @@ export const LOOK = {
   /** 色（16進の文字列）。ほし・道の明るさの比（minStarContrast）はこれらで決まる */
   starColor: "#ffd23f",
   starEmissive: "#e0a800",
+  /** ほしの自ら光る強さ（倍）。回るほしの太陽から外れた面でも、高画質で道との比 3 以上（NORI-77「## 計算」） */
+  starEmissiveIntensity: 1.75,
   plainRoadColor: "#3a3e48",
   /** 道の白線：幅と、道の端からの距離（中央線は引かない。ほしとまぎれるため） */
   roadLineWidth: 0.25,
@@ -649,6 +651,22 @@ export const LOOK = {
   settleSeconds: 1,
   /** 画質のボタン（右上）の大きさ px（NORI-58） */
   qualityButtonSize: 72,
+} as const;
+
+/** ステージの始まりの覆い（NORI-76。docs/game-rules.md「ステージの始まりの待ちと、タイトルでの画質の判定」） */
+export const START = {
+  /** 素材が決まらなくても、ページを開いてからこの秒で覆いを外す */
+  maxWaitSeconds: 10,
+  /** 覆いの丸の色（空色の背景との明るさの比 3 以上。画質のボタンの「自動」の印と同じ青） */
+  dotColor: "#1f6fd1",
+  /** 覆いの丸の直径・間（px）と、1 周の秒 */
+  dotSize: 24,
+  dotGap: 16,
+  dotCycleSeconds: 1.2,
+  /** 覆いが薄くなって消える秒 */
+  fadeSeconds: 0.3,
+  /** タイトルが、裏の判定の枠の結果を読みに行く間隔（秒） */
+  judgePollSeconds: 0.25,
 } as const;
 
 /** 保護者の方への入口（プライバシーポリシー。NORI-54）。押し続けたときだけ開く */
@@ -813,4 +831,5 @@ export const CONFIG = {
   CITY_SKY,
   SOUND,
   PWA,
+  START,
 } as const;

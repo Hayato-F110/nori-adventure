@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { STAGE1 } from "../src/config";
+import { openStage, watchErrors } from "./common";
 import { installCarDriver, startDriving } from "./driver";
 
 // NORI-25：ステージ1のコース。ほし・門・行き先の矢印・上の表示（ほしの数・旗・時間）がブラウザで出て、
@@ -11,11 +12,7 @@ const FAST = 20;
 
 test("ステージ1：走るとほしが取れて、上の数が増える", async ({ page }, testInfo) => {
   test.setTimeout(180_000);
-  const consoleErrors: string[] = [];
-  page.on("console", (message) => {
-    if (message.type() === "error") consoleErrors.push(message.text());
-  });
-  page.on("pageerror", (error) => consoleErrors.push(error.message));
+  const consoleErrors = watchErrors(page);
 
   await installCarDriver(page, {
     waypoints: STAGE1.route.slice(1),
@@ -27,8 +24,7 @@ test("ステージ1：走るとほしが取れて、上の数が増える", asyn
     slowAngle: 0.6,
     slowThrottle: 0.5,
   });
-  await page.goto("./?stage=1");
-  await page.waitForFunction(() => (window.__nori?.frames ?? 0) > 5, undefined, { timeout: 60_000 });
+  await openStage(page, "./?stage=1");
   await expect(page.locator("#status")).toBeVisible();
   await expect(page.locator("#star-count")).toHaveText("0");
   await expect(page.locator("#flags svg")).toHaveCount(3);

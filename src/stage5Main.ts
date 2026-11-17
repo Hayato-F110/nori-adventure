@@ -16,6 +16,7 @@ import { startClearFlow } from "./render/clearFlow";
 import { createFollowCamera } from "./render/followCamera";
 import { LIGHTMAPS, loadLook, surfacesFor } from "./render/look";
 import { startQuality } from "./render/qualityControl";
+import { startStageCover } from "./render/stageCover";
 import { startSound } from "./render/sound";
 import { createStage5View } from "./render/stage5View";
 import { createStatusView } from "./render/statusView";
@@ -76,6 +77,8 @@ export const startStage5 = async (canvas: HTMLCanvasElement, hud: HTMLElement, s
     useEnvironment: false,
     resize: () => resize(),
   });
+  // ステージの始まりの覆い（NORI-76）：素材を貼るか単色に決まるまで、ゲームを進めない
+  const cover = startStageCover(quality);
   resize();
   void loadLook({
     base: import.meta.env.BASE_URL,
@@ -143,6 +146,9 @@ export const startStage5 = async (canvas: HTMLCanvasElement, hud: HTMLElement, s
   let windowStart = performance.now();
   const projected = new THREE.Vector3();
   window.__nori = {
+    get cover() {
+      return cover.info;
+    },
     fpsSamples,
     get carModel() {
       return roverModel;
@@ -181,7 +187,9 @@ export const startStage5 = async (canvas: HTMLCanvasElement, hud: HTMLElement, s
     const frameSeconds = fastForward(SIM.fixedDt)?.frameSeconds ?? Math.min(0.25, (now - lastTime) / 1000);
     lastTime = now;
     input = mergeInputs([keyboard.read(), touch.read(), ...gamepads.read()]);
-    const { alpha } = stepper.advance(frameSeconds, () => {
+    // 覆いの間は刻みを進めない（描くことと FPS を数えることは続ける。NORI-76）
+    const canStep = cover.update(frames, fpsSamples.length);
+    const { alpha, steps } = stepper.advance(canStep ? frameSeconds : 0, () => {
       previous = current;
       current = game.step(current, drivenInput(current, input));
     });
@@ -220,6 +228,8 @@ export const startStage5 = async (canvas: HTMLCanvasElement, hud: HTMLElement, s
     follow.update(p, frameSeconds);
     sun.position.set(p.x + 20, 40, p.z + 10);
     sun.target.position.set(p.x, 0, p.z);
+
+    cover.stepped(frames, steps);
 
     renderer.render(scene, camera);
 

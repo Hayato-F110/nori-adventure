@@ -1,30 +1,27 @@
 import { expect, type Page, test } from "@playwright/test";
+import { openStage, waitStarted, watchErrors } from "./common";
 
 // NORI-31：効果音と BGM（docs/game-rules.md「効果音と BGM」）。テストの一覧の 8・9
-const watchErrors = (page: Page) => {
-  const errors: string[] = [];
-  page.on("console", (m) => {
-    if (m.type() === "error") errors.push(m.text());
-  });
-  page.on("pageerror", (e) => errors.push(e.message));
-  return errors;
-};
 
 const pressed = (page: Page) => page.locator("#sound").getAttribute("aria-pressed");
 
+// 開いたあと（読み込み直したあと）に待つもの。タイトルは覆いがないので、タイトルの準備を待つ
+const titleReady = (page: Page) =>
+  page.waitForFunction(() => window.__noriTitle !== undefined, undefined, { timeout: 60_000 });
+
 for (const [name, url, ready] of [
-  ["タイトル", "./", () => window.__noriTitle !== undefined],
-  ["ステージ1", "./?stage=1", () => (window.__nori?.frames ?? 0) > 5],
-  ["ステージ2", "./?stage=2", () => (window.__nori?.frames ?? 0) > 5],
-  ["ステージ3", "./?stage=3", () => (window.__nori?.frames ?? 0) > 5],
-  ["ステージ4", "./?stage=4", () => (window.__nori?.frames ?? 0) > 5],
+  ["タイトル", "./", titleReady],
+  ["ステージ1", "./?stage=1", waitStarted],
+  ["ステージ2", "./?stage=2", waitStarted],
+  ["ステージ3", "./?stage=3", waitStarted],
+  ["ステージ4", "./?stage=4", waitStarted],
 ] as const) {
   test(`${name}：消音のボタンがあり（64 px 以上）、押すと消音、読み込み直しても消音のまま`, async ({
     page,
   }) => {
     const errors = watchErrors(page);
     await page.goto(url);
-    await page.waitForFunction(ready, undefined, { timeout: 60_000 });
+    await ready(page);
     const button = page.locator("#sound");
     await expect(button).toBeVisible();
     expect((await button.boundingBox())?.width ?? 0).toBeGreaterThanOrEqual(64);
@@ -32,7 +29,7 @@ for (const [name, url, ready] of [
     await button.click();
     expect(await pressed(page)).toBe("false");
     await page.reload();
-    await page.waitForFunction(ready, undefined, { timeout: 60_000 });
+    await ready(page);
     expect(await pressed(page)).toBe("false");
     await page.locator("#sound").click();
     expect(await pressed(page)).toBe("true");
@@ -45,8 +42,7 @@ test("ステージ1：最初のキーで音が動き出し、ほしを取ると�
 }) => {
   test.setTimeout(180_000);
   const errors = watchErrors(page);
-  await page.goto("./?stage=1");
-  await page.waitForFunction(() => (window.__nori?.frames ?? 0) > 5, undefined, { timeout: 60_000 });
+  await openStage(page, "./?stage=1");
   // 操作の前は、音の仕組みを作らない（ブラウザの決まり）
   expect(await page.evaluate(() => window.__noriSound?.state())).toBe("none");
 

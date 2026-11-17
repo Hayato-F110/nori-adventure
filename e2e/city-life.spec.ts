@@ -1,27 +1,19 @@
-import { expect, type Page, test } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import { ASSET, CAR, SIM, STAGE1, TRAFFIC } from "../src/config";
 import { createTraffic } from "../src/core/traffic";
 import type { GameState } from "../src/core/types";
+import { openStage, watchErrors } from "./common";
 import { installCarDriver } from "./driver";
 
 // NORI-61：ステージ1の街をにぎやかに。テストの一覧（docs/test-plans/NORI-61.md）の E2E。
 // 自作モデル7種類に差しかわる・コンソールエラー 0・ほかの車が動く・子どもの車のそばの自転車は止まる・スクリーンショット。
 // FPS は car-drive.spec.ts（同じステージ1）で測る。
-const watchErrors = (page: Page) => {
-  const errors: string[] = [];
-  page.on("console", (m) => {
-    if (m.type() === "error") errors.push(m.text());
-  });
-  page.on("pageerror", (e) => errors.push(e.message));
-  return errors;
-};
 
 test("ステージ1：ほかの車・自転車・バイク・人が自作モデルで走り、子どものそばでは止まる", async ({
   page,
 }, testInfo) => {
   const errors = watchErrors(page);
-  await page.goto("./?stage=1");
-  await page.waitForFunction(() => (window.__nori?.frames ?? 0) > 5, undefined, { timeout: 60_000 });
+  await openStage(page, "./?stage=1");
   await page.waitForFunction(() => window.__nori?.cityLife?.().models === 7, undefined, { timeout: 30_000 });
 
   const read = () => page.evaluate(() => window.__nori?.cityLife?.().poses);
