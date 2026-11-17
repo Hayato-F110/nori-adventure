@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { openStage, watchErrors } from "./common";
+import { shotOrNote } from "./shot";
 
 // NORI-54：保護者の方への入口とプライバシーポリシー（docs/game-rules.md「保護者の方への入口」）。
 // タブレットで、短いタップでは開かない。2秒押し続けて離すと、新しいタブでポリシーが開く。
@@ -44,6 +45,7 @@ test("ポリシーのページ：日本語と英語があり、コンソール�
   await expect(page.locator("#ja h1")).toHaveText("プライバシーポリシー");
   await expect(page.locator("#en h1")).toHaveText("Privacy Policy");
   await expect(page.locator("#en")).toHaveAttribute("lang", "en");
-  await page.screenshot({ path: testInfo.outputPath("privacy.png"), fullPage: true });
+  // 全画面の撮影は CI でたまに撮れない（原因は不明。NORI-73 の前提 8）。記録のためなので、撮れなくても落とさない
+  await shotOrNote(page, testInfo, { path: testInfo.outputPath("privacy.png"), fullPage: true });
   expect(errors).toEqual([]);
 });

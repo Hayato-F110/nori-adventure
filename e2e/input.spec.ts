@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { waitStarted, waitTicks, watchErrors } from "./common";
+import { openStage, waitStarted, waitTicks, watchErrors } from "./common";
 
 // NORI-14：タッチ（タブレット）とゲームパッドで操作できる。docs/game-rules.md「入力」。
 // 実機のタブレットでの確認は、オーナーが公開版で行う（完了条件）。
@@ -8,7 +8,7 @@ const carState = (page: Page) =>
   page.evaluate(() => {
     const s = window.__nori?.state();
     if (!s) throw new Error("window.__nori がありません");
-    return { speed: s.car.speed, steer: s.car.steer, tick: s.tick };
+    return { speed: s.car.speed, steer: s.car.steer, tick: s.tick, x: s.car.x, z: s.car.z };
   });
 
 // ゲーム内の時間で待つ（遅い CI でも同じだけ進める）。上限は前と同じ 90 秒
@@ -92,6 +92,28 @@ test("PC（タッチなし）では、タッチのボタンを出さない", asy
   await waitStarted(page);
   await expect(page.locator("#go")).toBeHidden();
   await expect(page.locator("#wheel")).toBeHidden();
+  expect(errors).toEqual([]);
+});
+
+// NORI-73（一覧 9）：キーをゲームにつなぐ所（src/main.ts の createKeyboardInput）の確かめ。運転役を入れないので、
+// キーの入力がそのままゲームに届く。刻みで待つので、実際の時間に頼らない（ゲームパッドのテストと同じ形）
+test("ステージ1：運転役なしで、キー（ArrowUp）を押している間に車が前に進む", async ({ page }) => {
+  const errors = watchErrors(page);
+  await openStage(page, "./?stage=1");
+  const before = await carState(page);
+  // キーを押す前は止まっている（動いたのがキーのおかげだと言えるように。/code-review の指摘）
+  expect(before.speed).toBe(0);
+  await page.keyboard.down("ArrowUp");
+  let after: Awaited<ReturnType<typeof carState>>;
+  try {
+    await waitTicks(page, 60, TICK_TIMEOUT);
+    after = await carState(page);
+  } finally {
+    await page.keyboard.up("ArrowUp");
+  }
+  expect(after.speed).toBeGreaterThan(0);
+  // スタートは −Z 向き（docs/game-rules.md「コースの道すじ」）
+  expect(after.z).toBeLessThan(before.z);
   expect(errors).toEqual([]);
 });
 

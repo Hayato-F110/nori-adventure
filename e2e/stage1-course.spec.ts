@@ -1,7 +1,6 @@
 import { expect, test } from "@playwright/test";
-import { STAGE1 } from "../src/config";
 import { openStage, watchErrors } from "./common";
-import { installCarDriver, startDriving } from "./driver";
+import { installCarDriver, STAGE1_ROUTE_DRIVER, startDriving } from "./driver";
 
 // NORI-25：ステージ1のコース。ほし・門・行き先の矢印・上の表示（ほしの数・旗・時間）がブラウザで出て、
 // 走るとほしを取れて数が増える。コンソールエラーなし。スクリーンショットを残す。
@@ -14,16 +13,7 @@ test("ステージ1：走るとほしが取れて、上の数が増える", asyn
   test.setTimeout(180_000);
   const consoleErrors = watchErrors(page);
 
-  await installCarDriver(page, {
-    waypoints: STAGE1.route.slice(1),
-    turnAhead: STAGE1.checkpointRadius - 1,
-    loop: false,
-    stepsPerFrame: FAST,
-    waitForGo: true,
-    steerGain: 3,
-    slowAngle: 0.6,
-    slowThrottle: 0.5,
-  });
+  await installCarDriver(page, { ...STAGE1_ROUTE_DRIVER, stepsPerFrame: FAST, waitForGo: true });
   await openStage(page, "./?stage=1");
   await expect(page.locator("#status")).toBeVisible();
   await expect(page.locator("#star-count")).toHaveText("0");
