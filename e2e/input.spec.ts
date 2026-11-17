@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { waitStarted, waitTicks, watchErrors } from "./common";
 
 // NORI-14：タッチ（タブレット）とゲームパッドで操作できる。docs/game-rules.md「入力」。
 // 実機のタブレットでの確認は、オーナーが公開版で行う（完了条件）。
@@ -10,29 +11,8 @@ const carState = (page: Page) =>
     return { speed: s.car.speed, steer: s.car.steer, tick: s.tick };
   });
 
-const collectErrors = (page: Page) => {
-  const errors: string[] = [];
-  page.on("console", (m) => {
-    if (m.type() === "error") errors.push(m.text());
-  });
-  page.on("pageerror", (e) => errors.push(e.message));
-  return errors;
-};
-
-const waitStarted = (page: Page) =>
-  page.waitForFunction(
-    () => (window.__nori?.frames ?? 0) > 5 && window.__nori?.cover?.state === "gone",
-    undefined,
-    { timeout: 60_000 },
-  );
-
-// ゲーム内の時間で待つ（遅い CI でも同じだけ進める）
-const waitTicks = async (page: Page, ticks: number) => {
-  const start = (await carState(page)).tick;
-  await page.waitForFunction((target) => (window.__nori?.state().tick ?? 0) >= target, start + ticks, {
-    timeout: 90_000,
-  });
-};
+// ゲーム内の時間で待つ（遅い CI でも同じだけ進める）。上限は前と同じ 90 秒
+const TICK_TIMEOUT = 90_000;
 
 const center = async (page: Page, selector: string) => {
   const box = await page.locator(selector).boundingBox();
@@ -44,7 +24,7 @@ test.describe("タブレット（1024×768・タッチ）", () => {
   test.use({ viewport: { width: 1024, height: 768 }, hasTouch: true, isMobile: true });
 
   test("ボタンが 64 px 以上で、2本の指で ▶ とハンドルを同時に使える", async ({ page }, testInfo) => {
-    const errors = collectErrors(page);
+    const errors = watchErrors(page);
     await page.goto("./?stage=1");
     await waitStarted(page);
     // タッチの画面か、最初に触ったときにボタンが出る
@@ -74,7 +54,7 @@ test.describe("タブレット（1024×768・タッチ）", () => {
     ];
     await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: fingers(0) });
     await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: fingers(60) });
-    await waitTicks(page, 60);
+    await waitTicks(page, 60, TICK_TIMEOUT);
     const held = await carState(page);
     await page.screenshot({ path: testInfo.outputPath("tablet-driving.png") });
     expect(held.speed).toBeGreaterThan(1);
@@ -88,7 +68,7 @@ test.describe("タブレット（1024×768・タッチ）", () => {
     // 遅い CI（約3fps）では、読んでいる間にも進むので、blur の直後の速さと比べる（11/7 に CI で失敗）
     await page.evaluate(() => window.dispatchEvent(new Event("blur")));
     const atBlur = await carState(page);
-    await waitTicks(page, 60);
+    await waitTicks(page, 60, TICK_TIMEOUT);
     const afterBlur = await carState(page);
     expect(Math.abs(afterBlur.steer)).toBeLessThan(0.05);
     expect(afterBlur.speed).toBeLessThan(atBlur.speed);
@@ -97,7 +77,7 @@ test.describe("タブレット（1024×768・タッチ）", () => {
 
     // 指を離すと、すすむ・まがる が 0 に戻る
     await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
-    await waitTicks(page, 60);
+    await waitTicks(page, 60, TICK_TIMEOUT);
     const released = await carState(page);
     expect(Math.abs(released.steer)).toBeLessThan(0.05);
     expect(released.speed).toBeLessThanOrEqual(afterBlur.speed);
@@ -107,7 +87,7 @@ test.describe("タブレット（1024×768・タッチ）", () => {
 });
 
 test("PC（タッチなし）では、タッチのボタンを出さない", async ({ page }) => {
-  const errors = collectErrors(page);
+  const errors = watchErrors(page);
   await page.goto("./?stage=1");
   await waitStarted(page);
   await expect(page.locator("#go")).toBeHidden();
@@ -116,7 +96,7 @@ test("PC（タッチなし）では、タッチのボタンを出さない", asy
 });
 
 test("ゲームパッド（RT と左スティック）で進んで曲がる", async ({ page }) => {
-  const errors = collectErrors(page);
+  const errors = watchErrors(page);
   // 疑似のゲームパッド：standard mapping、RT（7）いっぱい、左スティックを右へ
   await page.addInitScript(() => {
     const buttons = Array.from({ length: 17 }, (_, i) => ({
@@ -137,7 +117,7 @@ test("ゲームパッド（RT と左スティック）で進んで曲がる", as
   });
   await page.goto("./?stage=1");
   await waitStarted(page);
-  await waitTicks(page, 60);
+  await waitTicks(page, 60, TICK_TIMEOUT);
   const s = await carState(page);
   expect(s.speed).toBeGreaterThan(1);
   expect(s.steer).toBeGreaterThan(0.3);
@@ -148,7 +128,7 @@ test.describe("スマホ（縦向き 390×844・タッチ）", () => {
   test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
 
   test("「横にする」絵を出し、重なるボタンは隠す", async ({ page }, testInfo) => {
-    const errors = collectErrors(page);
+    const errors = watchErrors(page);
     await page.goto("./?stage=1");
     await waitStarted(page);
     await page.touchscreen.tap(195, 300);
@@ -164,7 +144,7 @@ test.describe("上下のボタン：タブレット（1024×768・タッチ）�
   test.use({ viewport: { width: 1024, height: 768 }, hasTouch: true, isMobile: true });
 
   test("▲ が ▼ の真上にあり、どちらも 64 px 以上。▲ を押すと上がる", async ({ page }, testInfo) => {
-    const errors = collectErrors(page);
+    const errors = watchErrors(page);
     await page.goto("./?stage=4");
     await waitStarted(page);
     await page.touchscreen.tap(512, 200);
@@ -187,10 +167,7 @@ test.describe("上下のボタン：タブレット（1024×768・タッチ）�
       type: "touchStart",
       touchPoints: [{ x: up.x, y: up.y, id: 1 }],
     });
-    const startTick = await page.evaluate(() => window.__nori?.sub?.().tick ?? 0);
-    await page.waitForFunction((t) => (window.__nori?.sub?.().tick ?? 0) >= t + 60, startTick, {
-      timeout: 90_000,
-    });
+    await waitTicks(page, 60, TICK_TIMEOUT);
     await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
     expect(await depthNow()).toBeGreaterThan(before + 0.5);
     expect(errors).toEqual([]);
@@ -201,7 +178,7 @@ test.describe("上下のボタン：スマホ（横向き 844×390・タッチ�
   test.use({ viewport: { width: 844, height: 390 }, hasTouch: true, isMobile: true });
 
   test("▲▼ とハンドルが重ならず、画面の中に収まる", async ({ page }, testInfo) => {
-    const errors = collectErrors(page);
+    const errors = watchErrors(page);
     await page.goto("./?stage=3");
     await waitStarted(page);
     await page.touchscreen.tap(422, 150);
@@ -221,7 +198,7 @@ test.describe("スマホ（横向き 844×390・タッチ）", () => {
   test.use({ viewport: { width: 844, height: 390 }, hasTouch: true, isMobile: true });
 
   test("ボタンとハンドルが重ならずに出る", async ({ page }, testInfo) => {
-    const errors = collectErrors(page);
+    const errors = watchErrors(page);
     await page.goto("./?stage=1");
     await waitStarted(page);
     await page.touchscreen.tap(422, 150);

@@ -1,29 +1,16 @@
-import { expect, type Page, test } from "@playwright/test";
+import { expect, test } from "@playwright/test";
+import { openStage, watchErrors } from "./common";
 
 // NORI-54：保護者の方への入口とプライバシーポリシー（docs/game-rules.md「保護者の方への入口」）。
 // タブレットで、短いタップでは開かない。2秒押し続けて離すと、新しいタブでポリシーが開く。
 // ポリシーのページは日本語と英語があり、コンソールのエラー（CSP の違反を含む）がない。
-
-const watchErrors = (page: Page) => {
-  const errors: string[] = [];
-  page.on("console", (m) => {
-    if (m.type() === "error") errors.push(m.text());
-  });
-  page.on("pageerror", (e) => errors.push(e.message));
-  return errors;
-};
 
 test.describe("タブレット（1024×768・タッチ）", () => {
   test.use({ viewport: { width: 1024, height: 768 }, hasTouch: true, isMobile: true });
 
   test("短いタップでは開かず、2秒押し続けて離すとポリシーが開く", async ({ page, context }, testInfo) => {
     const errors = watchErrors(page);
-    await page.goto("./?stage=1");
-    await page.waitForFunction(
-      () => (window.__nori?.frames ?? 0) > 5 && window.__nori?.cover?.state === "gone",
-      undefined,
-      { timeout: 60_000 },
-    );
+    await openStage(page, "./?stage=1");
     const box = await page.locator("#parent").boundingBox();
     if (box === null) throw new Error("#parent が見えない");
     const x = box.x + box.width / 2;

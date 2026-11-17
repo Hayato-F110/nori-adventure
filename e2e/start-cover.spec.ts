@@ -1,4 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
+import { watchErrors } from "./common";
 import { holdStartCover, installConstantDriver, releaseStartCover } from "./driver";
 import { luminanceAt } from "./luminance";
 
@@ -13,15 +14,6 @@ declare global {
   // globalThis に足す口は var で宣言する（TypeScript の決まり）
   var __noriCoverProbe: ((stage: number) => Probe) | undefined;
 }
-
-const collectErrors = (page: Page) => {
-  const errors: string[] = [];
-  page.on("console", (m) => {
-    if (m.type() === "error") errors.push(m.text());
-  });
-  page.on("pageerror", (e) => errors.push(e.message));
-  return errors;
-};
 
 /** 刻みと「入力が効いたか」を見る値を読む口（NORI-38 の E2E と同じ見方）。CSP が文字列の実行を止めるので先に入れる */
 const installProbe = (page: Page) =>
@@ -64,7 +56,7 @@ test.describe("E1：ステージの覆い（タッチの端末）", () => {
       page,
     }, testInfo) => {
       test.setTimeout(180_000);
-      const errors = collectErrors(page);
+      const errors = watchErrors(page);
       await installConstantDriver(page, INPUTS, { stepsPerFrame: FAST });
       // PR #81 の CI：遅い CI では、下の確かめの途中で覆いが外れた（画質が低に決まる・10 秒の上限）。止めて確かめ、最後に外す
       await holdStartCover(page);
@@ -198,7 +190,7 @@ test.describe("E2：タイトルで判定し、次のステージで待たない
     page,
   }, testInfo) => {
     test.setTimeout(180_000);
-    const errors = collectErrors(page);
+    const errors = watchErrors(page);
     await page.goto("./");
     // 判定の枠が測っている間：ステージ1と同じ絵を、高画質の設定で描いている
     try {
@@ -335,7 +327,7 @@ test.describe("E3：判定しないとき・タイトルの判定を捨てたと
   }
 
   test("sessionStorage が使えない：タイトルは止まらず、ステージはその場で判定する", async ({ page }) => {
-    const errors = collectErrors(page);
+    const errors = watchErrors(page);
     await page.addInitScript(() => {
       const fail = () => {
         throw new DOMException("blocked", "SecurityError");
