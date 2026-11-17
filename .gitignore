@@ -30,6 +30,7 @@ credentials.json
 screenshots/
 test-results/
 playwright-report/
+e2e-results/
 .playwright-mcp/
 Screenshot_*
 スクリーンショット*
