@@ -38,10 +38,10 @@
     "eslint": "10.14.0",
     "globals": "17.14.0",
     "gltf-validator": "2.0.0-dev.3.10",
-    "prettier": "3.9.10",
+    "prettier": "3.10.1",
     "typescript": "6.0.3",
-    "typescript-eslint": "8.72.1",
-    "vite": "8.3.7",
+    "typescript-eslint": "8.72.2",
+    "vite": "8.3.8",
     "vitest": "5.1.0"
   },
   "overrides": {
