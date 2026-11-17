@@ -103,16 +103,22 @@ test("ステージ1：運転役なしで、キー（ArrowUp）を押している
   const before = await page.evaluate(() => {
     const car = window.__nori?.state().car;
     if (!car) throw new Error("window.__nori がありません");
-    return { x: car.x, z: car.z };
-  });
-  await page.keyboard.down("ArrowUp");
-  await waitTicks(page, 60, TICK_TIMEOUT);
-  const after = await page.evaluate(() => {
-    const car = window.__nori?.state().car;
-    if (!car) throw new Error("window.__nori がありません");
     return { speed: car.speed, x: car.x, z: car.z };
   });
-  await page.keyboard.up("ArrowUp");
+  // キーを押す前は止まっている（動いたのがキーのおかげだと言えるように。/code-review の指摘）
+  expect(before.speed).toBe(0);
+  await page.keyboard.down("ArrowUp");
+  let after: { speed: number; x: number; z: number };
+  try {
+    await waitTicks(page, 60, TICK_TIMEOUT);
+    after = await page.evaluate(() => {
+      const car = window.__nori?.state().car;
+      if (!car) throw new Error("window.__nori がありません");
+      return { speed: car.speed, x: car.x, z: car.z };
+    });
+  } finally {
+    await page.keyboard.up("ArrowUp");
+  }
   expect(after.speed).toBeGreaterThan(0);
   // スタートは −Z 向き（docs/game-rules.md「コースの道すじ」）
   expect(after.z).toBeLessThan(before.z);

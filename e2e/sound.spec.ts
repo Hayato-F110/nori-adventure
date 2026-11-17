@@ -1,7 +1,7 @@
 import { expect, type Page, test } from "@playwright/test";
-import { SOUND, STAGE1 } from "../src/config";
+import { SOUND } from "../src/config";
 import { openStage, waitStarted, watchErrors } from "./common";
-import { installCarDriver, startDriving } from "./driver";
+import { installCarDriver, STAGE1_ROUTE_DRIVER, startDriving } from "./driver";
 
 // NORI-31：効果音と BGM（docs/game-rules.md「効果音と BGM」）。テストの一覧の 8・9
 
@@ -66,16 +66,7 @@ test("ステージ1：最初のキーで音が動き出し、ほしを取ると�
   const note = (type: string, ms: number) =>
     testInfo.annotations.push({ type, description: `${(ms / 1000).toFixed(3)} 秒` });
 
-  await installCarDriver(page, {
-    waypoints: STAGE1.route.slice(1),
-    turnAhead: STAGE1.checkpointRadius - 1,
-    loop: false,
-    stepsPerFrame: FAST,
-    waitForGo: true,
-    steerGain: 3,
-    slowAngle: 0.6,
-    slowThrottle: 0.5,
-  });
+  await installCarDriver(page, { ...STAGE1_ROUTE_DRIVER, stepsPerFrame: FAST, waitForGo: true });
   await openStage(page, "./?stage=1");
 
   // 操作の前は、音の仕組みを作らない（ブラウザの決まり）。キーを押す行のすぐ前で確かめ、間にクリックやタップを
@@ -111,5 +102,6 @@ test("ステージ1：最初のキーで音が動き出し、ほしを取ると�
     })
     .toBeLessThan(0.01);
   note("音量が下がるまで", Date.now() - muteAt);
+  await page.locator("#sound").click(); // ほかのテストのために戻す（一覧 6 の範囲の外。前のまま残す）
   expect(errors).toEqual([]);
 });

@@ -2,6 +2,7 @@
 // 本物の時間でキーを押す代わりに、状態だけから入力を決めるので、フレームの速さ（CI の 3 fps でも）に関係なく
 // 毎回同じ入力の並び → 同じ結果になる。運転の仕方はここ（テストの側）だけに置く。
 import type { Page } from "@playwright/test";
+import { STAGE1 } from "../src/config";
 
 export type Waypoint = { x: number; z: number };
 
@@ -48,6 +49,19 @@ export type CarDriverOptions = FastForwardOption & {
   /** 向きのずれがこれより大きいときは、アクセルを slowThrottle にゆるめる */
   slowAngle: number;
   slowThrottle: number;
+};
+
+/**
+ * NORI-73：ステージ1の道すじどおりに走る運転役の設定（stage1-course.spec.ts・sound.spec.ts で同じものを使う。
+ * 写しが 1 か所だけ直されてずれないように。/code-review の指摘）。早送りと waitForGo は使う側で決める
+ */
+export const STAGE1_ROUTE_DRIVER: Omit<CarDriverOptions, keyof FastForwardOption> = {
+  waypoints: STAGE1.route.slice(1),
+  turnAhead: STAGE1.checkpointRadius - 1,
+  loop: false,
+  steerGain: 3,
+  slowAngle: 0.6,
+  slowThrottle: 0.5,
 };
 
 export type TrainDriverOptions = FastForwardOption & {
