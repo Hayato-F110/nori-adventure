@@ -14,9 +14,10 @@ const watchErrors = (page: Page) => {
 const pressed = (page: Page) => page.locator("#sound").getAttribute("aria-pressed");
 
 for (const [name, url, ready] of [
-  // NORI-84 一覧 4：タイトルは __noriTitle を入れたあとに判定の部品・音の部品を読み込み、それからボタンに保存した
-  // 状態を書いて __noriSound を入れる（src/main.ts:156-163、src/render/sound.ts:37・44）。__noriTitle で待つと、
-  // ボタンの準備の前に読み・押してしまう。ステージは __nori より前に startSound を呼ぶので、今の待ちでよい
+  // NORI-84 一覧 4：タイトルは __noriTitle を入れたあとに判定の部品・音の部品を読み込み、startSoundButton が
+  // ボタンに保存した状態を書いてから __noriSound を入れる（src/main.ts のタイトルの分かれ道、src/render/sound.ts の
+  // startSoundButton）。__noriTitle で待つと、ボタンの準備の前に読み・押してしまう。
+  // ステージは __nori を入れる前に startSound を呼ぶので、今の待ちでよい
   ["タイトル", "./", () => window.__noriSound !== undefined],
   [
     "ステージ1",

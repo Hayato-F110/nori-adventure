@@ -214,9 +214,6 @@ test.describe("E2：タイトルで判定し、次のステージで待たない
     // NORI-84 一覧 2：「測っている」の確認・枠の中身・画面の中央を、タイトルのページの 1 回の呼び出しでまとめて読む。
     // 呼び出しの途中には、枠を外すタイトルの見回り（0.25 秒ごと）が割り込めない。別の呼び出しに分けると、
     // 間に判定が済んで枠が外れ、Frame was detached で落ちた（PR #90 の CI）
-    type JudgeWindow = Window & {
-      __noriJudge?: { info: () => { look: string; shadow: boolean; pixelRatio: number } };
-    };
     let inFrame:
       | {
           info: { look: string; shadow: boolean; pixelRatio: number };
@@ -226,35 +223,36 @@ test.describe("E2：タイトルで判定し、次のステージで待たない
       | null
       | undefined;
     try {
-      inFrame = await (
-        await page.waitForFunction(
-          () => {
-            const j = window.__noriTitle?.judge;
-            if (j?.state !== "measuring" || j.look !== "textured") return null;
-            const f = document.getElementById("title-judge") as HTMLIFrameElement | null;
-            const w = f?.contentWindow as (JudgeWindow & typeof window) | null | undefined;
-            const info = w?.__noriJudge?.info();
-            const view = w?.__nori?.view?.();
-            const canvas = f?.contentDocument?.querySelector("canvas") ?? null;
-            if (info === undefined || view === undefined || canvas === null) return null;
-            // 試しの canvas の参照をとっておく（片付けたあとに isContextLost を見る）
-            (globalThis as { __keptCanvas?: HTMLCanvasElement | null }).__keptCanvas = canvas;
-            const e = document.elementFromPoint(window.innerWidth / 2, window.innerHeight / 2);
-            // 枠の中で作った値は、写してから返す
-            return {
-              info: { look: info.look, shadow: info.shadow, pixelRatio: info.pixelRatio },
-              view: {
-                drawables: view.drawables,
-                position: [...view.position],
-                direction: [...view.direction],
-              },
-              center: (e?.closest("#title") ?? null) !== null,
-            };
-          },
-          undefined,
-          { timeout: 60_000 },
-        )
-      ).jsonValue();
+      const handle = await page.waitForFunction(
+        () => {
+          const j = window.__noriTitle?.judge;
+          if (j?.state !== "measuring" || j.look !== "textured") return null;
+          const f = document.getElementById("title-judge") as HTMLIFrameElement | null;
+          // 枠の中も同じゲームのページなので、window の型（__noriJudge・__nori）がそのまま使える
+          const w = f?.contentWindow as typeof window | null | undefined;
+          const info = w?.__noriJudge?.info();
+          const view = w?.__nori?.view?.();
+          const canvas = f?.contentDocument?.querySelector("canvas") ?? null;
+          if (info === undefined || view === undefined || canvas === null) return null;
+          const e = document.elementFromPoint(window.innerWidth / 2, window.innerHeight / 2);
+          // 試しの canvas の参照をとっておく（片付けたあとに isContextLost を見る）。値を返すときだけ書く
+          (globalThis as { __keptCanvas?: HTMLCanvasElement | null }).__keptCanvas = canvas;
+          // 枠の中で作った値は、写してから返す
+          return {
+            info: { look: info.look, shadow: info.shadow, pixelRatio: info.pixelRatio },
+            view: {
+              drawables: view.drawables,
+              position: [...view.position],
+              direction: [...view.direction],
+            },
+            center: (e?.closest("#title") ?? null) !== null,
+          };
+        },
+        undefined,
+        { timeout: 60_000 },
+      );
+      inFrame = await handle.jsonValue();
+      await handle.dispose();
     } catch (e) {
       // PR #81 の CI で、ここが 60 秒で落ちた（記録が足りず原因が分からなかった）。判定の状態と、枠の中の様子を残す
       const frame = page.frames().find((f) => f.url().includes("judge"));
