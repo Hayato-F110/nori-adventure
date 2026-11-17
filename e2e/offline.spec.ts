@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { waitLook, watchErrors } from "./common";
 import { installConstantDriver } from "./driver";
 
 // NORI-38 一覧 E2E（docs/test-plans/NORI-38.md）：一度開いたあと、通信を止めても、タイトル・ポリシーが出て、
@@ -19,11 +20,7 @@ declare global {
 
 test("通信を止めても、タイトル・ポリシー・ステージ1〜5が出て遊べる", async ({ page, context }, testInfo) => {
   test.setTimeout(300_000);
-  const errors: string[] = [];
-  page.on("console", (m) => {
-    if (m.type() === "error") errors.push(m.text());
-  });
-  page.on("pageerror", (e) => errors.push(e.message));
+  const errors = watchErrors(page);
 
   // 1・5：前へ、2：前へ、3：上へ（高さが増える）、4：下へ（深さが増える）
   await installConstantDriver(
@@ -123,11 +120,7 @@ test("通信を止めても、タイトル・ポリシー・ステージ1〜5が
 
     // 読み終わりを待つ（読めないと箱のまま遊べてしまうので、通信なしで本物のモデル・素材まで出ることを見る）
     await page.waitForFunction(() => window.__nori?.carModel === "glb", undefined, { timeout: 60_000 });
-    await page.waitForFunction(
-      () => window.__nori?.look !== "loading" && window.__nori?.cover?.state === "gone",
-      undefined,
-      { timeout: 60_000 },
-    );
+    await waitLook(page);
     if (stage === 1) {
       await page.waitForFunction(() => window.__nori?.cityLife?.().models === 7, undefined, {
         timeout: 60_000,

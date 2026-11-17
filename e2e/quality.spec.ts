@@ -1,24 +1,9 @@
-import { expect, type Page, test } from "@playwright/test";
-import { QUALITY_STORAGE_KEY } from "../src/render/quality";
+import { expect, test } from "@playwright/test";
+import { JUDGED_STORAGE_KEY, QUALITY_STORAGE_KEY } from "../src/render/quality";
+import { openStage, waitStarted, watchErrors } from "./common";
 
 // NORI-58：画質を選ぶ（docs/game-rules.md「画質を選ぶ」）。右上のボタンで 低 → 高 → 自動、開き直しても覚えている。
 // ステージ1・2・3で同じ。スクリーンショット・コンソールエラーも確かめる
-const watchErrors = (page: Page) => {
-  const errors: string[] = [];
-  page.on("console", (m) => {
-    if (m.type() === "error") errors.push(m.text());
-  });
-  page.on("pageerror", (e) => errors.push(e.message));
-  return errors;
-};
-
-const waitFrames = (page: Page) =>
-  page.waitForFunction(
-    () => (window.__nori?.frames ?? 0) > 5 && window.__nori?.cover?.state === "gone",
-    undefined,
-    { timeout: 60_000 },
-  );
-
 for (const [name, query] of [
   ["ステージ1", "./?stage=1"],
   ["ステージ2", "./?stage=2"],
@@ -29,8 +14,7 @@ for (const [name, query] of [
   }, testInfo) => {
     test.setTimeout(150_000);
     const errors = watchErrors(page);
-    await page.goto(query);
-    await waitFrames(page);
+    await openStage(page, query);
     const button = page.locator("#quality");
     await expect(button).toBeVisible();
     // 64 px 以上・右上・文字なし
@@ -47,7 +31,7 @@ for (const [name, query] of [
     await expect(button).toHaveAttribute("data-auto", "true");
     await page.evaluate((key) => localStorage.setItem(key, "low"), QUALITY_STORAGE_KEY);
     await page.reload();
-    await waitFrames(page);
+    await waitStarted(page);
     await expect(button).toHaveAttribute("data-quality", "low");
     await expect(button).toHaveAttribute("data-auto", "false");
     expect(await page.evaluate(() => window.__nori?.quality)).toBe("low");
@@ -63,7 +47,7 @@ for (const [name, query] of [
 
     // 開き直しても高のまま（この端末の中に覚えている。高を選んだら遅くても自動では下げない）
     await page.reload();
-    await waitFrames(page);
+    await waitStarted(page);
     await expect(button).toHaveAttribute("data-quality", "high");
     await expect(button).toHaveAttribute("data-auto", "false");
     await page.waitForFunction(() => window.__nori?.look === "textured", undefined, { timeout: 60_000 });
@@ -75,8 +59,79 @@ for (const [name, query] of [
     await expect(button).toHaveAttribute("data-auto", "true");
     await page.screenshot({ path: testInfo.outputPath("quality-auto.png") });
     await page.reload();
-    await waitFrames(page);
+    await waitStarted(page);
     await expect(button).toHaveAttribute("data-auto", "true");
     expect(errors).toEqual([]);
   });
 }
+
+// NORI-77（一覧 4）：画質を「自動」のまま（覚えた画質も、判定の結果もない）、CPU を 20 倍遅くしてステージ1を開くと、
+// ステージで判定して低になる（docs/game-rules.md「画質を選ぶ」「ステージの始まりの待ちと、タイトルでの画質の判定」）。
+// 実際の速さが要る E2E なので早送りしない。上限 90 秒（前の look.spec.ts と同じ）。
+// 20 倍遅いと覆いの上限 10 秒が先に来る見込み（一覧の「## 計算」）なので、覆いの間か外れたあとの判定かは決めつけず、記録に残す
+test("自動：遅い端末では、ステージで判定して低になる", async ({ page }, testInfo) => {
+  test.setTimeout(180_000);
+  const errors = watchErrors(page);
+  // 前の回の保存が残らないよう、どちらの保存も空にしてから開く（新しい文脈なので、ふつうは空）
+  await page.addInitScript(() => {
+    if (sessionStorage.getItem("nori-e2e-cleared") === null) {
+      localStorage.clear();
+      sessionStorage.clear();
+      sessionStorage.setItem("nori-e2e-cleared", "1");
+    }
+  });
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send("Emulation.setCPUThrottlingRate", { rate: 20 });
+  const openedAt = Date.now();
+  await page.goto("./?stage=1");
+  let goneAt = 0;
+  try {
+    await waitStarted(page, 90_000);
+    goneAt = Date.now();
+    await page.waitForFunction(
+      () => window.__nori?.quality === "low" && window.__nori?.look === "plain",
+      undefined,
+      {
+        timeout: 90_000,
+      },
+    );
+  } finally {
+    // CPU の遅さを先に戻す（下の記録が失敗しても、戻し忘れない。/code-review の 1）
+    // 戻せなかったら捨てずに記録に残す（2 回目の 7）
+    const resetError = await cdp
+      .send("Emulation.setCPUThrottlingRate", { rate: 1 })
+      .then(() => null)
+      .catch((e: unknown) => String(e));
+    // 落ちても、覆いと画質の様子を残す。記録の失敗で、もとの失敗を隠さない（/code-review の 1）。
+    // ページが止まっていても、読むのは 5 秒まで（テスト全体の上限まで待って、もとの失敗が「時間切れ」に変わらないように。2 回目の 8）
+    const read = page.evaluate(
+      (k) => ({
+        cover: window.__nori?.cover,
+        quality: window.__nori?.quality,
+        look: window.__nori?.look,
+        judged: sessionStorage.getItem(k),
+      }),
+      JUDGED_STORAGE_KEY,
+    );
+    const state = await Promise.race([
+      read,
+      new Promise<{ readError: string }>((r) => setTimeout(() => r({ readError: "5 秒で読めない" }), 5_000)),
+    ]).catch((e: unknown) => ({ readError: String(e) }));
+    await testInfo
+      .attach("auto-low", {
+        body: JSON.stringify({
+          coverGoneSeconds: goneAt === 0 ? null : (goneAt - openedAt) / 1000,
+          resetError,
+          ...state,
+        }),
+        contentType: "application/json",
+      })
+      .catch(() => undefined);
+  }
+  expect(await page.evaluate(() => window.__nori?.cover?.source)).toBe("measured");
+  expect(await page.evaluate(() => window.__nori?.quality)).toBe("low");
+  expect(await page.evaluate(() => window.__nori?.look)).toBe("plain");
+  expect(await page.evaluate((k) => sessionStorage.getItem(k), JUDGED_STORAGE_KEY)).toBe("low");
+  await expect(page.locator("#quality")).toHaveAttribute("data-auto", "true");
+  expect(errors).toEqual([]);
+});

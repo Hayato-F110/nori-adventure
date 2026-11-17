@@ -1,71 +1,42 @@
 import { expect, type Page, test, type TestInfo } from "@playwright/test";
+import { LOOK } from "../src/config";
+import { chooseQuality, openStage, waitTicks, watchErrors } from "./common";
 import { luminanceAt, ratio } from "./luminance";
 
 // NORI-56：リアル寄りの見た目（docs/game-rules.md「見た目」）。
 // 素材は同じオリジンだけから読み、子どもに大事なもの（ほし・道）が見分けやすく、FPS を保つ。コンソールエラーなし。
-// FPS は GPU のない CI では測らない（NORI_SKIP_FPS=1）。数値は src/config の LOOK と同じ（ここに写す）
-const LOOK = {
-  minStarContrast: 3,
-  minRoadGrassContrast: 1.5,
-  targetFps: 55,
-  throttledFps: 30,
-  cpuThrottle: 4,
-};
-const skipFps = Boolean(process.env["NORI_SKIP_FPS"]);
-
-const ready = async (page: Page) => {
-  await page.goto("./?stage=1");
-  await page.waitForFunction(
-    () => (window.__nori?.frames ?? 0) > 5 && window.__nori?.cover?.state === "gone",
-    undefined,
-    { timeout: 60_000 },
-  );
-  await page.waitForFunction(
-    () => window.__nori?.look !== "loading" && window.__nori?.cover?.state === "gone",
-    undefined,
-    { timeout: 60_000 },
-  );
-};
+// FPS は e2e/look-fps.spec.ts で測る（NORI-77 の一覧 2）。数値は src/config の LOOK から読む（写すと、直したときにずれる）
 
 // 高画質（素材を貼る）と低画質（単色）の両方で、ほし・道が見分けやすいこと。
-// 低画質は、CPU を 20 倍遅くして再現する（GPU のない CI と同じく、40fps 未満が 3 秒続いて下がる）。
-// CI はもともと遅いので、どちらの場合も低画質になる。期待する見た目は、そのときの画質で決める
-for (const mode of ["高画質", "低画質"] as const) {
+// NORI-77（一覧 2）：画質は CPU を遅くして自動で下げるのでなく、選んで開く（CI でも高画質の版は高画質で測る）
+for (const [mode, quality] of [
+  ["高画質", "high"],
+  ["低画質", "low"],
+] as const) {
   test(`見た目（${mode}）：素材を同じオリジンから読み、ほし・道が見分けやすい`, async ({
     page,
   }, testInfo) => {
     test.setTimeout(120_000);
-    await checkLook(page, testInfo, mode);
+    await checkLook(page, testInfo, quality);
   });
 }
 
-const checkLook = async (page: Page, testInfo: TestInfo, mode: "高画質" | "低画質") => {
-  const consoleErrors: string[] = [];
-  page.on("console", (m) => {
-    if (m.type() === "error") consoleErrors.push(m.text());
-  });
-  page.on("pageerror", (e) => consoleErrors.push(e.message));
+const checkLook = async (page: Page, testInfo: TestInfo, quality: "high" | "low") => {
+  const consoleErrors = watchErrors(page);
   const origins = new Set<string>();
   page.on("request", (r) => origins.add(new URL(r.url()).origin));
 
-  if (mode === "低画質") {
-    const cdp = await page.context().newCDPSession(page);
-    await cdp.send("Emulation.setCPUThrottlingRate", { rate: 20 });
-    await ready(page);
-    await page.waitForFunction(() => window.__nori?.quality === "low", undefined, { timeout: 90_000 });
-    await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 });
-  } else {
-    await ready(page);
-  }
-  // 見た目は、そのときの画質で決まる（高画質なら素材、低画質なら単色）
-  const quality = await page.evaluate(() => window.__nori?.quality);
+  await chooseQuality(page, quality);
+  await openStage(page, "./?stage=1", { look: true });
+  // 測る前に、選んだ画質と見た目になっている（高画質なら素材、低画質なら単色）
+  expect(await page.evaluate(() => window.__nori?.quality)).toBe(quality);
   expect(await page.evaluate(() => window.__nori?.look)).toBe(quality === "low" ? "plain" : "textured");
   // 木（NORI-26）：高画質は Blender の木、低画質は今の簡単な木
   await page.waitForFunction((q) => window.__nori?.trees === (q === "low" ? "simple" : "model"), quality, {
     timeout: 30_000,
   });
-  // 車の後ろのカメラが落ち着くまで待つ
-  await page.waitForTimeout(1500);
+  // 車の後ろのカメラが落ち着くまで、ゲームの 1.5 秒（90 刻み）待つ（実際の秒で待たない）
+  await waitTicks(page, 90);
 
   // ほし（2個目。(0, 1, −21)）と、そのすぐ横の道 (2.5, 0, −21)。道 (−2.5, 0, −12) と、道の外の芝 (−6.2, 0, −12)
   const points = await page.evaluate(() => {
@@ -113,50 +84,3 @@ const checkLook = async (page: Page, testInfo: TestInfo, mode: "高画質" | "�
   expect([...origins].filter((o) => o !== base && !o.startsWith("data:"))).toEqual([]);
   expect(consoleErrors).toEqual([]);
 };
-
-test("見た目：手元の PC で FPS を保つ", { tag: "@fps" }, async ({ page }, testInfo) => {
-  test.skip(skipFps, "GPU のない CI では FPS を測らない");
-  await ready(page);
-  const start = await page.evaluate(() => window.__nori?.fpsSamples.length ?? 0);
-  await page.waitForFunction((n) => (window.__nori?.fpsSamples.length ?? 0) >= n + 5, start, {
-    timeout: 30_000,
-  });
-  const samples = (await page.evaluate(() => window.__nori?.fpsSamples)) ?? [];
-  const recent = samples.slice(start + 1);
-  const average = recent.reduce((s, v) => s + v, 0) / Math.max(1, recent.length);
-  await testInfo.attach("fps", {
-    body: JSON.stringify({ recent, average }),
-    contentType: "application/json",
-  });
-  expect(average).toBeGreaterThanOrEqual(LOOK.targetFps);
-  expect(await page.evaluate(() => window.__nori?.quality)).toBe("high");
-});
-
-test(
-  "見た目：CPU を遅くしても 30fps 以上（必要なら低画質に下がる）",
-  { tag: "@fps" },
-  async ({ page }, testInfo) => {
-    test.skip(skipFps, "GPU のない CI では FPS を測らない");
-    test.setTimeout(120_000);
-    await ready(page);
-    const cdp = await page.context().newCDPSession(page);
-    await cdp.send("Emulation.setCPUThrottlingRate", { rate: LOOK.cpuThrottle });
-    // 低画質に下がるかどうかを決める時間（3 秒）と、そのあとの測る時間
-    await page.waitForTimeout(6000);
-    const start = await page.evaluate(() => window.__nori?.fpsSamples.length ?? 0);
-    await page.waitForFunction((n) => (window.__nori?.fpsSamples.length ?? 0) >= n + 5, start, {
-      timeout: 60_000,
-    });
-    const samples = (await page.evaluate(() => window.__nori?.fpsSamples)) ?? [];
-    const recent = samples.slice(start);
-    const average = recent.reduce((s, v) => s + v, 0) / Math.max(1, recent.length);
-    const quality = await page.evaluate(() => window.__nori?.quality);
-    await testInfo.attach("throttled", {
-      body: JSON.stringify({ recent, average, quality }),
-      contentType: "application/json",
-    });
-    await page.screenshot({ path: testInfo.outputPath("look-throttled.png") });
-    await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 });
-    expect(average).toBeGreaterThanOrEqual(LOOK.throttledFps);
-  },
-);
