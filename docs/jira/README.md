@@ -35,6 +35,7 @@ ID の置きかえ：エピック `E1` → `1`、ストーリー `S01` → `101`
 
 - 課題の作成：`createJiraIssue` に `projectKey`、`issueType`（日本語名「ストーリー」）、`summary`、`description`、`parent`（エピックのキー）、`additional_fields`（`priority`・`labels`・`customfield_10034`）
 - 課題の編集：`editJiraIssue` に `issueIdOrKey` と `fields`（例：`{"labels": [...]}`。ラベルは**全部の一覧**を渡す）
+- ラベルにスプリントや月（`sprint4`・`nov2026` など）を書かない。スプリントは Jira のスプリントの欄だけで表す（2026-11-18 にオーナーが決めた。ラベルとスプリントの欄がずれていたため、全課題から外した）。残すラベルは `test-import`・`cancelled`（閉じ方の印）、`security`・`android`（中身の印）
 - ステータス・スプリント：`transitionJiraIssue` に `issueIdOrKey` と `transitionId` または `sprintId`
 - 一覧：`getJiraBoardIssueData`（boardId 35、`jql`、`fields`）。エピックはボードの一覧に出ないので、`getJiraIssue` で個別に見る
 - スプリントの作成・開始・編集・終了（`manageJiraSprint`）は**削除系**の扱い → 使わず、オーナーに画面で頼む
