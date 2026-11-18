@@ -37,8 +37,16 @@ const collectAdvisories = (vulnerabilities: Record<string, unknown>): Advisory[]
 
 /** 判定。today は YYYY-MM-DD（UTC）。文字列のまま比べる（同じ形なので、辞書順が日付の順） */
 export const judgeAudit = (report: unknown, allow: AllowEntry[], today: string): AuditResult => {
-  if (!isRecord(report) || report.auditReportVersion !== 2 || "error" in report || !isRecord(report.vulnerabilities)) {
-    return { ok: false, lines: ["npm audit の出力が読めない（auditReportVersion 2 の形でない、または error がある）"] };
+  if (
+    !isRecord(report) ||
+    report.auditReportVersion !== 2 ||
+    "error" in report ||
+    !isRecord(report.vulnerabilities)
+  ) {
+    return {
+      ok: false,
+      lines: ["npm audit の出力が読めない（auditReportVersion 2 の形でない、または error がある）"],
+    };
   }
   const lines: string[] = [];
   let ok = true;
@@ -49,12 +57,18 @@ export const judgeAudit = (report: unknown, allow: AllowEntry[], today: string):
     if (BLOCKING.has(a.severity) || a.severity === "（不明）") {
       if (entry === undefined) {
         ok = false;
-        lines.push(`NG：${a.id ?? "（GHSA の ID なし）"}（${a.pkg}、${a.severity}）は除く表にない。${a.title}`);
+        lines.push(
+          `NG：${a.id ?? "（GHSA の ID なし）"}（${a.pkg}、${a.severity}）は除く表にない。${a.title}`,
+        );
       } else if (today > entry.until) {
         ok = false;
-        lines.push(`NG：${entry.id}（${entry.package}）は見直す日 ${entry.until} を過ぎた。影響を確かめ直して表を直す`);
+        lines.push(
+          `NG：${entry.id}（${entry.package}）は見直す日 ${entry.until} を過ぎた。影響を確かめ直して表を直す`,
+        );
       } else {
-        lines.push(`除いた：${entry.id}（${entry.package}、${a.severity}）見直す日 ${entry.until}。理由：${entry.reason}`);
+        lines.push(
+          `除いた：${entry.id}（${entry.package}、${a.severity}）見直す日 ${entry.until}。理由：${entry.reason}`,
+        );
       }
     }
   }
@@ -68,24 +82,26 @@ export const judgeAudit = (report: unknown, allow: AllowEntry[], today: string):
 
 // node で直接動かしたときだけ、npm audit を流して判定する（テストから読み込んだときは動かない）
 if (process.argv[1] !== undefined && path.resolve(process.argv[1]) === path.resolve(import.meta.filename)) {
-  let raw = "";
-  try {
-    // npm audit は脆弱性があると終了コード 1 を返すので、そのときも出力（stdout）を読む
-    // Windows では npm が npm.cmd でシェルが要るので、固定の 1 つの文字列で呼ぶ（外からの値は入れない）
-    raw = execSync("npm audit --json", { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
-  } catch (err) {
-    raw = isRecord(err) && typeof err.stdout === "string" ? err.stdout : "";
-  }
-  let report: unknown = null;
-  try {
-    report = JSON.parse(raw);
-  } catch {
-    report = null;
-  }
+  const runAudit = (): string => {
+    try {
+      // Windows では npm が npm.cmd でシェルが要るので、固定の 1 つの文字列で呼ぶ（外からの値は入れない）
+      return execSync("npm audit --json", { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
+    } catch (err) {
+      // npm audit は脆弱性があると終了コード 1 を返すので、そのときも出力（stdout）を読む
+      return isRecord(err) && typeof err.stdout === "string" ? err.stdout : "";
+    }
+  };
+  const parse = (raw: string): unknown => {
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return null; // 読めなければ judgeAudit が落とす
+    }
+  };
   const allow = JSON.parse(readFileSync(path.resolve("tools/ci/audit-allow.json"), "utf8")) as AllowEntry[];
   const today = new Date().toISOString().slice(0, 10);
-  const result = judgeAudit(report, allow, today);
-  for (const line of result.lines) console.log(line);
-  console.log(result.ok ? "OK：除く表にない high・critical はない" : "NG：上の行を直す");
+  const result = judgeAudit(parse(runAudit()), allow, today);
+  const summary = result.ok ? "OK：除く表にない high・critical はない" : "NG：上の行を直す";
+  process.stdout.write([...result.lines, summary, ""].join("\n"));
   process.exitCode = result.ok ? 0 : 1;
 }

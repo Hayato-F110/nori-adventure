@@ -26,7 +26,9 @@ const picoReport = () =>
     vite: { severity: "high", via: ["picomatch", "tinyglobby"] },
     vitest: { severity: "high", via: ["picomatch", "vite"] },
   });
-const allow: AllowEntry[] = [{ id: PICO, package: "picomatch", reason: "開発の道具だけで使う", until: "2026-11-25" }];
+const allow: AllowEntry[] = [
+  { id: PICO, package: "picomatch", reason: "開発の道具だけで使う", until: "2026-11-25" },
+];
 
 describe("npm audit の判定（tools/ci/audit-check.ts）", () => {
   it("除く表にある high だけなら通し、除いたことを ID・見直す日つきで出す。ほかのパッケージ経由（文字列）は数えない", () => {
