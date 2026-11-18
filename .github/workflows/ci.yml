@@ -43,7 +43,8 @@ jobs:
           retention-days: 14
       - run: npm run build
       # 既知の脆弱性を調べる。high・critical があれば CI を赤にする（moderate 以下は Dependabot で見る。NORI-36）
-      - run: npm audit --audit-level=high
+      # 例外は tools/ci/audit-allow.json に理由と見直す日を書いたものだけ。見直す日を過ぎたら赤（NORI-88）
+      - run: node tools/ci/audit-check.ts
       # 部品表（SBOM）を SPDX 形式で作る。開発用の依存も含める（ビルドに使う道具も供給網の一部のため）
       - run: npm sbom --sbom-format=spdx > sbom.spdx.json
       # SBOM を CI の成果物として 30 日残す（Actions の実行結果の画面からダウンロードできる）

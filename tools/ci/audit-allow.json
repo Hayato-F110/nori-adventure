@@ -1,0 +1,8 @@
+[
+  {
+    "id": "GHSA-fc5q-39xc-vjpf",
+    "package": "picomatch",
+    "reason": "ReDoS（細工した glob で処理を長く止める）。直した版がない（<=4.0.7 すべて）。picomatch は vite・vitest・typescript-eslint（開発の道具）の中だけで使い、渡す glob は私たちが書いた設定だけ。公開する dist には入らない。2026-11-18 にオーナーが受け入れを決めた（NORI-88）",
+    "until": "2026-11-25"
+  }
+]
