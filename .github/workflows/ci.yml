@@ -78,3 +78,15 @@ jobs:
           name: playwright-report
           path: playwright-report/
           retention-days: 7
+      # 通った回も落ちた回も、テストの注記（記録の秒・「撮り直した」など）をログに 1 行ずつ出す（NORI-73）
+      - if: ${{ !cancelled() }}
+        run: >-
+          jq -r '.. | objects | select(has("specs")) | .specs[] | .title as $t
+          | .tests[].results[] | .annotations[]? | "注記｜\($t)｜\(.type)：\(.description)"'
+          e2e-results/results.json
+      - if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: e2e-results
+          path: e2e-results/
+          retention-days: 7

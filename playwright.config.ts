@@ -16,7 +16,9 @@ export default defineConfig({
   testDir: "e2e",
   timeout: 120_000,
   retries: 0,
-  reporter: [["list"], ["html", { open: "never" }]],
+  // JSON の記録：注記（記録の秒・「撮り直した」など）は HTML と JSON にだけ残る。CI は通った回も
+  // ここから注記をログに出す（NORI-73 の刈り取りで数えるため）
+  reporter: [["list"], ["html", { open: "never" }], ["json", { outputFile: "e2e-results/results.json" }]],
   use: {
     baseURL: remoteUrl ?? LOCAL_URL,
     viewport: { width: 1280, height: 720 },
