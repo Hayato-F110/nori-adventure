@@ -27,10 +27,54 @@ const picoReport = () =>
     vitest: { severity: "high", via: ["picomatch", "vite"] },
   });
 const allow: AllowEntry[] = [
-  { id: PICO, package: "picomatch", reason: "開発の道具だけで使う", until: "2026-11-25" },
+  { id: PICO, package: "picomatch", severity: "high", reason: "開発の道具だけで使う", until: "2026-11-25" },
 ];
 
 describe("npm audit の判定（tools/ci/audit-check.ts）", () => {
+  it("除く表の行の形がおかしい（見直す日がない・書き間違い）ときは落とす。期限が切れない例外を作らない", () => {
+    const noUntil = { id: PICO, package: "picomatch", severity: "high", reason: "開発の道具だけで使う" };
+    for (const bad of [
+      [noUntil],
+      [{ ...allow[0], until: "11/25" }],
+      [{ ...allow[0], severity: "moderate" }],
+    ]) {
+      const r = judgeAudit(picoReport(), bad, "2026-11-18");
+      expect(r.ok, JSON.stringify(bad)).toBe(false);
+      expect(r.lines.join("\n")).toMatch(/除く表の形/);
+    }
+  });
+
+  it("除く表が配列でないときは落とす", () => {
+    expect(judgeAudit(picoReport(), { id: PICO }, "2026-11-18").ok).toBe(false);
+  });
+
+  it("受け入れた重さ（high）と違う重さ（critical に上がった）なら落とす", () => {
+    const rep = report({
+      picomatch: { severity: "critical", via: [advisory("picomatch", PICO, "critical")] },
+    });
+    const r = judgeAudit(rep, allow, "2026-11-18");
+    expect(r.ok).toBe(false);
+    expect(r.lines.join("\n")).toContain("critical");
+  });
+
+  it("GHSA の ID も URL もない high が同じパッケージに 2 つあれば、2 つとも出す", () => {
+    const noId = (title: string) => ({ name: "x", title, severity: "high" });
+    const rep = report({ x: { severity: "high", via: [noId("一つ目"), noId("二つ目")] } });
+    const text = judgeAudit(rep, allow, "2026-11-18").lines.join("\n");
+    expect(text).toContain("一つ目");
+    expect(text).toContain("二つ目");
+  });
+
+  it("重さが書かれていない指摘は、high と同じく落とす", () => {
+    const noSeverity = {
+      name: "x",
+      title: "重さなし",
+      url: "https://github.com/advisories/GHSA-7777-8888-9999",
+    };
+    const rep = report({ x: { severity: "high", via: [noSeverity] } });
+    expect(judgeAudit(rep, allow, "2026-11-18").ok).toBe(false);
+  });
+
   it("除く表にある high だけなら通し、除いたことを ID・見直す日つきで出す。ほかのパッケージ経由（文字列）は数えない", () => {
     const r = judgeAudit(picoReport(), allow, "2026-11-18");
     expect(r.ok).toBe(true);
@@ -97,6 +141,7 @@ describe("npm audit の判定（tools/ci/audit-check.ts）", () => {
     for (const e of real) {
       expect(e.id).toMatch(/^GHSA(-[a-z0-9]{4}){3}$/);
       expect(e.package.length).toBeGreaterThan(0);
+      expect(["high", "critical"]).toContain(e.severity);
       expect(e.reason.length).toBeGreaterThan(10);
       expect(e.until).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     }

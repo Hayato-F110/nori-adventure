@@ -69,7 +69,6 @@ describe("CI（.github/workflows/ci.yml）", () => {
   it("npm audit を high 以上で失敗させる（例外は除く表だけ。NORI-88）", () => {
     expect(ci).toMatch(/run:\s*node tools\/ci\/audit-check\.ts/);
     // 判定の中身（high・critical で落とす、表にないもの・期限切れで落とす）は tests/tools/auditCheck.test.ts
-    expect(read("tools/ci/audit-check.ts")).toMatch(/new Set\(\["high", "critical"\]\)/);
   });
 
   it("SBOM（SPDX）を作り、成果物として残す", () => {
