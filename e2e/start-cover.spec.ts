@@ -50,8 +50,15 @@ const expectLookByRule = (r: LookRead) => {
     return;
   }
   expect(r.quality, note).toBe(qualityByRule(r.fps));
-  const want = r.quality === "low" ? "plain" : r.loadedSamples === null ? "loading" : "textured";
-  expect(r.look, note).toBe(want);
+  if (r.quality === "low") {
+    expect(r.look, note).toBe("plain");
+  } else if (r.loadedSamples === null) {
+    // loadedSamples は 1 コマに 1 回だけ写す（src/render/stageCover.ts）。素材を読み終えた直後のコマの間は、
+    // 見た目はもう textured で、loadedSamples はまだ null のことがある（/code-review の指摘 1）
+    expect(["loading", "textured"], note).toContain(r.look);
+  } else {
+    expect(r.look, note).toBe("textured");
+  }
 };
 
 type Probe = { tick: number; value: number };
@@ -145,6 +152,11 @@ test.describe("E1：ステージの覆い（タッチの端末）", () => {
       ).jsonValue();
       expect(covered).not.toBeNull();
       if (covered === null) return;
+      // どちらの道（判定の前・あと）を通ったかを、通ったときも残す（NORI-86 一覧 3）。次の待ちが切れても残るよう、すぐ添付する
+      await testInfo.attach(`stage${stage}-covered.json`, {
+        body: JSON.stringify(covered),
+        contentType: "application/json",
+      });
       // NORI-86：判定のあとの道を、どの PC でも通る（覆ったまま、判定が済む回数まで測るのを待つ。実際の秒では待たない）
       const judged = await (
         await page.waitForFunction(
@@ -163,9 +175,8 @@ test.describe("E1：ステージの覆い（タッチの端末）", () => {
           { timeout: 60_000 },
         )
       ).jsonValue();
-      // どちらの道（判定の前・あと）を通ったかを、通ったときも残す（NORI-86 一覧 3）
-      await testInfo.attach(`stage${stage}-covered.json`, {
-        body: JSON.stringify({ covered, judged }),
+      await testInfo.attach(`stage${stage}-judged.json`, {
+        body: JSON.stringify(judged),
         contentType: "application/json",
       });
       expect(judged).not.toBeNull();

@@ -235,7 +235,8 @@ describe("NORI-76 一覧 4：覚えた結果で始める・覚え直す", () => 
     control.sample(LOOK.lowFps - 1, judgeAt);
     expect(control.quality).toBe("low");
     expect(control.lookState).toBe("plain");
-    expect(judged).toContain("low");
+    // 低へ下げたときと、判定が済んだときに 1 回ずつ low を知らせる（high は一度も知らせない。/code-review の指摘 5）
+    expect(judged).toEqual(["low", "low"]);
   });
 
   it("覚えていない自動で遅ければ、判定のときに low を覚える", () => {
