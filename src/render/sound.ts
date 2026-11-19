@@ -2,7 +2,13 @@
 // 音のファイルは使わず、その場で正弦波・三角波を作る。状態は読むだけ（鳴らす音は src/core/soundCues.ts が決める）。
 // ブラウザは最初の操作（キー・タッチ・クリック）まで音を出さないので、その時に AudioContext を作る。
 import { SOUND } from "../config";
-import { createSoundCueTracker, noteFrequency, type SoundCue, type SoundSnapshot } from "../core/soundCues";
+import {
+  createSoundCueTracker,
+  cueOffsets,
+  noteFrequency,
+  type SoundCue,
+  type SoundSnapshot,
+} from "../core/soundCues";
 import type { StageNumber } from "../core/route";
 import { browserStorage } from "./progress";
 import { loadSoundOn, saveSoundOn } from "./soundPrefs";
@@ -153,16 +159,19 @@ export const startSound = (stage: StageNumber) => {
     update(snapshot: SoundSnapshot) {
       const cues = tracker.next(snapshot);
       if (ctx !== null && master !== null) {
-        for (const cue of cues) {
+        const offsets = cueOffsets(cues);
+        cues.forEach((cue, k) => {
           played.push(cue);
           const e = SOUND.effects[cue];
           const gain = cue === "bump" ? SOUND.bumpGain : SOUND.effectGain;
+          // 同じ刻みの 2 回目からの「とった」は、前の「とった」が終わってから鳴らす（NORI-85）
+          const offset = offsets[k] ?? 0;
           e.notes.forEach((note, i) => {
             if (ctx === null || master === null) return;
-            const start = ctx.currentTime + i * e.noteSeconds;
+            const start = ctx.currentTime + offset + i * e.noteSeconds;
             tone(master, e.wave, note, start, e.noteSeconds, gain, SOUND.attackSeconds);
           });
-        }
+        });
         if (snapshot.finished && !musicStopped && musicBus !== null) {
           // ゴールしたら BGM を 2 秒で小さくして止める
           musicStopped = true;
