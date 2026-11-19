@@ -205,6 +205,9 @@ test("ステージ5：運転役が道すじを走り、なかよしの星をボ�
   await expect(page.locator("#clear-next")).toBeHidden();
   await expect(page.locator("#clear-home")).toBeVisible();
   expect(await page.evaluate(() => window.__nori?.bossMouth?.())).toBe("smile");
+  // NORI-65 一覧 6：ボスはモデルに差しかわり、モデルで見えている口のノードも笑顔だけ（描画の変数でなく、画面の部品を見る。R1-65-9）
+  expect(await page.evaluate(() => window.__nori?.bossModel)).toBe("glb");
+  expect(await page.evaluate(() => window.__nori?.bossMouthNodes?.())).toEqual(["mouth_smile"]);
   // クリアを見てからエンディングが出るまで、3 秒（画面の更新 1 回分の遅れは許す）
   const times = await page.evaluate(
     () =>

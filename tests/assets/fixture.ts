@@ -1,7 +1,7 @@
 // テスト用の仮の車の GLB を組み立てる（自作。外部の素材は使わない）。
 // 正しい形を基本にして、壊したい所だけを options で変える。
 import { Document, NodeIO } from "@gltf-transform/core";
-import { ASSET } from "../../src/config/index.ts";
+import { ASSET, BOSS } from "../../src/config/index.ts";
 
 type Vec3 = [number, number, number];
 
@@ -20,8 +20,10 @@ export type FixtureOptions = {
   rotateWheel?: boolean;
 };
 
-const addBox = (doc: Document, name: string, size: Vec3, segments = 1) => {
+/** 箱のメッシュ。offset はメッシュの頂点をずらす量（ノードの原点と形の中心をずらすため。NORI-65） */
+const addBox = (doc: Document, name: string, size: Vec3, segments = 1, offset: Vec3 = [0, 0, 0]) => {
   const [sx, sy, sz] = size.map((v) => v / 2) as Vec3;
+  const [ox, oy, oz] = offset;
   const positions: number[] = [];
   const indices: number[] = [];
   // 箱の6面。segments で各面を細かく分ける（三角形の数を増やすため）
@@ -64,9 +66,9 @@ const addBox = (doc: Document, name: string, size: Vec3, segments = 1) => {
         const a = (i / segments) * 2 - 1;
         const b = (j / segments) * 2 - 1;
         positions.push(
-          (n[0] + u[0] * a + v[0] * b) * sx,
-          (n[1] + u[1] * a + v[1] * b) * sy,
-          (n[2] + u[2] * a + v[2] * b) * sz,
+          (n[0] + u[0] * a + v[0] * b) * sx + ox,
+          (n[1] + u[1] * a + v[1] * b) * sy + oy,
+          (n[2] + u[2] * a + v[2] * b) * sz + oz,
         );
       }
     }
@@ -316,3 +318,81 @@ const makeBodyBoxGlb = async (
   doc.getRoot().setDefaultScene(scene);
   return new NodeIO().writeBinary(doc);
 };
+
+export type BossFixtureOptions = FixtureOptions & {
+  /** 腕（右）の素材の名前を変える（腕が boss_body を使わない） */
+  armMaterial?: string;
+  /** 目（左）の素材の名前を変える（例：boss_body にする） */
+  eyeMaterial?: string;
+  /** 体と腕の素材の名前（既定 boss_body。変えると boss_body がなくなる） */
+  bodyMaterial?: string;
+  /** この部品を body の子にする（いっしょにふくらんでしまう形） */
+  childOfBody?: string;
+  /** body の原点を体の中心に置く（底の中心でない） */
+  bodyAtCenter?: boolean;
+  /** 顔（目・口）を +Z へずらす量（m。ふくらんだ体に埋まる形を作る） */
+  faceBack?: number;
+};
+
+/**
+ * ボス（ASSET.boss。NORI-65）の、正しい形の仮の GLB：体・腕 2・目 2・口 3 の箱を親子にせず並べる。
+ * 原点は底の中心、前は −Z。体と腕は素材 boss_body、目・口は別の素材。顔の前の端は、いちばんふくらんだ体の前の端より
+ * ASSET.boss.faceAhead 以上前（長さ ＝ 体の後ろの端 R ＋ 顔の前の端）
+ */
+export const makeBossDocument = (options: BossFixtureOptions = {}): Document => {
+  const s = options.scale ?? 1;
+  const lift = options.liftY ?? 0;
+  const { width, height, length } = ASSET.boss.size;
+  const r = BOSS.radius;
+  const faceFront = r - length + (options.faceBack ?? 0);
+  const zSign = options.backwards ? -1 : 1;
+  const doc = new Document();
+  doc.createBuffer();
+  const scene = doc.createScene("boss");
+  const omit = new Set(options.omitNodes ?? []);
+  const material = (name: string) =>
+    doc
+      .getRoot()
+      .listMaterials()
+      .find((m) => m.getName() === name) ?? doc.createMaterial(name);
+  const bodyMat = options.bodyMaterial ?? "boss_body";
+  // 名前、大きさ、ノードの位置、メッシュのずれ、素材
+  const parts: [string, Vec3, Vec3, Vec3, string][] = [
+    ["body", [2 * r, height, 2 * r], [0, 0, 0], [0, height / 2, 0], bodyMat],
+    ["arm_L", [1, 1.5, 1], [-(width / 2 - 0.5), height / 2, 0], [0, 0, 0], bodyMat],
+    ["arm_R", [1, 1.5, 1], [width / 2 - 0.5, height / 2, 0], [0, 0, 0], options.armMaterial ?? bodyMat],
+    ["eye_L", [1.1, 1.1, 0.6], [-1, 3.9, zSign * (faceFront + 0.3)], [0, 0, 0], options.eyeMaterial ?? "boss_eye"],
+    ["eye_R", [1.1, 1.1, 0.6], [1, 3.9, zSign * (faceFront + 0.3)], [0, 0, 0], "boss_eye"],
+    ["mouth_frown", [1.2, 0.3, 0.3], [0, 2.6, zSign * (faceFront + 0.15)], [0, 0, 0], "boss_mouth"],
+    ["mouth_flat", [1.2, 0.3, 0.3], [0, 2.6, zSign * (faceFront + 0.15)], [0, 0, 0], "boss_mouth"],
+    ["mouth_smile", [1.2, 0.3, 0.3], [0, 2.6, zSign * (faceFront + 0.15)], [0, 0, 0], "boss_mouth"],
+  ];
+  const nodes = new Map<string, ReturnType<Document["createNode"]>>();
+  for (const [name, size, [x, y, z], offset, mat] of parts) {
+    if (omit.has(name)) continue;
+    const atCenter = name === "body" && options.bodyAtCenter === true;
+    const mesh = addBox(
+      doc,
+      name,
+      size.map((v) => v * s) as Vec3,
+      name === "body" ? (options.bodySegments ?? 1) : 1,
+      atCenter ? [0, 0, 0] : (offset.map((v) => v * s) as Vec3),
+    );
+    for (const p of mesh.listPrimitives()) p.setMaterial(material(mat));
+    const node = doc
+      .createNode(name)
+      .setMesh(mesh)
+      .setTranslation(atCenter ? [0, (height / 2) * s + lift, 0] : [x * s, y * s + lift, z * s]);
+    nodes.set(name, node);
+  }
+  for (const [name, node] of nodes) {
+    const body = nodes.get("body");
+    if (name === options.childOfBody && body) body.addChild(node);
+    else scene.addChild(node);
+  }
+  doc.getRoot().setDefaultScene(scene);
+  return doc;
+};
+
+export const makeBossGlb = async (options: BossFixtureOptions = {}): Promise<Uint8Array> =>
+  new NodeIO().writeBinary(makeBossDocument(options));
