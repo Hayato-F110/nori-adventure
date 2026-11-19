@@ -87,6 +87,27 @@ describe("Hook：Jira の課題を作るときにスプリントを指定した�
     expect(findSprintAssignment(issue({ ...full, customfield_10020: null }))).toEqual([]);
   });
 
+  it("スプリントを外す書き方（空の配列・false・空白だけの文字列）も、指定しないものとして通す", () => {
+    expect(findSprintAssignment(issue({ ...full, customfield_10020: [] }))).toEqual([]);
+    expect(findSprintAssignment({ ...issue(full), assignToSprint: false })).toEqual([]);
+    expect(findSprintAssignment({ ...issue(full), assignToSprint: "  " })).toEqual([]);
+  });
+
+  it("スプリントの指定と欄の抜けが重なったら、両方を 1 つの文で伝える", () => {
+    const input = JSON.stringify({
+      tool_name: "mcp__claude_ai_Atlassian_MCP__createJiraIssue",
+      tool_input: { ...issue({}), assignToSprint: "active" },
+    });
+    let stderr = "";
+    try {
+      execFileSync("node", [hook], { input, stdio: ["pipe", "pipe", "pipe"] });
+    } catch (error) {
+      stderr = String((error as { stderr: Buffer }).stderr);
+    }
+    expect(stderr).toContain("スプリントを指定");
+    expect(stderr).toContain("期限");
+  });
+
   it("エピックでも止め、NORI 以外のプロジェクトは調べない", () => {
     expect(findSprintAssignment({ ...issue({}, "Epic"), assignToSprint: "active" })).toHaveLength(1);
     expect(findSprintAssignment({ ...issue(full), projectKey: "OTHER", assignToSprint: "active" })).toEqual([]);

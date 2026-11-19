@@ -38,8 +38,14 @@ const SPRINT_KEYS = new Set(["customfield_10020", "sprint", "スプリント"]);
 export const findSprintAssignment = (toolInput) => {
   if (!toolInput || String(toolInput.projectKey ?? "").toUpperCase() !== "NORI") return [];
   const fields = toolInput.additional_fields ?? {};
-  const viaField = Object.keys(fields).some((key) => SPRINT_KEYS.has(key.toLowerCase()) && !isEmpty(fields[key]));
-  return isEmpty(toolInput.assignToSprint) && !viaField ? [] : ["スプリントの指定がある"];
+  // 空の配列・false・空白だけの文字列も「指定しない」として扱う（スプリントを外すときの書き方のため）
+  const noSprint = (value) =>
+    isEmpty(value) ||
+    value === false ||
+    (Array.isArray(value) && value.length === 0) ||
+    (typeof value === "string" && value.trim() === "");
+  const viaField = Object.keys(fields).some((key) => SPRINT_KEYS.has(key.toLowerCase()) && !noSprint(fields[key]));
+  return noSprint(toolInput.assignToSprint) && !viaField ? [] : ["スプリントの指定がある"];
 };
 
 const readStdin = async () => {
@@ -51,20 +57,24 @@ const readStdin = async () => {
 const main = async () => {
   const input = JSON.parse((await readStdin()) || "{}");
   if (!String(input.tool_name ?? "").endsWith("createJiraIssue")) return;
+  // 両方の理由を 1 つの文にまとめる（片方を直して、もう片方でまた止まらないように）
+  const messages = [];
   if (findSprintAssignment(input.tool_input).length > 0) {
-    process.stderr.write(
-      "止めました：Jira の課題を作るときに、スプリントを指定しています（assignToSprint かスプリントの欄）。" +
+    messages.push(
+      "Jira の課題を作るときに、スプリントを指定しています（assignToSprint かスプリントの欄）。" +
         "途中で見つけた課題は、今のスプリントに入れずバックログへ置きます（スプリント3のふりかえり I1・NORI-90）。" +
-        "スプリントの指定を外して作り直してください。スプリントに入れたいときは、作ったあとでオーナーに聞き、オーナーが入れます。\n",
+        "スプリントの指定を外して作り直してください。スプリントに入れたいときは、作ったあとでオーナーに聞き、オーナーが入れます。",
     );
-    process.exit(BLOCK);
   }
   const reasons = findMissingJiraFields(input.tool_input);
-  if (reasons.length === 0) return;
-  process.stderr.write(
-    `止めました：Jira の課題に ${reasons.join("・")}。additional_fields に入れて作り直してください。` +
-      "作ったあとは getJiraIssue で読み直して確かめます（スプリントはオーナーが入れる）。\n",
-  );
+  if (reasons.length > 0) {
+    messages.push(
+      `Jira の課題に ${reasons.join("・")}。additional_fields に入れて作り直してください。` +
+        "作ったあとは getJiraIssue で読み直して確かめます（スプリントはオーナーが入れる）。",
+    );
+  }
+  if (messages.length === 0) return;
+  process.stderr.write(`止めました：${messages.join("\nあわせて：")}\n`);
   process.exit(BLOCK);
 };
 
