@@ -779,6 +779,8 @@ export const SOUND = {
   /** 使ってよい音の高さ（MIDI の番号。110〜1319 Hz） */
   lowestNote: 52,
   highestNote: 88,
+  /** 一度に2つ以上とったとき、「とった」を何回まで鳴らすか（2 回目からは前の音のあとに続ける。NORI-85） */
+  collectMaxRepeat: 3,
   effects: {
     collect: { wave: "sine", notes: [84, 88], noteSeconds: 0.08 },
     checkpoint: { wave: "triangle", notes: [79, 84], noteSeconds: 0.12 },

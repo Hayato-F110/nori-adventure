@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { SIM, SOUND } from "../../src/config/index.ts";
 import {
   createSoundCueTracker,
+  cueOffsets,
   noteFrequency,
   type SoundSnapshot,
   soundCues,
@@ -118,4 +119,79 @@ describe("ぶつかった音の間隔（0.5 秒＝30 刻み。11/12 にオーナ
   it("最初の状態では鳴らさない（前がないので比べない）", () => {
     expect(createSoundCueTracker().next(at(0, true))).toEqual([]);
   });
+});
+
+// docs/game-rules.md「効果音と BGM」の「一度に2つ以上とった」（NORI-85）。テストの一覧 NORI-85 の 1〜3
+describe("一度に2つ以上とったとき（NORI-85）", () => {
+  const base: SoundSnapshot = { tick: 0, collected: 0, checkpoints: 0, finished: false, touching: false };
+  const collectSeconds = SOUND.effects.collect.notes.length * SOUND.effects.collect.noteSeconds;
+
+  it.each([
+    [1, 1],
+    [2, 2],
+    [SOUND.collectMaxRepeat, SOUND.collectMaxRepeat],
+    [SOUND.collectMaxRepeat + 2, SOUND.collectMaxRepeat],
+  ])("数が %i 増えたら「とった」を %i 回", (more, times) => {
+    const cues = soundCues(base, { ...base, collected: more });
+    expect(cues.filter((c) => c === "collect")).toHaveLength(times);
+  });
+
+  it("同じ音の 2 回目からは、1 回の長さずつずらす（ほかの音はずらさない）", () => {
+    const offsets = cueOffsets(["collect", "collect", "checkpoint", "collect"]);
+    expect(offsets[0]).toBe(0);
+    expect(offsets[1]).toBeCloseTo(collectSeconds, 9);
+    expect(offsets[2]).toBe(0);
+    expect(offsets[3]).toBeCloseTo(2 * collectSeconds, 9);
+  });
+
+  it("「とった」を上限まで鳴らしても、ほかの音と同時に鳴るのは 2 つまで（0.25 × 2 = 0.5）", () => {
+    const cues = [...Array<"collect">(SOUND.collectMaxRepeat).fill("collect"), "goal" as const];
+    const offsets = cueOffsets(cues);
+    const spans = cues.map((c, i) => {
+      const e = SOUND.effects[c];
+      return [offsets[i] ?? 0, (offsets[i] ?? 0) + e.notes.length * e.noteSeconds] as const;
+    });
+    // 鳴り始めの時刻ごとに、そのとき鳴っている音の数を数える
+    const most = Math.max(...spans.map(([t]) => spans.filter(([s, e]) => s <= t && t < e).length));
+    expect(most).toBeLessThanOrEqual(2);
+    expect(most * SOUND.effectGain).toBeLessThanOrEqual(0.5);
+  });
+});
+
+// NORI-85 の初見レビュー（R1-85-1・2・4）
+describe("一度に2つ以上とったとき：0 から始まらない数・追いかける仕組み・ルールの数（NORI-85）", () => {
+  const base: SoundSnapshot = { tick: 0, collected: 4, checkpoints: 0, finished: false, touching: false };
+
+  it("4 → 6 なら「とった」は 2 回（今の数ではなく、増えた分で数える）", () => {
+    expect(soundCues(base, { ...base, tick: 1, collected: 6 }).filter((c) => c === "collect")).toHaveLength(
+      2,
+    );
+  });
+
+  it("追いかける仕組み（音を出す側が使う）も、同じ刻みの「とった」2 回を消さずに返す", () => {
+    const tracker = createSoundCueTracker();
+    tracker.next(base);
+    expect(tracker.next({ ...base, tick: 1, collected: 6 }).filter((c) => c === "collect")).toHaveLength(2);
+  });
+
+  it("ルールの数：上限は 3 回、1 回の長さは 0.16 秒、上限まで鳴らし終えるのは 0.48 秒", () => {
+    const one = SOUND.effects.collect.notes.length * SOUND.effects.collect.noteSeconds;
+    expect(SOUND.collectMaxRepeat).toBe(3);
+    expect(one).toBeCloseTo(0.16, 9);
+    expect(SOUND.collectMaxRepeat * one).toBeCloseTo(0.48, 9);
+  });
+
+  it.each([["checkpoint" as const], ["bump" as const]])(
+    "「とった」を上限まで鳴らし、%s と同じ刻みでも、同時に鳴るのは 2 つまで",
+    (other) => {
+      const cues = [...Array<"collect">(SOUND.collectMaxRepeat).fill("collect"), other];
+      const offsets = cueOffsets(cues);
+      const spans = cues.map((c, i) => {
+        const e = SOUND.effects[c];
+        return [offsets[i] ?? 0, (offsets[i] ?? 0) + e.notes.length * e.noteSeconds] as const;
+      });
+      const most = Math.max(...spans.map(([t]) => spans.filter(([s, e]) => s <= t && t < e).length));
+      expect(most).toBeLessThanOrEqual(2);
+    },
+  );
 });
