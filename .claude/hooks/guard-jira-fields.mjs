@@ -1,6 +1,7 @@
 // PreToolUse の Hook：Jira（NORI）の課題を作るとき、ポイント・期限・開始日が入っていなければ、作る前に止める
 // （スプリント2のふりかえりの改善③。2026-11-13 にオーナーが承認）。
 // 理由：メモリー（jira-new-issue-fields）に書いても、11/13 に NORI-63・64 で開始日を入れ忘れた。文章の決まりでは止まらないので、仕組みで止める。
+// あわせて、作るときにスプリントを指定したら止める（NORI-90。スプリント3のふりかえり I1。途中で見つけた課題はバックログへ）。
 // 止めたら、標準エラーの文が Claude に渡る（終了コード 2）。
 
 const BLOCK = 2;
@@ -30,6 +31,17 @@ export const findMissingJiraFields = (toolInput) => {
   return reasons;
 };
 
+// スプリントの欄（NORI-90）。additional_fields は名前でも ID でも書ける（createJiraIssue の説明）ので、両方を見る
+const SPRINT_KEYS = new Set(["customfield_10020", "sprint", "スプリント"]);
+
+/** スプリントを指定していれば、止める理由を返す（NORI-90。途中で見つけた課題はバックログへ） */
+export const findSprintAssignment = (toolInput) => {
+  if (!toolInput || String(toolInput.projectKey ?? "").toUpperCase() !== "NORI") return [];
+  const fields = toolInput.additional_fields ?? {};
+  const viaField = Object.keys(fields).some((key) => SPRINT_KEYS.has(key.toLowerCase()) && !isEmpty(fields[key]));
+  return isEmpty(toolInput.assignToSprint) && !viaField ? [] : ["スプリントの指定がある"];
+};
+
 const readStdin = async () => {
   const chunks = [];
   for await (const chunk of process.stdin) chunks.push(chunk);
@@ -39,6 +51,14 @@ const readStdin = async () => {
 const main = async () => {
   const input = JSON.parse((await readStdin()) || "{}");
   if (!String(input.tool_name ?? "").endsWith("createJiraIssue")) return;
+  if (findSprintAssignment(input.tool_input).length > 0) {
+    process.stderr.write(
+      "止めました：Jira の課題を作るときに、スプリントを指定しています（assignToSprint かスプリントの欄）。" +
+        "途中で見つけた課題は、今のスプリントに入れずバックログへ置きます（スプリント3のふりかえり I1・NORI-90）。" +
+        "スプリントの指定を外して作り直してください。スプリントに入れたいときは、作ったあとでオーナーに聞き、オーナーが入れます。\n",
+    );
+    process.exit(BLOCK);
+  }
   const reasons = findMissingJiraFields(input.tool_input);
   if (reasons.length === 0) return;
   process.stderr.write(
