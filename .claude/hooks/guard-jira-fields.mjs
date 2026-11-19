@@ -58,7 +58,11 @@ const hasSprintDeep = (value) => {
       hasSprintDeep(v),
   );
 };
-const isNoriIssue = (key) => /^NORI-\d+$/i.test(String(key ?? ""));
+// 調べないのは、よそのプロジェクトのキーとはっきり分かるものだけ（番号の ID は NORI の課題かもしれないので調べる）
+const isOtherProjectKey = (key) => {
+  const k = String(key ?? "");
+  return /^[A-Z][A-Z0-9_]*-\d+$/i.test(k) && !/^NORI-/i.test(k);
+};
 
 /**
  * 作ったあとにスプリントへ入れる操作なら、止める理由を返す（NORI-90。2026-11-19 にオーナーが範囲を広げた）
@@ -69,19 +73,23 @@ export const findSprintMove = (toolName, toolInput) => {
   const name = String(toolName ?? "");
   const input = toolInput ?? {};
   if (name.endsWith("__editJiraIssue")) {
-    if (!isNoriIssue(input.issueIdOrKey)) return [];
+    if (isOtherProjectKey(input.issueIdOrKey)) return [];
     return hasSprintField(input.fields) || hasSprintField(input.additional_fields)
       ? ["編集でスプリントの欄を入れている"]
       : [];
   }
   if (name.endsWith("__transitionJiraIssue")) {
-    if (!isNoriIssue(input.issueIdOrKey)) return [];
-    return noSprint(input.sprintId) ? [] : ["遷移で sprintId を指定している"];
+    if (isOtherProjectKey(input.issueIdOrKey)) return [];
+    // sprintId のほか、遷移と一緒に送る fields・update のスプリントの欄も見る
+    return noSprint(input.sprintId) && !hasSprintField(input.fields) && !hasSprintField(input.update)
+      ? []
+      : ["遷移でスプリントを指定している"];
   }
   if (name.endsWith("__executeWrite")) {
-    return /sprint/i.test(String(input.name ?? "")) || hasSprintDeep(input.inputs)
-      ? ["汎用の書き込みでスプリントを扱っている"]
-      : [];
+    const op = String(input.name ?? "");
+    // スプリントから外す操作（remove…・…FromSprint）は通す
+    const intoSprint = /sprint/i.test(op) && !/(remove|from)/i.test(op);
+    return intoSprint || hasSprintDeep(input.inputs) ? ["汎用の書き込みでスプリントに入れている"] : [];
   }
   return [];
 };

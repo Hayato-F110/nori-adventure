@@ -218,3 +218,31 @@ describe("設定：スプリントに入れる 4 つの道具で guard-jira-fiel
     },
   );
 });
+
+// NORI-90 の 2 回目の /code-review（指摘 1〜3）
+describe("Hook：作ったあとの抜け道をふさぐ（NORI-90、2 回目のレビュー）", () => {
+  const edit = "mcp__claude_ai_Atlassian_MCP__editJiraIssue";
+  const transition = "mcp__claude_ai_Atlassian_MCP__transitionJiraIssue";
+  const write = "mcp__claude_ai_Atlassian_MCP__executeWrite";
+
+  it("遷移の fields・update でスプリントの欄を入れたら止める", () => {
+    expect(
+      findSprintMove(transition, { issueIdOrKey: "NORI-1", fields: { customfield_10020: 7 } }),
+    ).toHaveLength(1);
+    expect(
+      findSprintMove(transition, { issueIdOrKey: "NORI-1", update: { Sprint: [{ set: 7 }] } }),
+    ).toHaveLength(1);
+  });
+
+  it("課題を番号の ID で指定しても調べる（よそのプロジェクトのキーだけ通す）", () => {
+    expect(findSprintMove(transition, { issueIdOrKey: "10234", sprintId: 7 })).toHaveLength(1);
+    expect(findSprintMove(edit, { issueIdOrKey: "10234", fields: { customfield_10020: 7 } })).toHaveLength(1);
+    expect(findSprintMove(edit, { issueIdOrKey: "OTHER-1", fields: { customfield_10020: 7 } })).toEqual([]);
+  });
+
+  it("executeWrite でスプリントから外す操作は通す", () => {
+    expect(findSprintMove(write, { name: "removeIssuesFromSprint", inputs: { issues: ["NORI-3"] } })).toEqual(
+      [],
+    );
+  });
+});
