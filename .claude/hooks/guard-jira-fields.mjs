@@ -38,14 +38,52 @@ const SPRINT_KEYS = new Set(["customfield_10020", "sprint", "スプリント"]);
 export const findSprintAssignment = (toolInput) => {
   if (!toolInput || String(toolInput.projectKey ?? "").toUpperCase() !== "NORI") return [];
   const fields = toolInput.additional_fields ?? {};
-  // 空の配列・false・空白だけの文字列も「指定しない」として扱う（スプリントを外すときの書き方のため）
-  const noSprint = (value) =>
-    isEmpty(value) ||
-    value === false ||
-    (Array.isArray(value) && value.length === 0) ||
-    (typeof value === "string" && value.trim() === "");
-  const viaField = Object.keys(fields).some((key) => SPRINT_KEYS.has(key.toLowerCase()) && !noSprint(fields[key]));
-  return noSprint(toolInput.assignToSprint) && !viaField ? [] : ["スプリントの指定がある"];
+  return noSprint(toolInput.assignToSprint) && !hasSprintField(fields) ? [] : ["スプリントの指定がある"];
+};
+
+// 空の配列・false・空白だけの文字列も「指定しない」として扱う（スプリントを外すときの書き方のため）
+const noSprint = (value) =>
+  isEmpty(value) ||
+  value === false ||
+  (Array.isArray(value) && value.length === 0) ||
+  (typeof value === "string" && value.trim() === "");
+const hasSprintField = (fields) =>
+  Object.keys(fields ?? {}).some((key) => SPRINT_KEYS.has(key.toLowerCase()) && !noSprint(fields[key]));
+/** 入れ子の中も含めて、スプリントの欄か sprintId に値があるか（executeWrite の inputs の形は操作ごとに違うため） */
+const hasSprintDeep = (value) => {
+  if (!value || typeof value !== "object") return false;
+  return Object.entries(value).some(
+    ([key, v]) =>
+      ((SPRINT_KEYS.has(key.toLowerCase()) || key.toLowerCase() === "sprintid") && !noSprint(v)) ||
+      hasSprintDeep(v),
+  );
+};
+const isNoriIssue = (key) => /^NORI-\d+$/i.test(String(key ?? ""));
+
+/**
+ * 作ったあとにスプリントへ入れる操作なら、止める理由を返す（NORI-90。2026-11-19 にオーナーが範囲を広げた）
+ * editJiraIssue のスプリントの欄、transitionJiraIssue の sprintId、executeWrite のスプリントの操作・指定。
+ * スプリントから外す（null・バックログへ）操作は通す
+ */
+export const findSprintMove = (toolName, toolInput) => {
+  const name = String(toolName ?? "");
+  const input = toolInput ?? {};
+  if (name.endsWith("__editJiraIssue")) {
+    if (!isNoriIssue(input.issueIdOrKey)) return [];
+    return hasSprintField(input.fields) || hasSprintField(input.additional_fields)
+      ? ["編集でスプリントの欄を入れている"]
+      : [];
+  }
+  if (name.endsWith("__transitionJiraIssue")) {
+    if (!isNoriIssue(input.issueIdOrKey)) return [];
+    return noSprint(input.sprintId) ? [] : ["遷移で sprintId を指定している"];
+  }
+  if (name.endsWith("__executeWrite")) {
+    return /sprint/i.test(String(input.name ?? "")) || hasSprintDeep(input.inputs)
+      ? ["汎用の書き込みでスプリントを扱っている"]
+      : [];
+  }
+  return [];
 };
 
 const readStdin = async () => {
@@ -56,6 +94,14 @@ const readStdin = async () => {
 
 const main = async () => {
   const input = JSON.parse((await readStdin()) || "{}");
+  const moves = findSprintMove(input.tool_name, input.tool_input);
+  if (moves.length > 0) {
+    process.stderr.write(
+      `止めました：${moves.join("・")}。スプリントに入れるのはオーナーです（スプリント3のふりかえり I1・NORI-90）。` +
+        "スプリントの指定を外して操作し直してください。入れたいときはオーナーに聞き、オーナーが Jira の画面で入れます。\n",
+    );
+    process.exit(BLOCK);
+  }
   if (!String(input.tool_name ?? "").endsWith("createJiraIssue")) return;
   // 両方の理由を 1 つの文にまとめる（片方を直して、もう片方でまた止まらないように）
   const messages = [];

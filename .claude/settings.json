@@ -51,7 +51,7 @@
         ]
       },
       {
-        "matcher": "mcp__.*__createJiraIssue",
+        "matcher": "mcp__.*__(createJiraIssue|editJiraIssue|executeWrite)",
         "hooks": [
           {
             "type": "command",
@@ -69,6 +69,12 @@
             "command": "node",
             "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/harvest-before-done.mjs"],
             "timeout": 15
+          },
+          {
+            "type": "command",
+            "command": "node",
+            "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/guard-jira-fields.mjs"],
+            "timeout": 10
           }
         ]
       },
