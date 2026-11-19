@@ -33,19 +33,18 @@
 **片付け**
 
 - マージのあと、作業場所 `NORI-73y`・`devlog-1118b` を片付ける（つなぎを `cmd /c rmdir` で外してから。本体の node_modules は 11/18 夜に隠しも含めて数えて 117）。止めている作業場所 `NORI-42`・`57`・`64`・`83` は残す
-- リモートに残っているマージ済みのブランチ：`feature/NORI-84-harvest`・`feature/NORI-72-devlog-2026-11-18`（プッシュが拒否されるので消していない）
+- リモートに残っているマージ済みのブランチ：`feature/NORI-84-harvest`・`feature/NORI-72-devlog-2026-11-18`（まだ消していない。`git push origin --delete` で消せる）
 
 **ほかに覚えておくこと**
 
-- picomatch の除く表の見直す日は 2026-11-25。その日を過ぎると CI が落ちる（`tools/ci/audit-allow.json`）
 - NORI-38：v1.0 を出す日（11/21）に、実機で新しい版への切り替えを確かめる（画面をすべて閉じ、2 回開き直して、ボスのモデルが新しいこと）
 - NORI-83 の作業場所には、初見レビュー 1 回目の行（指摘 13、ハッシュ値 587b1d4b）がある。続けるかは NORI-89 で決める
 
 **つまずき防止**
 
-- 11/18 夜から、`git push`（`gh pr create` と、プッシュからマージまでを 1 つにした台本も）が許可の判定で拒否される。迂回しない。オーナーに手でプッシュしてもらい、PR とマージは別々の操作で行う
+- プッシュはブランチの名前を書く（`git push -u origin feature/NORI-xx-…`）。`git push -u origin HEAD` は、main を守る拒否の決まり `Bash(git push*origin HEAD)` に当たって止まる。プッシュ・PR・マージは別々の操作で行う（まとめた台本は自動の判定に止められる。NORI-89 の N1・N2）
 - 課題を閉じる前に、全部の一覧からその課題の行を探す（`MSYS_NO_PATHCONV=1 git grep -n "| NORI-xx " origin/main -- docs/test-plans`）
-- Jira の遷移は `transitionId`（`transition` ではない）。課題の種類はストーリー（10005）かバグ（10039）、親のエピックを付ける。タスク（10040）は使わない
+- Jira の遷移は `transitionName`（「進行中」「完了」など名前）で指定できる。課題の種類はストーリー（10005）かバグ（10039）、親のエピックを付ける。タスク（10040）は使わない
 - Git Bash で `git show origin/main:.github/...` は、パスが書きかえられて失敗する。`MSYS_NO_PATHCONV=1` を前に付ける
 - `/code-review` は、作業場所の差分を指定して呼ぶ（指定しないと main を見る）
 - `gh pr create` の Hook は、`/code-review` のあとにコミットを足すと止める。足したコミットは PR の説明に書き、オーナーが見る
