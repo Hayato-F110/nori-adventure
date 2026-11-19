@@ -2,12 +2,10 @@ import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-// @ts-expect-error -- Hook は素の JavaScript（.mjs）で、型定義を持たない
-import {
-  findMissingJiraFields,
-  findSprintAssignment,
-  findSprintMove,
-} from "../../.claude/hooks/guard-jira-fields.mjs";
+// @ts-expect-error -- Hook は素の JavaScript（.mjs）で、型定義を持たない（1 行に収めないと、この印が効かない）
+import * as guard from "../../.claude/hooks/guard-jira-fields.mjs";
+
+const { findMissingJiraFields, findSprintAssignment, findSprintMove } = guard;
 
 const root = path.resolve(import.meta.dirname, "../..");
 const hook = path.join(root, ".claude/hooks/guard-jira-fields.mjs");
