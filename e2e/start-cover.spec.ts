@@ -1,4 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
+import { LOOK } from "../src/config";
 import { watchErrors } from "./common";
 import { holdStartCover, installConstantDriver, releaseStartCover } from "./driver";
 import { luminanceAt } from "./luminance";
@@ -8,6 +9,50 @@ import { luminanceAt } from "./luminance";
 // ゲームを進める確かめは、運転役と早送りで刻みを待つ（実際の秒で待たない）。E2 のタイトルの判定だけは実際の速さが要る。
 const FAST = 4;
 const JUDGED = "nori-adventure.judged";
+/** 画質の最初の判定が済む・低へ下がりうる、いちばん早い FPS の測った回数（1 秒 ＋ 3 秒。NORI-86） */
+const JUDGE_SAMPLES = LOOK.settleSeconds + LOOK.lowFpsSeconds;
+
+/** 覆いの間に 1 回で読んだ、見た目と画質（NORI-86） */
+type LookRead = {
+  look: string;
+  quality: string;
+  source: string;
+  /** 1 秒ごとに測った FPS（0.1 で丸めた値） */
+  fps: number[];
+  /** 素材が読めたときの測った回数（まだなら null） */
+  loadedSamples: number | null;
+};
+
+/**
+ * 測った FPS から、ルールどおりの画質を出す（docs/game-rules.md「低画質に下げるまでの時間」）：
+ * 最初の settleSeconds 回は数えず、そのあと lowFps 未満が lowFpsSeconds 回続いたら低
+ */
+const qualityByRule = (fps: number[]): "high" | "low" => {
+  let slow = 0;
+  for (const f of fps.slice(LOOK.settleSeconds)) {
+    slow = f < LOOK.lowFps ? slow + 1 : 0;
+    if (slow >= LOOK.lowFpsSeconds) return "low";
+  }
+  return "high";
+};
+
+/**
+ * 読んだ見た目が、測った回数・FPS・素材が読めたかから、ルールどおりか（NORI-86 一覧 1・2）。
+ * 判定の前は高・loading。判定のあとは、画質が FPS どおりで、低なら plain、高で素材が読めていれば textured
+ */
+const expectLookByRule = (r: LookRead) => {
+  const note = JSON.stringify(r);
+  // 毎回まっさらな保存の状態で始まるので、画質は測って決める（覚えた・選んだ画質で始めていない）
+  expect(r.source, note).toBe("measured");
+  if (r.fps.length < JUDGE_SAMPLES) {
+    expect(r.quality, note).toBe("high");
+    expect(r.look, note).toBe("loading");
+    return;
+  }
+  expect(r.quality, note).toBe(qualityByRule(r.fps));
+  const want = r.quality === "low" ? "plain" : r.loadedSamples === null ? "loading" : "textured";
+  expect(r.look, note).toBe(want);
+};
 
 type Probe = { tick: number; value: number };
 declare global {
@@ -84,6 +129,10 @@ test.describe("E1：ステージの覆い（タッチの端末）", () => {
             if ((n.frames ?? 0) < f + 3 || n.fpsSamples.length < 2) return null;
             return {
               look: n.look,
+              quality: n.quality,
+              source: n.cover.source,
+              fps: [...n.fpsSamples],
+              loadedSamples: n.cover.loadedSamples,
               frames: n.frames,
               samples: n.fpsSamples.length,
               tick: globalThis.__noriCoverProbe?.(s).tick ?? -1,
@@ -95,11 +144,39 @@ test.describe("E1：ステージの覆い（タッチの端末）", () => {
         )
       ).jsonValue();
       expect(covered).not.toBeNull();
-      expect(covered?.look).toBe("loading");
-      expect(covered?.frames).toBeGreaterThan(firstFrames);
-      expect(covered?.samples).toBeGreaterThanOrEqual(2);
-      expect(covered?.tick).toBe(0);
-      expect(covered?.time).toBe("0");
+      if (covered === null) return;
+      // NORI-86：判定のあとの道を、どの PC でも通る（覆ったまま、判定が済む回数まで測るのを待つ。実際の秒では待たない）
+      const judged = await (
+        await page.waitForFunction(
+          (need) => {
+            const n = window.__nori;
+            if (n?.cover?.state !== "covered" || n.fpsSamples.length < need) return null;
+            return {
+              look: n.look,
+              quality: n.quality,
+              source: n.cover.source,
+              fps: [...n.fpsSamples],
+              loadedSamples: n.cover.loadedSamples,
+            };
+          },
+          JUDGE_SAMPLES,
+          { timeout: 60_000 },
+        )
+      ).jsonValue();
+      // どちらの道（判定の前・あと）を通ったかを、通ったときも残す（NORI-86 一覧 3）
+      await testInfo.attach(`stage${stage}-covered.json`, {
+        body: JSON.stringify({ covered, judged }),
+        contentType: "application/json",
+      });
+      expect(judged).not.toBeNull();
+      if (judged === null) return;
+      expectLookByRule(covered);
+      expectLookByRule(judged);
+      const coveredNote = JSON.stringify(covered);
+      expect(covered.frames, coveredNote).toBeGreaterThan(firstFrames);
+      expect(covered.samples, coveredNote).toBeGreaterThanOrEqual(2);
+      expect(covered.tick, coveredNote).toBe(0);
+      expect(covered.time, coveredNote).toBe("0");
 
       // 止めている間は、素材が決まってから 3 コマ描いても覆ったまま・刻み 0（1回の読み取りで見る）
       const held = await (
