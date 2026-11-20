@@ -20,6 +20,7 @@ export const GALLERY_ORDER = [
   ...ASSET.sea.variants,
   ...ASSET.landmark.variants,
   ...ASSET.city.variants,
+  "boss", // ステージ5のボス（NORI-65）
 ] as const;
 /** 隣との間（m） */
 export const GALLERY_GAP = 1.5;

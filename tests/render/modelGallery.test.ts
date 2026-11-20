@@ -21,7 +21,7 @@ describe("galleryLayout", () => {
     expect(galleryLayout([])).toEqual([]);
   });
 
-  it("並べる順は、ステージの順（車・列車3つ・飛行機・潜水艇・ローバー）、木2種類、海の生きもの、最後にステージ2の景色", () => {
+  it("並べる順は、ステージの順（車・列車3つ・飛行機・潜水艇・ローバー）、木2種類、海の生きもの、ステージ2の景色、街、最後にボス", () => {
     expect(GALLERY_ORDER).toEqual([
       "car",
       "train",
@@ -35,6 +35,7 @@ describe("galleryLayout", () => {
       ...ASSET.sea.variants,
       ...ASSET.landmark.variants,
       ...ASSET.city.variants,
+      "boss", // NORI-65
     ]);
   });
 
