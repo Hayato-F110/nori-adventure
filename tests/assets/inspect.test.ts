@@ -474,6 +474,17 @@ describe("ボス（ASSET.boss）", () => {
     expect((await bossProblems({ backwards: true })).join("\n")).toMatch(/顔が −Z の側にない/);
   });
 
+  // /code-review の指摘 5：一覧 1 は「モデル全体の範囲の z の中心」と比べる（body の原点ではない）。
+  // 体の形を +Z へ 2 m ずらし（範囲 −r+2〜r+2）、目の中心を z = +0.5 m に置く：原点より後ろ、全体の中心より前
+  it("顔が body の原点より後ろでも、モデル全体の範囲の中心より前なら、向きの問題にしない", async () => {
+    const { length } = ASSET.boss.size;
+    const eyeZ = 0.5;
+    const faceBack = eyeZ - 0.3 - (BOSS.radius - length);
+    const report = await inspectGlb(await makeBossGlb({ bodyMeshZ: 2, faceBack }));
+    expect((report.min[2] + report.max[2]) / 2).toBeGreaterThan(eyeZ);
+    expect(checkGlb(report, "boss").join("\n")).not.toMatch(/顔が −Z の側にない/);
+  });
+
   // 一覧 3（R1-65-4）：rules-sync は数が欄にあるかだけを見るので、幅・高さ・長さの順を比べる
   it("game-rules.md のボスのモデルの大きさは、ASSET.boss.size の幅・高さ・長さと順に同じ", () => {
     const rules = readFileSync(path.resolve(import.meta.dirname, "../../docs/game-rules.md"), "utf8");

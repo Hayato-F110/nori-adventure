@@ -334,6 +334,8 @@ export type BossFixtureOptions = FixtureOptions & {
   faceBack?: number;
   /** body のノードだけを +X へずらす量（m。原点の許しの幅を確かめる。/code-review の指摘 2） */
   bodyShiftX?: number;
+  /** body のメッシュの形だけを +Z へずらす量（m。ノードの原点は (0,0,0) のまま。顔の向きの基準を確かめる。/code-review の指摘 5） */
+  bodyMeshZ?: number;
 };
 
 /**
@@ -360,7 +362,7 @@ export const makeBossDocument = (options: BossFixtureOptions = {}): Document => 
   const bodyMat = options.bodyMaterial ?? "boss_body";
   // 名前、大きさ、ノードの位置、メッシュのずれ、素材
   const parts: [string, Vec3, Vec3, Vec3, string][] = [
-    ["body", [2 * r, height, 2 * r], [0, 0, 0], [0, height / 2, 0], bodyMat],
+    ["body", [2 * r, height, 2 * r], [0, 0, 0], [0, height / 2, options.bodyMeshZ ?? 0], bodyMat],
     ["arm_L", [1, 1.5, 1], [-(width / 2 - 0.5), height / 2, 0], [0, 0, 0], bodyMat],
     ["arm_R", [1, 1.5, 1], [width / 2 - 0.5, height / 2, 0], [0, 0, 0], options.armMaterial ?? bodyMat],
     [
