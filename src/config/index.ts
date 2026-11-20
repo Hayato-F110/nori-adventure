@@ -444,6 +444,8 @@ export const BOSS = {
   /** 落ち着いたあと、ボスがはねる高さ（m）と速さ（|sin(速さ × 秒)| × 高さ）。動きを減らす設定でははねない（NORI-70） */
   hopHeight: 0.8,
   hopSpeed: 4,
+  /** 岩の前ぶれのとき、body を原点（底の中心）を中心に 1 ＋ puffScale × 前ぶれ（0〜1）倍にする（NORI-65。描画の直書きから移した） */
+  puffScale: 0.12,
 } as const;
 
 /** 入力（全ステージ共通）。キーボード・タッチ・ゲームパッドを InputFrame に直すときの数値 */
@@ -566,6 +568,20 @@ export const ASSET = {
       motorbike: ["shirt"],
     },
     maxTriangles: 3000,
+    maxGlbBytes: 262144,
+  },
+  /**
+   * ステージ5のボス（NORI-65。docs/game-rules.md「ボスのモデル」）。前は −Z、原点は底の中心。
+   * 8 つの部品は親子にしない（body だけをふくらませる）。口は 3 つを持ち、回数に合わせて 1 つだけ見せる
+   */
+  boss: {
+    size: { width: 8, height: 6, length: 6.6 },
+    nodes: ["body", "eye_L", "eye_R", "arm_L", "arm_R", "mouth_frown", "mouth_flat", "mouth_smile"],
+    /** body・arm_L・arm_R が使う、ゲームが色を塗る素材。目・口は使わない */
+    materials: ["boss_body"],
+    /** 目・口の前の端を、いちばんふくらんだ体の前の端より、この m 以上前に出す */
+    faceAhead: 0.2,
+    maxTriangles: 4000,
     maxGlbBytes: 262144,
   },
   allowedExtensions: [

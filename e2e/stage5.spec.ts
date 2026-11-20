@@ -1,5 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
-import { BOSS, SIM, STAGE5 } from "../src/config";
+import { BOSS, LOOK, SIM, STAGE5 } from "../src/config";
 import { pathPoint } from "../src/core/stage5Layout";
 import { chooseQuality, openStage, waitTicks, watchErrors } from "./common";
 import { installRoverDriver } from "./driver";
@@ -78,37 +78,47 @@ for (const [mode, quality] of QUALITIES) {
     expect(errors).toEqual([]);
   });
 }
+/**
+ * 道すじを 4 m/s で d = 100（広場の入口）まで早送りで走って止まり、ボスが自作モデルに差しかわるのを待つ
+ * （なかよしの星は取らない：friends を渡さない）
+ */
+const driveToArenaEntrance = async (page: Page, quality: "high" | "low") => {
+  await installRoverDriver(page, {
+    path: Array.from({ length: 20 }, (_, i) => pathPoint((i + 1) * 5)),
+    turnAhead: 3,
+    friends: [],
+    respawnTicks: Math.round(BOSS.friendStarRespawnSeconds / SIM.fixedDt),
+    boss: { x: STAGE5.arenaCenter.x, z: STAGE5.arenaCenter.z, radius: BOSS.orbitRadius, perTick: 0 },
+    slowNear: 0,
+    slowSpeed: 4,
+    maxSpeed: 4,
+    steerGain: 3,
+    stepsPerFrame: FAST,
+  });
+  await openWithQuality(page, quality);
+  await page.waitForFunction(
+    () => {
+      const s = window.__nori?.rover?.();
+      return s !== undefined && s.rover.z < -15 && Math.abs(s.rover.speed) < 0.05;
+    },
+    undefined,
+    { timeout: 200_000, polling: 500 },
+  );
+  // NORI-65（一覧 6。初見レビュー R1-65-16）：読み込みの速さで結果が変わらないように、差しかわるのを待つ
+  await page.waitForFunction(() => window.__nori?.bossModel === "glb", undefined, { timeout: 30_000 });
+};
 
 for (const [mode, quality] of QUALITIES) {
-  test(`ステージ5の見た目（${mode}）：広場の入口で、なかよしの星が砂より目立つ。ボスと岩が見える`, async ({
+  test(`ステージ5の見た目（${mode}）：広場の入口で、なかよしの星が砂より目立つ。ボスは自作モデルで、への字の口`, async ({
     page,
   }, testInfo) => {
     test.setTimeout(240_000);
     const errors = watchErrors(page);
-    // 道すじを 4 m/s で d = 100 まで走って止まる（なかよしの星は取らない：friends を渡さない）
-    await installRoverDriver(page, {
-      path: Array.from({ length: 20 }, (_, i) => pathPoint((i + 1) * 5)),
-      turnAhead: 3,
-      friends: [],
-      respawnTicks: Math.round(BOSS.friendStarRespawnSeconds / SIM.fixedDt),
-      boss: { x: STAGE5.arenaCenter.x, z: STAGE5.arenaCenter.z, radius: BOSS.orbitRadius, perTick: 0 },
-      slowNear: 0,
-      slowSpeed: 4,
-      maxSpeed: 4,
-      steerGain: 3,
-      stepsPerFrame: FAST,
-    });
-    await openWithQuality(page, quality);
-    await page.waitForFunction(
-      () => {
-        const s = window.__nori?.rover?.();
-        return s !== undefined && s.rover.z < -15 && Math.abs(s.rover.speed) < 0.05;
-      },
-      undefined,
-      { timeout: 200_000, polling: 500 },
-    );
+    await driveToArenaEntrance(page, quality);
     // NORI-70（初見レビュー 29-54）：止まってから、実際の 0.8 秒でなくゲームの 90 刻み待つ
     await waitTicks(page, 90);
+    // NORI-65（一覧 6。R1-65-9）：描画の変数でなく、モデルで見えている口のノードを読む
+    expect(await page.evaluate(() => window.__nori?.bossMouthNodes?.())).toEqual(["mouth_frown"]);
     const points = await screenPoints(page, ["friend", "ground"]);
     expectOnScreen(page, points);
     const shot = await attachShot(page, testInfo, `stage5-arena-${quality}`);
@@ -124,19 +134,35 @@ for (const [mode, quality] of QUALITIES) {
   });
 }
 
-test("ステージ5：CPU を4倍遅くしても 30fps 以上", { tag: "@fps" }, async ({ page }) => {
-  test.skip(skipFps, "GPU のない CI では FPS を測らない");
-  test.setTimeout(120_000);
-  const cdp = await page.context().newCDPSession(page);
-  await openStage(page, "./?stage=5", { look: true });
-  await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 });
-  await page.keyboard.down("ArrowUp");
-  const start = await page.evaluate(() => window.__nori?.fpsSamples.length ?? 0);
-  await page.waitForFunction((n) => (window.__nori?.fpsSamples.length ?? 0) >= n + 6, start, {
-    timeout: 60_000,
-  });
-  await page.keyboard.up("ArrowUp");
-  const samples = ((await page.evaluate(() => window.__nori?.fpsSamples)) ?? []).slice(start + 1);
-  const average = samples.reduce((s, v) => s + v, 0) / Math.max(1, samples.length);
-  expect(average).toBeGreaterThanOrEqual(30);
-});
+// NORI-65（一覧 7。初見レビュー R1-65-1・2）：ボスの広場の入口で、重い方の高画質に決めて測る。
+// 実際の速さが要る E2E なので、入口に着いてから早送りをやめる（運転役の stepsPerFrame を消す）
+test(
+  "ステージ5：ボスの広場の入口で、CPU を遅くしても 30fps 以上（高画質）",
+  { tag: "@fps" },
+  async ({ page }, testInfo) => {
+    test.skip(skipFps, "GPU のない CI では FPS を測らない");
+    test.setTimeout(360_000);
+    await driveToArenaEntrance(page, "high");
+    await page.evaluate(() => {
+      const driver = (globalThis as unknown as { __noriDriver?: { stepsPerFrame?: number } }).__noriDriver;
+      if (driver) delete driver.stepsPerFrame;
+    });
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send("Emulation.setCPUThrottlingRate", { rate: LOOK.cpuThrottle });
+    const start = await page.evaluate(() => window.__nori?.fpsSamples.length ?? 0);
+    await page.waitForFunction((n) => (window.__nori?.fpsSamples.length ?? 0) >= n + 6, start, {
+      timeout: 120_000,
+    });
+    const samples = ((await page.evaluate(() => window.__nori?.fpsSamples)) ?? []).slice(start + 1);
+    const average = samples.reduce((s, v) => s + v, 0) / Math.max(1, samples.length);
+    const quality = await page.evaluate(() => window.__nori?.quality);
+    await testInfo.attach("throttled", {
+      body: JSON.stringify({ samples, average, quality, throttle: LOOK.cpuThrottle }),
+      contentType: "application/json",
+    });
+    await page.screenshot({ path: testInfo.outputPath("stage5-boss-throttled.png") });
+    await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 });
+    expect(average).toBeGreaterThanOrEqual(LOOK.throttledFps);
+    expect(quality).toBe("high");
+  },
+);

@@ -1,9 +1,10 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { ASSET, STAGE4, TRAFFIC } from "../../src/config/index.ts";
+import { ASSET, BOSS, STAGE4, TRAFFIC } from "../../src/config/index.ts";
 import { type AssetKind, checkGlb, inspectGlb, kindOf, validateGlb } from "../../tools/assets/inspect.ts";
 import {
+  makeBossGlb,
   makeCarGlb,
   makeCityGlb,
   makeSeaGlb,
@@ -368,5 +369,138 @@ describe("街のモデル（ASSET.city）", () => {
   it("回る車（TRAFFIC.vehicles）と自転車・バイク・人は、みな ASSET.city のモデルがある", () => {
     const used = [...TRAFFIC.vehicles.map((v) => v.model), "bicycle", "motorbike", "person"];
     for (const m of used) expect(ASSET.city.variants).toContain(m);
+  });
+});
+
+// NORI-65：ボスの自作モデル（docs/game-rules.md「ボスのモデル」。一覧 1〜3。初見レビュー R1-65-4・5・7・8）
+describe("ボス（ASSET.boss）", () => {
+  const bossProblems = async (options: Parameters<typeof makeBossGlb>[0] = {}) =>
+    problemsOf(await makeBossGlb(options), "boss");
+
+  it("名前 boss はボスの決まりで検査する", () => {
+    expect(kindOf("boss")).toBe("boss");
+  });
+
+  it("正しい形は、glTF-Validator のエラー 0・問題 0", async () => {
+    const glb = await makeBossGlb();
+    const v = await validateGlb(glb);
+    expect(v.errors).toBe(0);
+    expect(await problemsOf(glb, "boss")).toEqual([]);
+  });
+
+  it("部品ごとの親・範囲・素材を読み取れる", async () => {
+    const report = await inspectGlb(await makeBossGlb({ childOfBody: "eye_L" }));
+    expect(report.parts["eye_L"]?.parent).toBe("body");
+    expect(report.parts["body"]?.parent).toBeNull();
+    expect(report.parts["arm_L"]?.materials).toEqual(["boss_body"]);
+    expect(report.parts["mouth_flat"]?.materials).toEqual(["boss_mouth"]);
+    expect(report.parts["body"]?.min[2]).toBeCloseTo(-BOSS.radius, 5);
+  });
+
+  it.each(ASSET.boss.nodes)("部品 %s がないと止まる", async (name) => {
+    expect(await bossProblems({ omitNodes: [name] })).toContain(`ノード ${name} がない`);
+  });
+
+  it("素材 boss_body がないと止まる", async () => {
+    expect(await bossProblems({ bodyMaterial: "boss_skin" })).toContain("素材 boss_body がない");
+  });
+
+  it("腕の 1 つが boss_body でないと止まる", async () => {
+    expect((await bossProblems({ armMaterial: "boss_arm" })).join("\n")).toMatch(
+      /arm_R が素材 boss_body を使っていない/,
+    );
+  });
+
+  it("目か口の 1 つが boss_body だと止まる（塗られてしまう）", async () => {
+    expect((await bossProblems({ eyeMaterial: "boss_body" })).join("\n")).toMatch(
+      /eye_L が素材 boss_body を使っている/,
+    );
+  });
+
+  it.each([0.85, 1.15])("大きさが ±10%% の外（%s 倍）だと止まる", async (scale) => {
+    const text = (await bossProblems({ scale })).join("\n");
+    expect(text).toMatch(/幅が/);
+    expect(text).toMatch(/高さが/);
+    expect(text).toMatch(/長さが/);
+  });
+
+  it(`三角形が ASSET.boss.maxTriangles（${ASSET.boss.maxTriangles}）を超えると止まる`, async () => {
+    const report = await inspectGlb(await makeBossGlb());
+    expect(checkGlb({ ...report, triangles: ASSET.boss.maxTriangles + 1 }, "boss").join("\n")).toMatch(
+      /三角形/,
+    );
+    expect(checkGlb({ ...report, triangles: ASSET.boss.maxTriangles }, "boss")).toEqual([]);
+  });
+
+  it(`大きさが ASSET.boss.maxGlbBytes（${ASSET.boss.maxGlbBytes} B）を超えると止まる`, async () => {
+    const report = await inspectGlb(await makeBossGlb());
+    expect(checkGlb({ ...report, bytes: ASSET.boss.maxGlbBytes + 1 }, "boss").join("\n")).toMatch(/大きさが/);
+    expect(checkGlb({ ...report, bytes: ASSET.boss.maxGlbBytes }, "boss")).toEqual([]);
+  });
+
+  it("原点が底にないと止まる", async () => {
+    expect((await bossProblems({ liftY: 1 })).join("\n")).toMatch(/原点が/);
+  });
+
+  it.each(["eye_L", "mouth_smile", "arm_R"])(
+    "%s が body の子だと止まる（いっしょにふくらむ）",
+    async (name) => {
+      expect((await bossProblems({ childOfBody: name })).join("\n")).toMatch(
+        new RegExp(`${name} が body の子になっている`),
+      );
+    },
+  );
+
+  it("body の原点が体の中心（底でない）だと止まる", async () => {
+    expect((await bossProblems({ bodyAtCenter: true })).join("\n")).toMatch(/body の原点が底の中心にない/);
+  });
+
+  // /code-review の指摘 2：一覧 1 は「(0,0,0) から 0.01 m より離れたら」。前の実装は x・z を 0.1 m まで通していた
+  it.each([
+    [0.05, true],
+    [0.005, false],
+  ])("body の位置が x に %s m ずれると、止まるのは %s", async (shift, stops) => {
+    const text = (await bossProblems({ bodyShiftX: shift })).join("\n");
+    if (stops) expect(text).toMatch(/body の原点が底の中心にない/);
+    else expect(text).not.toMatch(/body の原点/);
+  });
+
+  it("顔がふくらんだ体に埋まる（前の端が faceAhead 以上前にない）と止まる", async () => {
+    // 顔を 0.3 m 後ろへ：前の端 −3.3 m。いちばんふくらんだ体の前の端 −3.36 m より後ろ
+    expect((await bossProblems({ faceBack: 0.3 })).join("\n")).toMatch(/ふくらんだ体に埋まる/);
+  });
+
+  it("顔が +Z の側にある（前が +Z）と止まる", async () => {
+    expect((await bossProblems({ backwards: true })).join("\n")).toMatch(/顔が −Z の側にない/);
+  });
+
+  // /code-review の指摘 5：一覧 1 は「モデル全体の範囲の z の中心」と比べる（body の原点ではない）。
+  // 体の形を +Z へ 2 m ずらし（範囲 −r+2〜r+2）、目の中心を z = +0.5 m に置く：原点より後ろ、全体の中心より前
+  it("顔が body の原点より後ろでも、モデル全体の範囲の中心より前なら、向きの問題にしない", async () => {
+    const { length } = ASSET.boss.size;
+    const eyeZ = 0.5;
+    const faceBack = eyeZ - 0.3 - (BOSS.radius - length);
+    const report = await inspectGlb(await makeBossGlb({ bodyMeshZ: 2, faceBack }));
+    expect((report.min[2] + report.max[2]) / 2).toBeGreaterThan(eyeZ);
+    expect(checkGlb(report, "boss").join("\n")).not.toMatch(/顔が −Z の側にない/);
+  });
+
+  // 一覧 3（R1-65-4）：rules-sync は数が欄にあるかだけを見るので、幅・高さ・長さの順を比べる
+  it("game-rules.md のボスのモデルの大きさは、ASSET.boss.size の幅・高さ・長さと順に同じ", () => {
+    const rules = readFileSync(path.resolve(import.meta.dirname, "../../docs/game-rules.md"), "utf8");
+    const section = rules.slice(rules.indexOf("### ボスのモデル"), rules.indexOf("### ステージ5の色"));
+    const m = /^\| 大きさ（幅・高さ・長さ） +\| ([\d.]+) × ([\d.]+) × ([\d.]+) m/m.exec(section);
+    expect({ width: Number(m?.[1]), height: Number(m?.[2]), length: Number(m?.[3]) }).toEqual(
+      ASSET.boss.size,
+    );
+  });
+
+  // 一覧 2：本物の GLB も CI で毎回かける（街の 7 つと同じ）
+  it("本物の public/models/boss.glb は、glTF-Validator のエラー 0、ボスの決まりで問題 0", async () => {
+    const glb = new Uint8Array(
+      readFileSync(path.resolve(import.meta.dirname, "../../public/models/boss.glb")),
+    );
+    expect((await validateGlb(glb)).errors).toBe(0);
+    expect(await problemsOf(glb, "boss")).toEqual([]);
   });
 });

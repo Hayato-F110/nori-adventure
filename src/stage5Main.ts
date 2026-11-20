@@ -109,6 +109,20 @@ export const startStage5 = async (canvas: HTMLCanvasElement, hud: HTMLElement, s
     scene.add(roverView.root);
     roverModel = "glb";
   });
+  // ---- ボス：簡単な形で始め、GLB（boss）が読めて部品がそろったら差しかえる（NORI-65） ----
+  void (async () => {
+    try {
+      const base = import.meta.env.BASE_URL;
+      const res = await fetch(`${base}models/manifest.json`);
+      if (!res.ok) return;
+      const manifest = (await res.json()) as ModelManifest;
+      const entry = manifest.models.find((m) => m.name === "boss");
+      if (entry === undefined) return;
+      view.useBossModel((await gltfLoader.loadAsync(`${base}models/${entry.file}`)).scene);
+    } catch {
+      // 読めなければ簡単な形のまま
+    }
+  })();
 
   // ---- 入力と上の表示 ----
   const keyboard = createKeyboardInput(window);
@@ -161,6 +175,10 @@ export const startStage5 = async (canvas: HTMLCanvasElement, hud: HTMLElement, s
     rover: () => structuredClone(current),
     moonMarker: () => view.marker(),
     bossMouth: () => view.mouth,
+    get bossModel() {
+      return view.bossModel;
+    },
+    bossMouthNodes: () => view.bossMouthNodes(),
     get look() {
       return quality.lookState;
     },

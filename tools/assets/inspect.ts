@@ -4,9 +4,11 @@ import { getBounds, NodeIO } from "@gltf-transform/core";
 import type { Document, Node } from "@gltf-transform/core";
 import { ALL_EXTENSIONS } from "@gltf-transform/extensions";
 import validator from "gltf-validator";
-import { ASSET } from "../../src/config/index.ts";
+import { ASSET, BOSS } from "../../src/config/index.ts";
 
 const GLB_MAGIC = 0x46546c67; // "glTF"
+/** ボスの body の位置のずれの許し（m）。ルールの値でなく、書き出しの丸めの誤差の幅（NORI-65.md 一覧 1） */
+const BODY_ORIGIN_EPS = 0.01;
 const TRIANGLES = 4; // glTF の primitive.mode
 
 export type GlbReport = {
@@ -24,6 +26,19 @@ export type GlbReport = {
   materials: string[];
   /** 名前 → 位置・回転（ゲームが動かすノードを調べるため） */
   nodes: Record<string, { translation: number[]; rotation: number[] }>;
+  /**
+   * 名前 → 親・範囲・素材（NORI-65。ボスの部品を調べるため）。範囲はそのノードのメッシュだけを世界の位置で測る
+   * （子の範囲は入れない）。メッシュがなければ min・max は 0
+   */
+  parts: Record<
+    string,
+    {
+      parent: string | null;
+      min: [number, number, number];
+      max: [number, number, number];
+      materials: string[];
+    }
+  >;
   /** buffers・images にある URI（GLB の中だけで完結していれば空） */
   uris: string[];
   extensions: string[];
@@ -40,9 +55,45 @@ const emptyReport = (bytes: number, parseError: string): GlbReport => ({
   nodeNames: [],
   materials: [],
   nodes: {},
+  parts: {},
   uris: [],
   extensions: [],
 });
+
+/** ノードのメッシュだけの、世界の位置での範囲と、使う素材の名前（子は入れない） */
+const partOf = (node: Node): GlbReport["parts"][string] => {
+  const m = node.getWorldMatrix();
+  const min: [number, number, number] = [Infinity, Infinity, Infinity];
+  const max: [number, number, number] = [-Infinity, -Infinity, -Infinity];
+  const materials = new Set<string>();
+  const p = [0, 0, 0];
+  for (const prim of node.getMesh()?.listPrimitives() ?? []) {
+    const name = prim.getMaterial()?.getName();
+    if (name) materials.add(name);
+    const pos = prim.getAttribute("POSITION");
+    for (let i = 0; i < (pos?.getCount() ?? 0); i++) {
+      pos?.getElement(i, p);
+      const [x = 0, y = 0, z = 0] = p;
+      // 4 × 4 の行列（列ごとに並ぶ）で、点を世界の位置へ
+      const world = [
+        m[0] * x + m[4] * y + m[8] * z + m[12],
+        m[1] * x + m[5] * y + m[9] * z + m[13],
+        m[2] * x + m[6] * y + m[10] * z + m[14],
+      ];
+      for (let k = 0; k < 3; k++) {
+        min[k] = Math.min(min[k] ?? Infinity, world[k] ?? 0);
+        max[k] = Math.max(max[k] ?? -Infinity, world[k] ?? 0);
+      }
+    }
+  }
+  const empty = !Number.isFinite(min[0]);
+  return {
+    parent: node.getParentNode()?.getName() ?? null,
+    min: empty ? [0, 0, 0] : min,
+    max: empty ? [0, 0, 0] : max,
+    materials: [...materials],
+  };
+};
 
 /** GLB の JSON の部分だけを読む（外部の URI を、gltf-transform に読みに行かせる前に調べるため） */
 const readGlbJson = (glb: Uint8Array): Record<string, unknown> | null => {
@@ -128,6 +179,7 @@ export const inspectGlb = async (glb: Uint8Array): Promise<GlbReport> => {
         { translation: [...n.getTranslation()], rotation: [...n.getRotation()] },
       ]),
     ),
+    parts: Object.fromEntries(nodeList.map((n) => [n.getName(), partOf(n)])),
     uris,
     extensions,
   };
@@ -137,11 +189,13 @@ export type VehicleKind = keyof typeof ASSET.vehicles;
 export type SeaName = (typeof ASSET.sea.variants)[number];
 export type LandmarkName = (typeof ASSET.landmark.variants)[number];
 export type CityName = (typeof ASSET.city.variants)[number];
-export type AssetKind = "car" | VehicleKind | "tree" | SeaName | LandmarkName | CityName | "generic";
+export type AssetKind = "car" | VehicleKind | "tree" | SeaName | LandmarkName | CityName | "boss" | "generic";
 
 /** 名前（npm run assets:import <名前>）から、使う決まりを選ぶ。乗り物・木でなければ generic */
 export const kindOf = (name: string): AssetKind => {
   if (name === "car" || Object.hasOwn(ASSET.vehicles, name)) return name as AssetKind;
+  // ステージ5のボス（NORI-65）
+  if (name === "boss") return "boss";
   if ((ASSET.tree.variants as readonly string[]).includes(name)) return "tree";
   // 海の生きもの（NORI-28）は、種類ごとに大きさが違うので、名前をそのまま決まりの名前にする
   if ((ASSET.sea.variants as readonly string[]).includes(name)) return name as SeaName;
@@ -168,6 +222,7 @@ type ShapeSpec = {
 const specOf = (kind: Exclude<AssetKind, "generic">): ShapeSpec => {
   if (kind === "car") return { size: ASSET.carSize, nodes: ASSET.carNodes };
   if (kind === "tree") return ASSET.tree;
+  if (kind === "boss") return ASSET.boss;
   if (isSea(kind)) return { size: ASSET.sea.sizes[kind], nodes: ASSET.sea.nodes };
   if (isLandmark(kind)) return { size: ASSET.landmark.sizes[kind], nodes: ASSET.landmark.nodes };
   if (isCity(kind)) {
@@ -188,7 +243,9 @@ const limitsOf = (kind: AssetKind) =>
         ? { bytes: ASSET.landmark.maxGlbBytes, triangles: ASSET.landmark.maxTriangles }
         : isCity(kind)
           ? { bytes: ASSET.city.maxGlbBytes, triangles: ASSET.city.maxTriangles }
-          : { bytes: ASSET.maxGlbBytes, triangles: ASSET.maxTriangles };
+          : kind === "boss"
+            ? { bytes: ASSET.boss.maxGlbBytes, triangles: ASSET.boss.maxTriangles }
+            : { bytes: ASSET.maxGlbBytes, triangles: ASSET.maxTriangles };
 
 const pct = (v: number) => `${Math.round(v * 100)}%`;
 
@@ -215,6 +272,54 @@ export const checkGlb = (report: GlbReport, kind: AssetKind): string[] => {
     problems.push(`三角形でない面（線・点など）が ${report.nonTrianglePrimitives} 個ある`);
   }
   if (kind !== "generic") problems.push(...checkShape(report, specOf(kind)));
+  if (kind === "boss") problems.push(...checkBoss(report));
+  return problems;
+};
+
+/**
+ * ボスだけの決まり（NORI-65。docs/game-rules.md「ボスのモデル」）：色を塗る素材の使い方、8 つの部品を親子にしない、
+ * body の原点が底の中心、顔が −Z の側で、いちばんふくらんだ体より ASSET.boss.faceAhead 以上前に出ている
+ */
+const checkBoss = (report: GlbReport): string[] => {
+  const problems: string[] = [];
+  const parts = report.parts;
+  if (ASSET.boss.nodes.some((name) => parts[name] === undefined)) return problems; // ないノードは checkShape が言う
+  const [paint] = ASSET.boss.materials;
+  const face = ASSET.boss.nodes.filter((n) => n.startsWith("eye_") || n.startsWith("mouth_"));
+  for (const name of ["body", "arm_L", "arm_R"]) {
+    if (!parts[name]?.materials.includes(paint)) problems.push(`${name} が素材 ${paint} を使っていない`);
+  }
+  for (const name of face) {
+    if (parts[name]?.materials.includes(paint))
+      problems.push(`${name} が素材 ${paint} を使っている（色が塗られてしまう）`);
+  }
+  for (const name of ASSET.boss.nodes) {
+    const parent = parts[name]?.parent ?? null;
+    if (parent !== null)
+      problems.push(`${name} が ${parent} の子になっている（親子にしない。body の子だといっしょにふくらむ）`);
+  }
+  // body の位置は (0,0,0) から BODY_ORIGIN_EPS m 以内（ふくらみの中心が底の中心になる。NORI-65.md 一覧 1）
+  const [bx = 0, by = 0, bz = 0] = report.nodes["body"]?.translation ?? [];
+  if (Math.hypot(bx, by, bz) > BODY_ORIGIN_EPS) {
+    problems.push(
+      `body の原点が底の中心にない（${bx.toFixed(2)}, ${by.toFixed(2)}, ${bz.toFixed(2)} m。ふくらみの中心になる）`,
+    );
+  }
+  const body = parts["body"];
+  const center = (name: string) => ((parts[name]?.min[2] ?? 0) + (parts[name]?.max[2] ?? 0)) / 2;
+  // 顔の向き：目・口の z の中心が、モデル全体の範囲の z の中心より −Z の側（NORI-65.md 一覧 1）
+  const modelCenterZ = (report.min[2] + report.max[2]) / 2;
+  if (face.some((name) => center(name) >= modelCenterZ)) problems.push("顔が −Z の側にない（前は −Z）");
+  // いちばんふくらんだ体の前の端：body を原点を中心に 1 ＋ puffScale 倍
+  const puffedFront = bz + ((body?.min[2] ?? 0) - bz) * (1 + BOSS.puffScale);
+  for (const name of face) {
+    const front = parts[name]?.min[2] ?? 0;
+    if (front > puffedFront - ASSET.boss.faceAhead) {
+      problems.push(
+        `${name} の前の端（z ${front.toFixed(2)} m）が、ふくらんだ体の前の端（${puffedFront.toFixed(2)} m）より ${ASSET.boss.faceAhead} m 以上前になく、ふくらんだ体に埋まる`,
+      );
+    }
+  }
   return problems;
 };
 
