@@ -20,14 +20,33 @@ export type SoundCue = "collect" | "checkpoint" | "bump" | "goal";
 /** MIDI の番号 → 周波数（Hz）。69 番が 440 Hz のラ */
 export const noteFrequency = (note: number): number => 440 * 2 ** ((note - 69) / 12);
 
-/** 前の状態と今の状態から、鳴らす音を決める（同じ刻みに2つ起きたら両方）。ぶつかった音の間隔は見ない */
+/**
+ * 前の状態と今の状態から、鳴らす音を決める（同じ刻みに2つ起きたら両方）。ぶつかった音の間隔は見ない。
+ * 「とった」は増えた数だけ返す（`SOUND.collectMaxRepeat` 回まで。NORI-85）
+ */
 export const soundCues = (prev: SoundSnapshot, curr: SoundSnapshot): SoundCue[] => {
   const cues: SoundCue[] = [];
-  if (curr.collected > prev.collected) cues.push("collect");
+  const gained = Math.min(curr.collected - prev.collected, SOUND.collectMaxRepeat);
+  for (let k = 0; k < gained; k++) cues.push("collect");
   if (curr.checkpoints > prev.checkpoints) cues.push("checkpoint");
   if (curr.touching && !prev.touching) cues.push("bump");
   if (curr.finished && !prev.finished) cues.push("goal");
   return cues;
+};
+
+/**
+ * 同じ刻みに返した音ごとの、鳴り始めを遅らせる秒（NORI-85）。
+ * 同じ音の k 回目（0 から数える）は、1 回の長さ（音の数 × 1 音の秒）× k だけ遅らせる。ほかの音は遅らせない。
+ * ずらすのは 1 回の呼び出しの中だけ（コマをまたぐ重なりは見ない。docs/game-rules.md の「一度に2つ以上とった」）
+ */
+export const cueOffsets = (cues: readonly SoundCue[]): number[] => {
+  const seen = new Map<SoundCue, number>();
+  return cues.map((cue) => {
+    const k = seen.get(cue) ?? 0;
+    seen.set(cue, k + 1);
+    const e = SOUND.effects[cue];
+    return k * e.notes.length * e.noteSeconds;
+  });
 };
 
 /** ぶつかった音を鳴らしたら、この刻みの数は鳴らさない（0.5 秒 = 30 刻み） */

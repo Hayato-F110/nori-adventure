@@ -222,6 +222,23 @@ describe("NORI-76 一覧 4：覚えた結果で始める・覚え直す", () => 
     expect(judged).toEqual(["high"]);
   });
 
+  it("NORI-86：遅くても、最初の 1 秒は数えないので、判定（4 回目）の前は高・loading のまま。4 回目で低・plain", () => {
+    const { control, judged } = setup76("auto", null);
+    control.lookLoaded(look);
+    const judgeAt = LOOK.settleSeconds + LOOK.lowFpsSeconds;
+    for (let s = 1; s < judgeAt; s++) {
+      control.sample(LOOK.lowFps - 1, s);
+      expect(control.quality, `${s} 回目`).toBe("high");
+      expect(control.lookState, `${s} 回目`).toBe("loading");
+    }
+    expect(judged).toEqual([]);
+    control.sample(LOOK.lowFps - 1, judgeAt);
+    expect(control.quality).toBe("low");
+    expect(control.lookState).toBe("plain");
+    // 低へ下げたときと、判定が済んだときに 1 回ずつ low を知らせる（high は一度も知らせない。/code-review の指摘 5）
+    expect(judged).toEqual(["low", "low"]);
+  });
+
   it("覚えていない自動で遅ければ、判定のときに low を覚える", () => {
     const { control, judged } = setup76("auto", null);
     control.lookLoaded(look);
