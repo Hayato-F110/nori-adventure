@@ -65,6 +65,10 @@ declare global {
       >;
       /** ステージ5のボスの口の形（落ち着くと笑顔） */
       bossMouth?: () => "frown" | "flat" | "smile";
+      /** ステージ5のボスが簡単な形（box）か自作モデル（glb）か（NORI-65） */
+      bossModel?: "box" | "glb";
+      /** ステージ5のボスの自作モデルで見えている口のノードの名前（簡単な形なら空。NORI-65） */
+      bossMouthNodes?: () => string[];
       /** ステージ4の状態（NORI-28） */
       sub?: () => Stage4State;
       /** ステージ4の生きものの今の位置 */

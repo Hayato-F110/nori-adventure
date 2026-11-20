@@ -7,6 +7,7 @@ import { BOSS, LOOK, ROVER, SIM, STAGE5 } from "../config";
 import { bossAt, friendAvailable, rocksAt, type Stage5State } from "../core/stage5";
 import { friendStarPositions, jumpPads, pathPoint, starPositions } from "../core/stage5Layout";
 import { bossColor, bossHop, bossMouth, bossPuff, type Mouth } from "./bossLook";
+import { applyBossLook, type BossParts, bossPartsOf, swapBossModel, visibleMouthNodes } from "./bossModel";
 import { type Look, setGroundUv1, setPlaneUvMeters } from "./look";
 
 const GROUND_SIZE = STAGE5.boundsHalfSize * 2 + 160;
@@ -34,6 +35,12 @@ export type Stage5View = {
   marker(): { star: Point3; path: Point3; pad: Point3; sand: Point3; friend: Point3; ground: Point3 };
   /** 今の口の形（E2E・確かめ用） */
   readonly mouth: Mouth;
+  /** ボスの自作モデルに差しかえる（NORI-65）。部品がそろわなければ簡単な形のまま false */
+  useBossModel(model: THREE.Object3D): boolean;
+  /** ボスが簡単な形（box）か自作モデル（glb）か */
+  readonly bossModel: "box" | "glb";
+  /** 自作モデルで見えている口のノードの名前（簡単な形なら空） */
+  bossMouthNodes(): string[];
 };
 
 /** 星の形（ステージ1と同じ八面体を少し平たく） */
@@ -206,6 +213,9 @@ export const createStage5View = (): Stage5View => {
   mouths.smile.rotation.z = Math.PI; // 弧を下向きに → 笑顔
   for (const m of Object.values(mouths)) boss.add(m);
   root.add(boss);
+  // 自作モデルに差しかえたら、簡単な形（いま boss の子にあるもの全部）を隠す（NORI-65）
+  const simpleBoss = [...boss.children];
+  let bossParts: BossParts | null = null;
 
   // ---- 転がる岩（一度に 1 つ。余裕をみて 2 つ用意） ----
   const rolling = [0, 1].map(() => {
@@ -249,6 +259,19 @@ export const createStage5View = (): Stage5View => {
     get mouth() {
       return mouth;
     },
+    useBossModel(model) {
+      const parts = bossPartsOf(model);
+      model.traverse((o) => {
+        if (o instanceof THREE.Mesh) o.castShadow = true;
+      });
+      if (!swapBossModel(boss, simpleBoss, model, parts)) return false;
+      bossParts = parts;
+      return true;
+    },
+    get bossModel() {
+      return bossParts === null ? "box" : "glb";
+    },
+    bossMouthNodes: () => (bossParts === null ? [] : visibleMouthNodes(bossParts)),
     applyLook(look) {
       ground.material = look === null ? groundPlain : look.material("moon");
     },
@@ -274,10 +297,14 @@ export const createStage5View = (): Stage5View => {
       // 体の前（目のある −Z）を、ローバー（子ども）へ向ける。どこから近づいても顔が見える（見た目だけ）
       boss.rotation.y = Math.atan2(-(state.rover.x - b.x), -(state.rover.z - b.z));
       const puff = bossPuff(state.tick, SIM.fixedDt, calmNow);
-      body.scale.setScalar(1 + 0.12 * puff);
-      bodyMat.color.set(bossColor(state.calm));
       mouth = bossMouth(state.calm);
-      for (const [k, m] of Object.entries(mouths)) m.visible = k === mouth;
+      if (bossParts !== null) {
+        applyBossLook(bossParts, state.calm, puff);
+      } else {
+        body.scale.setScalar(1 + BOSS.puffScale * puff);
+        bodyMat.color.set(bossColor(state.calm));
+        for (const [k, m] of Object.entries(mouths)) m.visible = k === mouth;
+      }
 
       const rocks = rocksAt(state);
       rolling.forEach((m, i) => {
