@@ -86,18 +86,21 @@ describe("swapBossModel（一覧 4。R1-65-10・15）", () => {
 });
 
 describe("applyBossLook（一覧 5）", () => {
-  it.each([0, 1, 2, 3, 4, 5])("届けた回数 %i：boss_body の素材が全部 bossColor の色、見える口は 1 つだけ", (calm) => {
-    const model = modelWith();
-    const parts = bossPartsOf(model);
-    if (!parts) throw new Error("部品がそろわない");
-    applyBossLook(parts, calm, 0);
-    const want = new THREE.Color(bossColor(calm));
-    for (const m of parts.bodyMaterials) expect(m.color.getHex()).toBe(want.getHex());
-    const visible = ["mouth_frown", "mouth_flat", "mouth_smile"].filter((n) => node(model, n).visible);
-    expect(visible).toEqual([`mouth_${bossMouth(calm)}`]);
-    // 目・口の素材は塗らない
-    expect(((node(model, "eye_L").material as THREE.MeshStandardMaterial).color.getHex())).toBe(0xffffff);
-  });
+  it.each([0, 1, 2, 3, 4, 5])(
+    "届けた回数 %i：boss_body の素材が全部 bossColor の色、見える口は 1 つだけ",
+    (calm) => {
+      const model = modelWith();
+      const parts = bossPartsOf(model);
+      if (!parts) throw new Error("部品がそろわない");
+      applyBossLook(parts, calm, 0);
+      const want = new THREE.Color(bossColor(calm));
+      for (const m of parts.bodyMaterials) expect(m.color.getHex()).toBe(want.getHex());
+      const visible = ["mouth_frown", "mouth_flat", "mouth_smile"].filter((n) => node(model, n).visible);
+      expect(visible).toEqual([`mouth_${bossMouth(calm)}`]);
+      // 目・口の素材は塗らない
+      expect((node(model, "eye_L").material as THREE.MeshStandardMaterial).color.getHex()).toBe(0xffffff);
+    },
+  );
 
   it.each([
     [0, 1],

@@ -121,7 +121,11 @@ describe("Blender のスクリプトと ASSET の一致（tools/blender/build-bo
 
   it("ボスの幅・高さ・長さが ASSET.boss.size と同じ", () => {
     const m = /^WIDTH, HEIGHT, LENGTH = ([\d.]+), ([\d.]+), ([\d.]+)/m.exec(py());
-    expect(m?.slice(1, 4).map(Number)).toEqual([ASSET.boss.size.width, ASSET.boss.size.height, ASSET.boss.size.length]);
+    expect(m?.slice(1, 4).map(Number)).toEqual([
+      ASSET.boss.size.width,
+      ASSET.boss.size.height,
+      ASSET.boss.size.length,
+    ]);
   });
 
   it("部品の名前が ASSET.boss.nodes と同じで、素材 boss_body がある", () => {
