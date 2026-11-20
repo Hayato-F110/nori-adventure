@@ -79,6 +79,18 @@ describe("Hook：npm run check をパイプにつないだら止める（NORI-92
     ["npm run check &> out.txt | cat"],
     ["npm run check | Select-Object -Last 5"], // PowerShell
     ["git fetch -q\nnpm run check 2>&1 | tail -3"], // 2 行目
+    // /code-review の指摘 1：pipefail の文字が、パイプのあと・文の中にあるだけ
+    ["npm run check 2>&1 | tail -5; set -o pipefail"],
+    ['git commit -m "set -o pipefail を使う"; npm run check | tail'],
+    ["set +o pipefail; npm run check | tail"], // + は外す
+    // 指摘 2：行の続き・包む命令・まとめた命令
+    ["npm run check 2>&1 \\\n  | tail -5"],
+    ["time npm run check | tail"],
+    ["env CI=1 npm run check | tail"],
+    ["{ npm run check; } 2>&1 | tail"],
+    ["( cd x && npm run check ) | tail"],
+    // 指摘 3：シェルに渡す heredoc の中身は命令
+    ["bash <<'EOF'\nnpm run check 2>&1 | tail -5\nEOF"],
   ])("止める：%s", (command) => {
     expect(findCheckPipe(command)).not.toBeNull();
   });
@@ -89,6 +101,9 @@ describe("Hook：npm run check をパイプにつないだら止める（NORI-92
     ["npm run check || echo 落ちた"], // || はパイプではない
     ["npm run check && git push -u origin feature/NORI-92-x"],
     ["set -o pipefail; npm run check 2>&1 | tail -5"], // パイプの途中で落ちたら全体が落ちる
+    ["set -euo pipefail; npm run check 2>&1 | tail -5"], // 指摘 4：よく使う書き方
+    ["set -o errexit -o pipefail\nnpm run check | tail"],
+    ["{ npm run check; } > c.txt 2>&1; echo $?"], // まとめた命令でも、ファイルに書けば通す
     ["npm run typecheck | tail"], // 別の命令（この課題の範囲の外）
     ['git commit -q -m "npm run check | tail で緑に見えた"'], // 文の中の説明
     ["git commit -q -F - <<'EOF'\nnpm run check | tail で緑に見えた\nEOF"],
