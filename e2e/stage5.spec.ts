@@ -46,6 +46,38 @@ const expectOnScreen = (page: Page, points: { x: number; y: number }[]) => {
   }
 };
 
+for (const [mode, quality] of QUALITIES) {
+  test(`ステージ5の見た目（${mode}）：スタートで、ほし・ジャンプ台がまわりの月の砂より目立つ`, async ({
+    page,
+  }, testInfo) => {
+    test.setTimeout(120_000);
+    const errors = watchErrors(page);
+    await openWithQuality(page, quality);
+    // NORI-70（初見レビュー 29-54）：実際の 0.8 秒でなく、ゲームの 90 刻み待つ（ステージ2の見た目と同じ。カメラが落ち着くまで）
+    await waitTicks(page, 90);
+    // ルールは、ほし・台を「まわりの月の砂」と比べる（計算：ほしと砂 4.59、台と砂 4.20）。前は道と比べていた
+    // （道は砂より暗いので、比が大きく出て通りやすい。NORI-70：初見レビュー R1-70-1）。道との比は記録にだけ残す
+    const points = await screenPoints(page, ["star", "path", "pad", "sand"]);
+    expectOnScreen(page, points);
+    const shot = await attachShot(page, testInfo, `stage5-start-${quality}`);
+    const [, path = 0, , sand = 0] = await luminanceAt(page, points, shot);
+    // ほし・台は小さく見えるので、読んだ点のまわり 6 px でいちばん明るいところを測る
+    const star = await peakLuminanceAt(page, points[0] ?? { x: 0, y: 0 }, 6, shot);
+    const pad = await peakLuminanceAt(page, points[2] ?? { x: 0, y: 0 }, 6, shot);
+    const result = {
+      star: ratio(star, sand),
+      pad: ratio(pad, sand),
+      starToPath: ratio(star, path),
+      padToPath: ratio(pad, path),
+      quality,
+      points,
+    };
+    await testInfo.attach("contrast", { body: JSON.stringify(result), contentType: "application/json" });
+    expect(result.star, JSON.stringify(result)).toBeGreaterThanOrEqual(MIN_CONTRAST);
+    expect(result.pad, JSON.stringify(result)).toBeGreaterThanOrEqual(MIN_CONTRAST);
+    expect(errors).toEqual([]);
+  });
+}
 /**
  * 道すじを 4 m/s で d = 100（広場の入口）まで早送りで走って止まり、ボスが自作モデルに差しかわるのを待つ
  * （なかよしの星は取らない：friends を渡さない）
@@ -104,29 +136,33 @@ for (const [mode, quality] of QUALITIES) {
 
 // NORI-65（一覧 7。初見レビュー R1-65-1・2）：ボスの広場の入口で、重い方の高画質に決めて測る。
 // 実際の速さが要る E2E なので、入口に着いてから早送りをやめる（運転役の stepsPerFrame を消す）
-test("ステージ5：ボスの広場の入口で、CPU を遅くしても 30fps 以上（高画質）", { tag: "@fps" }, async ({ page }, testInfo) => {
-  test.skip(skipFps, "GPU のない CI では FPS を測らない");
-  test.setTimeout(360_000);
-  await driveToArenaEntrance(page, "high");
-  await page.evaluate(() => {
-    const driver = (globalThis as unknown as { __noriDriver?: { stepsPerFrame?: number } }).__noriDriver;
-    if (driver) delete driver.stepsPerFrame;
-  });
-  const cdp = await page.context().newCDPSession(page);
-  await cdp.send("Emulation.setCPUThrottlingRate", { rate: LOOK.cpuThrottle });
-  const start = await page.evaluate(() => window.__nori?.fpsSamples.length ?? 0);
-  await page.waitForFunction((n) => (window.__nori?.fpsSamples.length ?? 0) >= n + 6, start, {
-    timeout: 120_000,
-  });
-  const samples = ((await page.evaluate(() => window.__nori?.fpsSamples)) ?? []).slice(start + 1);
-  const average = samples.reduce((s, v) => s + v, 0) / Math.max(1, samples.length);
-  const quality = await page.evaluate(() => window.__nori?.quality);
-  await testInfo.attach("throttled", {
-    body: JSON.stringify({ samples, average, quality, throttle: LOOK.cpuThrottle }),
-    contentType: "application/json",
-  });
-  await page.screenshot({ path: testInfo.outputPath("stage5-boss-throttled.png") });
-  await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 });
-  expect(average).toBeGreaterThanOrEqual(LOOK.throttledFps);
-  expect(quality).toBe("high");
-});
+test(
+  "ステージ5：ボスの広場の入口で、CPU を遅くしても 30fps 以上（高画質）",
+  { tag: "@fps" },
+  async ({ page }, testInfo) => {
+    test.skip(skipFps, "GPU のない CI では FPS を測らない");
+    test.setTimeout(360_000);
+    await driveToArenaEntrance(page, "high");
+    await page.evaluate(() => {
+      const driver = (globalThis as unknown as { __noriDriver?: { stepsPerFrame?: number } }).__noriDriver;
+      if (driver) delete driver.stepsPerFrame;
+    });
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send("Emulation.setCPUThrottlingRate", { rate: LOOK.cpuThrottle });
+    const start = await page.evaluate(() => window.__nori?.fpsSamples.length ?? 0);
+    await page.waitForFunction((n) => (window.__nori?.fpsSamples.length ?? 0) >= n + 6, start, {
+      timeout: 120_000,
+    });
+    const samples = ((await page.evaluate(() => window.__nori?.fpsSamples)) ?? []).slice(start + 1);
+    const average = samples.reduce((s, v) => s + v, 0) / Math.max(1, samples.length);
+    const quality = await page.evaluate(() => window.__nori?.quality);
+    await testInfo.attach("throttled", {
+      body: JSON.stringify({ samples, average, quality, throttle: LOOK.cpuThrottle }),
+      contentType: "application/json",
+    });
+    await page.screenshot({ path: testInfo.outputPath("stage5-boss-throttled.png") });
+    await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 });
+    expect(average).toBeGreaterThanOrEqual(LOOK.throttledFps);
+    expect(quality).toBe("high");
+  },
+);

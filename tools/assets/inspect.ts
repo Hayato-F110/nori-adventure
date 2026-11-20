@@ -7,6 +7,8 @@ import validator from "gltf-validator";
 import { ASSET, BOSS } from "../../src/config/index.ts";
 
 const GLB_MAGIC = 0x46546c67; // "glTF"
+/** ボスの body の位置のずれの許し（m）。ルールの値でなく、書き出しの丸めの誤差の幅（NORI-65.md 一覧 1） */
+const BODY_ORIGIN_EPS = 0.01;
 const TRIANGLES = 4; // glTF の primitive.mode
 
 export type GlbReport = {
@@ -296,16 +298,18 @@ const checkBoss = (report: GlbReport): string[] => {
     if (parent !== null)
       problems.push(`${name} が ${parent} の子になっている（親子にしない。body の子だといっしょにふくらむ）`);
   }
-  const tol = ASSET.sizeTolerance;
+  // body の位置は (0,0,0) から BODY_ORIGIN_EPS m 以内（ふくらみの中心が底の中心になる。NORI-65.md 一覧 1）
   const [bx = 0, by = 0, bz = 0] = report.nodes["body"]?.translation ?? [];
-  if (Math.abs(by) > ASSET.boss.size.height * tol || Math.abs(bx) > tol || Math.abs(bz) > tol) {
+  if (Math.hypot(bx, by, bz) > BODY_ORIGIN_EPS) {
     problems.push(
       `body の原点が底の中心にない（${bx.toFixed(2)}, ${by.toFixed(2)}, ${bz.toFixed(2)} m。ふくらみの中心になる）`,
     );
   }
   const body = parts["body"];
   const center = (name: string) => ((parts[name]?.min[2] ?? 0) + (parts[name]?.max[2] ?? 0)) / 2;
-  if (face.some((name) => center(name) >= bz)) problems.push("顔が −Z の側にない（前は −Z）");
+  // 顔の向き：目・口の z の中心が、モデル全体の範囲の z の中心より −Z の側（NORI-65.md 一覧 1）
+  const modelCenterZ = (report.min[2] + report.max[2]) / 2;
+  if (face.some((name) => center(name) >= modelCenterZ)) problems.push("顔が −Z の側にない（前は −Z）");
   // いちばんふくらんだ体の前の端：body を原点を中心に 1 ＋ puffScale 倍
   const puffedFront = bz + ((body?.min[2] ?? 0) - bz) * (1 + BOSS.puffScale);
   for (const name of face) {

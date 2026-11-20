@@ -332,6 +332,8 @@ export type BossFixtureOptions = FixtureOptions & {
   bodyAtCenter?: boolean;
   /** 顔（目・口）を +Z へずらす量（m。ふくらんだ体に埋まる形を作る） */
   faceBack?: number;
+  /** body のノードだけを +X へずらす量（m。原点の許しの幅を確かめる。/code-review の指摘 2） */
+  bodyShiftX?: number;
 };
 
 /**
@@ -361,7 +363,13 @@ export const makeBossDocument = (options: BossFixtureOptions = {}): Document => 
     ["body", [2 * r, height, 2 * r], [0, 0, 0], [0, height / 2, 0], bodyMat],
     ["arm_L", [1, 1.5, 1], [-(width / 2 - 0.5), height / 2, 0], [0, 0, 0], bodyMat],
     ["arm_R", [1, 1.5, 1], [width / 2 - 0.5, height / 2, 0], [0, 0, 0], options.armMaterial ?? bodyMat],
-    ["eye_L", [1.1, 1.1, 0.6], [-1, 3.9, zSign * (faceFront + 0.3)], [0, 0, 0], options.eyeMaterial ?? "boss_eye"],
+    [
+      "eye_L",
+      [1.1, 1.1, 0.6],
+      [-1, 3.9, zSign * (faceFront + 0.3)],
+      [0, 0, 0],
+      options.eyeMaterial ?? "boss_eye",
+    ],
     ["eye_R", [1.1, 1.1, 0.6], [1, 3.9, zSign * (faceFront + 0.3)], [0, 0, 0], "boss_eye"],
     ["mouth_frown", [1.2, 0.3, 0.3], [0, 2.6, zSign * (faceFront + 0.15)], [0, 0, 0], "boss_mouth"],
     ["mouth_flat", [1.2, 0.3, 0.3], [0, 2.6, zSign * (faceFront + 0.15)], [0, 0, 0], "boss_mouth"],
@@ -382,7 +390,11 @@ export const makeBossDocument = (options: BossFixtureOptions = {}): Document => 
     const node = doc
       .createNode(name)
       .setMesh(mesh)
-      .setTranslation(atCenter ? [0, (height / 2) * s + lift, 0] : [x * s, y * s + lift, z * s]);
+      .setTranslation(
+        atCenter
+          ? [0, (height / 2) * s + lift, 0]
+          : [x * s + (name === "body" ? (options.bodyShiftX ?? 0) : 0), y * s + lift, z * s],
+      );
     nodes.set(name, node);
   }
   for (const [name, node] of nodes) {

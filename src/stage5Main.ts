@@ -113,7 +113,9 @@ export const startStage5 = async (canvas: HTMLCanvasElement, hud: HTMLElement, s
   void (async () => {
     try {
       const base = import.meta.env.BASE_URL;
-      const manifest = (await (await fetch(`${base}models/manifest.json`)).json()) as ModelManifest;
+      const res = await fetch(`${base}models/manifest.json`);
+      if (!res.ok) return;
+      const manifest = (await res.json()) as ModelManifest;
       const entry = manifest.models.find((m) => m.name === "boss");
       if (entry === undefined) return;
       view.useBossModel((await gltfLoader.loadAsync(`${base}models/${entry.file}`)).scene);

@@ -6,7 +6,7 @@ import * as THREE from "three";
 import { BOSS, LOOK, ROVER, SIM, STAGE5 } from "../config";
 import { bossAt, friendAvailable, rocksAt, type Stage5State } from "../core/stage5";
 import { friendStarPositions, jumpPads, pathPoint, starPositions } from "../core/stage5Layout";
-import { bossColor, bossHop, bossMouth, bossPuff, type Mouth } from "./bossLook";
+import { bossHop, bossMouth, bossPuff, type Mouth } from "./bossLook";
 import { applyBossLook, type BossParts, bossPartsOf, swapBossModel, visibleMouthNodes } from "./bossModel";
 import { type Look, setGroundUv1, setPlaneUvMeters } from "./look";
 
@@ -215,6 +215,8 @@ export const createStage5View = (): Stage5View => {
   root.add(boss);
   // 自作モデルに差しかえたら、簡単な形（いま boss の子にあるもの全部）を隠す（NORI-65）
   const simpleBoss = [...boss.children];
+  // 簡単な形も、自作モデルと同じ関数（applyBossLook）で色・口・ふくらみを当てる（NORI-65.md 一覧 5）
+  const simpleParts: BossParts = { body, mouths, bodyMaterials: [bodyMat] };
   let bossParts: BossParts | null = null;
 
   // ---- 転がる岩（一度に 1 つ。余裕をみて 2 つ用意） ----
@@ -298,13 +300,7 @@ export const createStage5View = (): Stage5View => {
       boss.rotation.y = Math.atan2(-(state.rover.x - b.x), -(state.rover.z - b.z));
       const puff = bossPuff(state.tick, SIM.fixedDt, calmNow);
       mouth = bossMouth(state.calm);
-      if (bossParts !== null) {
-        applyBossLook(bossParts, state.calm, puff);
-      } else {
-        body.scale.setScalar(1 + BOSS.puffScale * puff);
-        bodyMat.color.set(bossColor(state.calm));
-        for (const [k, m] of Object.entries(mouths)) m.visible = k === mouth;
-      }
+      applyBossLook(bossParts ?? simpleParts, state.calm, puff);
 
       const rocks = rocksAt(state);
       rolling.forEach((m, i) => {
