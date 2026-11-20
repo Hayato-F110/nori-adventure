@@ -1,4 +1,4 @@
-import { expect, type Page, test } from "@playwright/test";
+import { expect, type Page, type TestInfo, test } from "@playwright/test";
 import { SOUND } from "../src/config";
 import { openStage, waitStarted, watchErrors } from "./common";
 import { installCarDriver, STAGE1_ROUTE_DRIVER, startDriving } from "./driver";
@@ -110,10 +110,16 @@ test("ステージ1：最初のキーで音が動き出し、ほしを取ると�
 // ルールは docs/game-rules.md「効果音と BGM」（操作に当たるのは keydown（Esc を除く）・mousedown・マウス以外の pointerup・touchend）。
 // 音の仕組みは最初の操作の unlock で初めて作るので、それまで state() は "none"（src/render/sound.ts）
 const soundState = (page: Page) => page.evaluate(() => window.__noriSound?.state() ?? "missing");
-const waitRunning = (page: Page) =>
-  page.waitForFunction(() => window.__noriSound?.state() === "running", undefined, {
+/** "running" になるまで待ち（上限 10 秒）、操作からかかった秒を注記に残す（実際の速さが要る E2E は値を残す。CLAUDE.md） */
+const waitRunning = async (page: Page, testInfo: TestInfo, from: number) => {
+  await page.waitForFunction(() => window.__noriSound?.state() === "running", undefined, {
     timeout: SOUND_LIMIT_MS,
   });
+  testInfo.annotations.push({
+    type: "running まで",
+    description: `${((Date.now() - from) / 1000).toFixed(3)} 秒`,
+  });
+};
 /** ページの描画を n コマ待つ（秒で待たない。一覧の「## 計算」） */
 const waitFrames = (page: Page, n: number) =>
   page.evaluate(
@@ -130,30 +136,32 @@ test.describe("NORI-87：タブレット（1024×768・タッチ）", () => {
   test.use({ viewport: { width: 1024, height: 768 }, hasTouch: true, isMobile: true });
 
   // 一覧 1 (a)：何もない所のタップ（pointerup・touchend・mousedown の 3 つとも出る）
-  test("ステージ1：何もない所を最初にタップすると、音が running になる", async ({ page }) => {
+  test("ステージ1：何もない所を最初にタップすると、音が running になる", async ({ page }, testInfo) => {
     const errors = watchErrors(page);
     await openStage(page, "./?stage=1");
     expect(await soundState(page)).toBe("none");
+    const at = Date.now();
     await page.touchscreen.tap(512, 200);
-    await waitRunning(page);
+    await waitRunning(page, testInfo, at);
     expect(errors).toEqual([]);
   });
 
   // 一覧 1 (b)：▶ のタップ（pointerdown で preventDefault するので mousedown は出ない。R1-87-C）
-  test("ステージ1：最初に ▶ をタップすると、音が running になる", async ({ page }) => {
+  test("ステージ1：最初に ▶ をタップすると、音が running になる", async ({ page }, testInfo) => {
     const errors = watchErrors(page);
     await openStage(page, "./?stage=1");
     await expect(page.locator("#go")).toBeVisible();
     expect(await soundState(page)).toBe("none");
+    const at = Date.now();
     await page.locator("#go").tap();
-    await waitRunning(page);
+    await waitRunning(page, testInfo, at);
     expect(errors).toEqual([]);
   });
 
   // 一覧 4：ページごとに数える（タイトルのボタンはページを読み込み直す）
   test("タイトルで車のボタンをタップしてステージ1へ移ると、ステージで最初にタップするまで音を作らない", async ({
     page,
-  }) => {
+  }, testInfo) => {
     test.setTimeout(150_000); // 60 ＋ 60 ＋ 10 に余裕（一覧の「## 計算」）
     const errors = watchErrors(page);
     await page.goto("./");
@@ -162,8 +170,9 @@ test.describe("NORI-87：タブレット（1024×768・タッチ）", () => {
     await expect(page).toHaveURL(/\?stage=1$/);
     await waitStarted(page);
     expect(await soundState(page)).toBe("none");
+    const at = Date.now();
     await page.touchscreen.tap(512, 200);
-    await waitRunning(page);
+    await waitRunning(page, testInfo, at);
     expect(errors).toEqual([]);
   });
 });
@@ -181,39 +190,44 @@ const ENTRIES: [string, Synthetic, boolean][] = [
   ["pointerup（マウス）", { kind: "pointer", type: "pointerup", detail: "mouse" }, false],
   ["keydown（Escape）", { kind: "key", type: "keydown", detail: "Escape" }, false],
 ];
-for (const [name, event, unlocks] of ENTRIES) {
-  test(`NORI-87 入口ごと：${name} だけを送ると、音の仕組みを${unlocks ? "作る" : "作らない"}`, async ({
+test.describe("NORI-87：入口ごと", () => {
+  for (const [name, event, unlocks] of ENTRIES) {
+    test(`${name} だけを送ると、音の仕組みを${unlocks ? "作る" : "作らない"}`, async ({ page }) => {
+      const errors = watchErrors(page);
+      await openStage(page, "./?stage=1");
+      expect(await soundState(page)).toBe("none");
+      await page.evaluate(({ kind, type, detail }) => {
+        const e =
+          kind === "pointer"
+            ? new PointerEvent(type, { pointerType: detail ?? "" })
+            : kind === "mouse"
+              ? new MouseEvent(type)
+              : kind === "key"
+                ? new KeyboardEvent(type, { key: detail ?? "" })
+                : new Event(type);
+        window.dispatchEvent(e);
+      }, event);
+      if (unlocks) expect(await soundState(page)).not.toBe("none");
+      else expect(await soundState(page)).toBe("none");
+      expect(errors).toEqual([]);
+    });
+  }
+});
+
+// 一覧 3：最初の Esc では動かず、そのあとのキーで動く
+test.describe("NORI-87：Esc", () => {
+  test("最初に Esc を押しても音は動かず、そのあとの ArrowUp で running になる", async ({
     page,
-  }) => {
+  }, testInfo) => {
     const errors = watchErrors(page);
     await openStage(page, "./?stage=1");
     expect(await soundState(page)).toBe("none");
-    await page.evaluate(({ kind, type, detail }) => {
-      const e =
-        kind === "pointer"
-          ? new PointerEvent(type, { pointerType: detail ?? "" })
-          : kind === "mouse"
-            ? new MouseEvent(type)
-            : kind === "key"
-              ? new KeyboardEvent(type, { key: detail ?? "" })
-              : new Event(type);
-      window.dispatchEvent(e);
-    }, event);
-    if (unlocks) expect(await soundState(page)).not.toBe("none");
-    else expect(await soundState(page)).toBe("none");
+    await page.keyboard.press("Escape");
+    await waitFrames(page, 30);
+    expect(await soundState(page)).toBe("none");
+    const at = Date.now();
+    await page.keyboard.press("ArrowUp");
+    await waitRunning(page, testInfo, at);
     expect(errors).toEqual([]);
   });
-}
-
-// 一覧 3：最初の Esc では動かず、そのあとのキーで動く
-test("NORI-87：最初に Esc を押しても音は動かず、そのあとの ArrowUp で running になる", async ({ page }) => {
-  const errors = watchErrors(page);
-  await openStage(page, "./?stage=1");
-  expect(await soundState(page)).toBe("none");
-  await page.keyboard.press("Escape");
-  await waitFrames(page, 30);
-  expect(await soundState(page)).toBe("none");
-  await page.keyboard.press("ArrowUp");
-  await waitRunning(page);
-  expect(errors).toEqual([]);
 });
