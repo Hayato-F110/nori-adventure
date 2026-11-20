@@ -8,7 +8,7 @@ argument-hint: "[確認だけ]"
 1日の作業を始めます。次の順で進めてください。
 
 1. `date` で今日の日付と時刻を確かめる（記憶や推測で書かない）
-2. 読む：`docs/handoff.md`（最初に）、`CLAUDE.md`、最新の `docs/devlog/YYYY-MM-DD.md`、`docs/jira/sprint1.md`（今のスプリントの一覧）
+2. 読む：`docs/handoff.md`（最初に）、`CLAUDE.md`、最新の `docs/devlog/YYYY-MM-DD.md`、`docs/schedule.md`（スプリントの全体の表。今のスプリントの課題は手順 4 で Jira から読む）
 3. `git status`・`git branch -a`・`gh pr list` で、作業中のブランチと未マージの PR を確かめる。あわせて `node tools/dev/agent-reports.mjs` で、48 時間の中に自動で保存したサブエージェントの報告（`.claude/agent-reports/`）を一覧にし、引き継ぎに「受け取れていない」「回し直す」とある報告がそこにないかを先に確かめる（2026-11-15。前のセッションの報告を探さずに「残っていない」と判断したため）
 4. Jira（NORI）で、今のスプリントの課題の状態を確かめる（`searchJiraIssuesUsingJql`、`project = NORI AND sprint in openSprints()`）。引き継ぎと違う点があれば知らせる。あわせて、スプリントの始まり・終わりの日時を Jira から読む（`executeRead` の `listJiraBoardSprints`、ボード 35、`state: "all"`。UTC なので +9 時間して書く）。引き継ぎ・`docs/schedule.md` の日付は古いことがあるので、残り日数には使わない（2026-11-17。スプリント3を 11/18 まで延ばしたのに、引き継ぎの古い表の「11/17 23:00」を書いたため）
 5. 次を簡潔に示す
