@@ -1,6 +1,6 @@
 import { expect, type Page, type TestInfo, test } from "@playwright/test";
 import { SOUND } from "../src/config";
-import { openStage, waitStarted, watchErrors } from "./common";
+import { openStage, waitFrames, waitStarted, watchErrors } from "./common";
 import { installCarDriver, STAGE1_ROUTE_DRIVER, startDriving } from "./driver";
 
 // NORI-31：効果音と BGM（docs/game-rules.md「効果音と BGM」）。テストの一覧の 8・9
@@ -120,17 +120,6 @@ const waitRunning = async (page: Page, testInfo: TestInfo, from: number) => {
     description: `${((Date.now() - from) / 1000).toFixed(3)} 秒`,
   });
 };
-/** ページの描画を n コマ待つ（秒で待たない。一覧の「## 計算」） */
-const waitFrames = (page: Page, n: number) =>
-  page.evaluate(
-    (count) =>
-      new Promise<void>((resolve) => {
-        let left = count;
-        const step = () => (--left <= 0 ? resolve() : requestAnimationFrame(step));
-        requestAnimationFrame(step);
-      }),
-    n,
-  );
 
 test.describe("NORI-87：タブレット（1024×768・タッチ）", () => {
   test.use({ viewport: { width: 1024, height: 768 }, hasTouch: true, isMobile: true });
