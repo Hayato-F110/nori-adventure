@@ -96,6 +96,21 @@ export const waitTicks = async (page: Page, n: number, timeout = 60_000) => {
 };
 
 /**
+ * ページの描画を n コマ待つ（requestAnimationFrame で数える。実際の秒で待たない）。
+ * ゲームの刻みでなく描画のコマで数えたいとき（例：NORI-87 の Esc のあと、何も起きないことを見る）に使う
+ */
+export const waitFrames = (page: Page, n: number) =>
+  page.evaluate(
+    (count) =>
+      new Promise<void>((resolve) => {
+        let left = count;
+        const step = () => (--left <= 0 ? resolve() : requestAnimationFrame(step));
+        requestAnimationFrame(step);
+      }),
+    n,
+  );
+
+/**
  * ステージ2：乗る列車を選ぶ（NORI-59）。openStage のあとに呼ぶ。選ぶ前は時間が止まっている（刻み 0）ことも確かめる。
  * クリックした時刻（Date.now()）を返す
  */

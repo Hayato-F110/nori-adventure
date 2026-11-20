@@ -1,6 +1,6 @@
-import { expect, type Page, test } from "@playwright/test";
+import { expect, type Page, type TestInfo, test } from "@playwright/test";
 import { SOUND } from "../src/config";
-import { openStage, waitStarted, watchErrors } from "./common";
+import { openStage, waitFrames, waitStarted, watchErrors } from "./common";
 import { installCarDriver, STAGE1_ROUTE_DRIVER, startDriving } from "./driver";
 
 // NORI-31：効果音と BGM（docs/game-rules.md「効果音と BGM」）。テストの一覧の 8・9
@@ -104,4 +104,119 @@ test("ステージ1：最初のキーで音が動き出し、ほしを取ると�
   note("音量が下がるまで", Date.now() - muteAt);
   await page.locator("#sound").click(); // ほかのテストのために戻す（一覧 6 の範囲の外。前のまま残す）
   expect(errors).toEqual([]);
+});
+
+// NORI-87：音の仕組みを動かす入口のうち、キー以外の最初の操作・Esc・タイトルから移ったとき（docs/test-plans/NORI-87.md）。
+// ルールは docs/game-rules.md「効果音と BGM」（操作に当たるのは keydown（Esc を除く）・mousedown・マウス以外の pointerup・touchend）。
+// 音の仕組みは最初の操作の unlock で初めて作るので、それまで state() は "none"（src/render/sound.ts）
+const soundState = (page: Page) => page.evaluate(() => window.__noriSound?.state() ?? "missing");
+/** "running" になるまで待ち（上限 10 秒）、操作からかかった秒を注記に残す（実際の速さが要る E2E は値を残す。CLAUDE.md） */
+const waitRunning = async (page: Page, testInfo: TestInfo, from: number) => {
+  await page.waitForFunction(() => window.__noriSound?.state() === "running", undefined, {
+    timeout: SOUND_LIMIT_MS,
+  });
+  testInfo.annotations.push({
+    type: "running まで",
+    description: `${((Date.now() - from) / 1000).toFixed(3)} 秒`,
+  });
+};
+
+test.describe("NORI-87：タブレット（1024×768・タッチ）", () => {
+  test.use({ viewport: { width: 1024, height: 768 }, hasTouch: true, isMobile: true });
+
+  // 一覧 1 (a)：何もない所のタップ（pointerup・touchend・mousedown の 3 つとも出る）
+  test("ステージ1：何もない所を最初にタップすると、音が running になる", async ({ page }, testInfo) => {
+    const errors = watchErrors(page);
+    await openStage(page, "./?stage=1");
+    expect(await soundState(page)).toBe("none");
+    const at = Date.now();
+    await page.touchscreen.tap(512, 200);
+    await waitRunning(page, testInfo, at);
+    expect(errors).toEqual([]);
+  });
+
+  // 一覧 1 (b)：▶ のタップ（pointerdown で preventDefault するので mousedown は出ない。R1-87-C）
+  test("ステージ1：最初に ▶ をタップすると、音が running になる", async ({ page }, testInfo) => {
+    const errors = watchErrors(page);
+    await openStage(page, "./?stage=1");
+    await expect(page.locator("#go")).toBeVisible();
+    expect(await soundState(page)).toBe("none");
+    const at = Date.now();
+    await page.locator("#go").tap();
+    await waitRunning(page, testInfo, at);
+    expect(errors).toEqual([]);
+  });
+
+  // 一覧 4：ページごとに数える（タイトルのボタンはページを読み込み直す）
+  test("タイトルで車のボタンをタップしてステージ1へ移ると、ステージで最初にタップするまで音を作らない", async ({
+    page,
+  }, testInfo) => {
+    test.setTimeout(150_000); // 60 ＋ 60 ＋ 10 に余裕（一覧の「## 計算」）
+    const errors = watchErrors(page);
+    await page.goto("./");
+    await titleReady(page);
+    await page.locator('#title [data-stage="1"]').tap();
+    await expect(page).toHaveURL(/\?stage=1$/);
+    await waitStarted(page);
+    expect(await soundState(page)).toBe("none");
+    const at = Date.now();
+    await page.touchscreen.tap(512, 200);
+    await waitRunning(page, testInfo, at);
+    expect(errors).toEqual([]);
+  });
+});
+
+// 一覧 2：入口ごとの登録。合成のイベントを 1 種類だけ送り、作られたか（"none" でなくなったか）を見る。
+// Playwright の evaluate は操作の扱いになるので、"running" かどうかでなく "none" かどうかで見る（一覧の下調べ）
+// touchend はただの Event で送る（unlock はイベントの中身を読まない。PC の画面で TouchEvent を作れるかに頼らない。R1-87-B）
+type Synthetic = { kind: "pointer" | "plain" | "mouse" | "key"; type: string; detail?: string };
+const ENTRIES: [string, Synthetic, boolean][] = [
+  ["pointerup（タッチ）", { kind: "pointer", type: "pointerup", detail: "touch" }, true],
+  ["pointerup（ペン）", { kind: "pointer", type: "pointerup", detail: "pen" }, true],
+  ["touchend", { kind: "plain", type: "touchend" }, true],
+  ["mousedown", { kind: "mouse", type: "mousedown" }, true],
+  ["keydown（ArrowUp）", { kind: "key", type: "keydown", detail: "ArrowUp" }, true],
+  ["pointerup（マウス）", { kind: "pointer", type: "pointerup", detail: "mouse" }, false],
+  ["keydown（Escape）", { kind: "key", type: "keydown", detail: "Escape" }, false],
+];
+test.describe("NORI-87：入口ごと", () => {
+  for (const [name, event, unlocks] of ENTRIES) {
+    test(`${name} だけを送ると、音の仕組みを${unlocks ? "作る" : "作らない"}`, async ({ page }) => {
+      const errors = watchErrors(page);
+      await openStage(page, "./?stage=1");
+      expect(await soundState(page)).toBe("none");
+      await page.evaluate(({ kind, type, detail }) => {
+        const e =
+          kind === "pointer"
+            ? new PointerEvent(type, { pointerType: detail ?? "" })
+            : kind === "mouse"
+              ? new MouseEvent(type)
+              : kind === "key"
+                ? new KeyboardEvent(type, { key: detail ?? "" })
+                : new Event(type);
+        window.dispatchEvent(e);
+      }, event);
+      if (unlocks) expect(await soundState(page)).not.toBe("none");
+      else expect(await soundState(page)).toBe("none");
+      expect(errors).toEqual([]);
+    });
+  }
+});
+
+// 一覧 3：最初の Esc では動かず、そのあとのキーで動く
+test.describe("NORI-87：Esc", () => {
+  test("最初に Esc を押しても音は動かず、そのあとの ArrowUp で running になる", async ({
+    page,
+  }, testInfo) => {
+    const errors = watchErrors(page);
+    await openStage(page, "./?stage=1");
+    expect(await soundState(page)).toBe("none");
+    await page.keyboard.press("Escape");
+    await waitFrames(page, 30);
+    expect(await soundState(page)).toBe("none");
+    const at = Date.now();
+    await page.keyboard.press("ArrowUp");
+    await waitRunning(page, testInfo, at);
+    expect(errors).toEqual([]);
+  });
 });
