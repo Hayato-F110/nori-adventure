@@ -21,11 +21,29 @@ const LONG_COMMANDS = [
   ],
 ];
 
+// heredoc（<<'EOF' 〜 EOF）の中身はコミットの文などの文章なので、見る前に取り除く
+const stripHeredoc = (command) =>
+  command.replace(/<<-?\s*['"]?(\w+)['"]?[^\n]*\n[\s\S]*?\n\s*\1(?=\n|$)/g, "<<heredoc");
+
+// NORI-92：npm run check の出力をパイプ（| 。|| は除く）で別の命令につなぐもの。同じ命令の中（; && || 改行の前）だけを見る。
+// 2>&1・&> の & は区切りではないので、命令の続きとして読む
+const CHECK_PIPE = new RegExp(
+  AT_COMMAND + PREFIX + String.raw`npm\s+run\s+check\b(?:[^\n;&|]|[0-9]?>&[0-9]?|&>)*\|(?!\|)`,
+);
+
+/** npm run check をパイプにつないでいれば止める理由（文字列）、なければ null。裏で動かすかどうかによらない */
+export const findCheckPipe = (command) => {
+  if (typeof command !== "string") return null;
+  const code = stripHeredoc(command);
+  // set -o pipefail があれば、パイプの途中で落ちたら全体が落ちるので、終了コードは正しい
+  if (/\bset\s+-o\s+pipefail\b/.test(code)) return null;
+  return CHECK_PIPE.test(code) ? "npm run check をパイプ（|）につないでいる" : null;
+};
+
 /** 止める理由（文字列）か、止めないなら null */
 export const findLongForeground = (command, background) => {
   if (background === true || typeof command !== "string") return null;
-  // heredoc（<<'EOF' 〜 EOF）の中身はコミットの文などの文章なので、見る前に取り除く
-  const code = command.replace(/<<-?\s*['"]?(\w+)['"]?[^\n]*\n[\s\S]*?\n\s*\1(?=\n|$)/g, "<<heredoc");
+  const code = stripHeredoc(command);
   for (const [pattern, label] of LONG_COMMANDS) {
     if (pattern.test(code)) return label;
   }
@@ -41,6 +59,14 @@ const readStdin = async () => {
 const main = async () => {
   const input = JSON.parse((await readStdin()) || "{}");
   if (!["Bash", "PowerShell"].includes(input.tool_name)) return;
+  const pipe = findCheckPipe(input.tool_input?.command);
+  if (pipe !== null) {
+    process.stderr.write(
+      `止めました：${pipe}。終了コードがパイプの最後の命令（tail など）のものになり、検査が落ちても 0（緑）に見えます（NORI-92）。` +
+        '出力はファイルに書き（npm run check > "$TEMP/check.txt" 2>&1; echo "exit=$?"）、終了コードを見てから、ファイルを読んでください。\n',
+    );
+    process.exit(BLOCK);
+  }
   const reason = findLongForeground(input.tool_input?.command, input.tool_input?.run_in_background);
   if (reason === null) return;
   process.stderr.write(
