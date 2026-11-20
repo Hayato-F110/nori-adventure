@@ -19,6 +19,24 @@
       "importedAt": "2026-11-13"
     },
     {
+      "name": "boss",
+      "file": "boss.glb",
+      "sha256": "92e5a33ac990bacbf39e4bb77f12d35dca173ce16182aa66235568af853ead34",
+      "bytes": 78692,
+      "triangles": 3332,
+      "size": {
+        "width": 8.064,
+        "height": 6,
+        "length": 6.677
+      },
+      "createdWith": "Blender 5.3.0（noriblender の隔離環境。Blender MCP で Claude が作成を補助）",
+      "source": "blender-work/boss.blend",
+      "author": "Hayato-F110",
+      "license": "CC-BY-4.0",
+      "externalAssets": "なし",
+      "importedAt": "2026-11-20"
+    },
+    {
       "name": "bus",
       "file": "bus.glb",
       "sha256": "1e7cd1977e980b8ded3e1c7054b4c3b6ca037dea90e548e5f522fd650738f8a5",
