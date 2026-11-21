@@ -20,6 +20,7 @@ import { startStageCover } from "./render/stageCover";
 import { startSound } from "./render/sound";
 import { createStage5View } from "./render/stage5View";
 import { createStatusView } from "./render/statusView";
+import { debugFpsLine } from "./render/debugLine";
 
 export const startStage5 = async (canvas: HTMLCanvasElement, hud: HTMLElement, showDebug: boolean) => {
   const byId = (id: string) => {
@@ -259,7 +260,8 @@ export const startStage5 = async (canvas: HTMLCanvasElement, hud: HTMLElement, s
       quality.sample(fps, fpsSamples.length);
       windowFrames = 0;
       windowStart = now;
-      if (showDebug) hud.textContent = `${fps.toFixed(0)} fps · なかよし ${current.calm}`;
+      if (showDebug)
+        hud.textContent = `${debugFpsLine(fps, fpsSamples, quality.quality)} · なかよし ${current.calm}`;
     }
     if (window.__nori) window.__nori.frames = frames;
     requestAnimationFrame(frame);
