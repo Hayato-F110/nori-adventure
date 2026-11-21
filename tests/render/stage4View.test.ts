@@ -1,8 +1,9 @@
 import * as THREE from "three";
 import { describe, expect, it } from "vitest";
 import { ASSET, STAGE4 } from "../../src/config";
-import { createStage4Game } from "../../src/core/stage4";
+import { createStage4Game, treasureGuide } from "../../src/core/stage4";
 import { createStage4View } from "../../src/render/stage4View";
+import { expectArrowPose, expectUnlit } from "./guideArrowCheck";
 
 // docs/game-rules.md「ステージ4」「海の生きもののモデル」（NORI-28）
 // テストの一覧：
@@ -158,5 +159,175 @@ describe("ステージ4の生きもの（簡単な形 → 自作モデル）", (
       // 霧は残す（遠くから見えると、手がかりのあわの意味がなくなる）
       expect((m as THREE.MeshBasicMaterial).fog).toBe(true);
     }
+  });
+});
+
+// NORI-33（docs/test-plans/NORI-33.md の 5・7）
+describe("NORI-33：あわと見つけた印", () => {
+  const materialsOf = (o: THREE.Object3D) => {
+    const m = (o as THREE.Mesh).material;
+    return m === undefined ? [] : Array.isArray(m) ? m : [m];
+  };
+  const isBubbles = (o: THREE.Object3D) =>
+    o instanceof THREE.InstancedMesh &&
+    materialsOf(o).some(
+      (m) => m instanceof THREE.MeshBasicMaterial && m.color.getHexString() === STAGE4.bubbleColor.slice(1),
+    );
+
+  it("5. あわの半径は STAGE4.bubbleRadius で、霧の効果を受けない。ほかの素材は霧を受ける", () => {
+    const view = newView();
+    const bubbles = view.root.children.filter(isBubbles) as THREE.InstancedMesh[];
+    expect(bubbles).toHaveLength(1);
+    const geo = bubbles[0]?.geometry as THREE.SphereGeometry;
+    expect(geo.parameters.radius).toBeCloseTo(STAGE4.bubbleRadius, 9);
+    expect(
+      materialsOf(bubbles[0] as THREE.Object3D).every((m) => (m as { fog?: boolean }).fog === false),
+    ).toBe(true);
+    const others: THREE.Material[] = [];
+    view.root.traverse((o) => {
+      if (!isBubbles(o)) others.push(...materialsOf(o));
+    });
+    expect(others.length).toBeGreaterThan(0);
+    expect(others.filter((m) => (m as { fog?: boolean }).fog === false)).toEqual([]);
+  });
+
+  it("7. 見つけた印は八面体でなく、正面から見て角が 5 つの星。中心から角の先まで STAGE4.foundStarSize", () => {
+    const view = newView();
+    const star = creatureNodes(view.root)[0]?.getObjectByName("star") as THREE.Mesh;
+    expect(star.geometry).not.toBeInstanceOf(THREE.OctahedronGeometry);
+    // 星の中心は形の原点（5 つの角の星は上下が非対称なので、外枠の真ん中ではない）。面は XY
+    const center = new THREE.Vector3();
+    const pos = star.geometry.getAttribute("position");
+    const points = Array.from({ length: pos.count }, (_, i) => ({
+      r: Math.hypot(pos.getX(i) - center.x, pos.getY(i) - center.y),
+      a: Math.atan2(pos.getY(i) - center.y, pos.getX(i) - center.x),
+    }));
+    const max = Math.max(...points.map((p) => p.r));
+    expect(max).toBeCloseTo(STAGE4.foundStarSize, 2);
+    const tips = new Set(points.filter((p) => p.r > max * 0.95).map((p) => Math.round(p.a * 100)));
+    expect(tips.size).toBe(5);
+  });
+
+  it("7. 見つけた印の星は、生きものが回っていても、カメラの方を向く", () => {
+    const view = newView();
+    const found = { ...game.initial(), found: STAGE4.creatures.map(() => true) };
+    const camera = { x: 5, y: -3, z: 120 };
+    for (const tick of [0, 300, 900]) {
+      view.update({ ...found, tick }, 20, true, camera);
+      view.root.updateMatrixWorld(true);
+      for (const node of creatureNodes(view.root)) {
+        const star = node.getObjectByName("star") as THREE.Mesh;
+        const p = star.getWorldPosition(new THREE.Vector3());
+        const toCamera = new THREE.Vector3(camera.x, camera.y, camera.z).sub(p).normalize();
+        const facing = star.getWorldDirection(new THREE.Vector3());
+        expect(facing.dot(toCamera), `${node.name}・刻み ${tick}`).toBeGreaterThan(0.99);
+      }
+    }
+  });
+
+  it("7. 見つけた印は、見つけた描画の時刻から STAGE4.foundStarGrowSeconds かけて大きくなる", () => {
+    const view = newView();
+    const g = STAGE4.foundStarGrowSeconds;
+    const camera = { x: 0, y: 0, z: 0 };
+    const star = () => creatureNodes(view.root)[0]?.getObjectByName("star") as THREE.Mesh;
+    const notYet = game.initial();
+    const found = { ...notYet, found: STAGE4.creatures.map((_, i) => i === 0) };
+    view.update(notYet, 10, false, camera);
+    view.update(found, 10, false, camera);
+    expect(star().scale.x).toBeCloseTo(0, 6);
+    view.update(found, 10 + g / 2, false, camera);
+    expect(star().scale.x).toBeGreaterThan(0);
+    expect(star().scale.x).toBeLessThan(1);
+    view.update(found, 10 + g, false, camera);
+    expect(star().scale.x).toBeCloseTo(1, 6);
+  });
+});
+
+// NORI-33（docs/test-plans/NORI-33.md の 13）：たからばこの矢印の見た目（K33-12）
+describe("NORI-33：たからばこの矢印", () => {
+  const t = game.treasure;
+  const s0 = game.initial();
+  /** 潜水艇の後ろ cameraDistance・上 cameraHeight（stage4Main.ts の placeCamera と同じ置き方） */
+  const behind = (sub: { x: number; y: number; z: number; heading: number }) => ({
+    x: sub.x + Math.sin(sub.heading) * STAGE4.cameraDistance,
+    y: sub.y + STAGE4.cameraHeight,
+    z: sub.z + Math.cos(sub.heading) * STAGE4.cameraDistance,
+  });
+  // 横にずれた点：たからばこから +X 30 m・+Z 10 m。潜水艇の向き 1.0・傾き 0.3（矢印が乗り物の向き・傾きを受け継がないこと。R3-33-D）
+  const turned = { ...s0, sub: { ...s0.sub, x: t.x + 30, z: t.z + 10, heading: 1.0, tilt: 0.3 } };
+  const cases = [
+    ["スタート・後ろのカメラ", s0, behind(s0.sub)],
+    ["横にずれた点・後ろのカメラ", turned, behind(turned.sub)],
+    // カメラが矢印の真横（矢印は −X を指し、カメラは +Z 側）：面を回さない作りだと細い線になる向き
+    ["横にずれた点・横のカメラ", turned, { x: turned.sub.x, y: turned.sub.y + 2.5, z: turned.sub.z + 8 }],
+  ] as const;
+
+  for (const [label, state, camera] of cases) {
+    it(`${label}：潜水艇の上 guideArrowHeight にあり、白で、たからばこの向きを指し、面がカメラを向く`, () => {
+      const view = newView();
+      view.update(state, 0, true, camera);
+      view.root.updateMatrixWorld(true);
+      const arrow = view.root.getObjectByName("guide-arrow");
+      if (arrow === undefined) throw new Error("guide-arrow がない");
+      expect(arrow.visible).toBe(true);
+      const p = arrow.getWorldPosition(new THREE.Vector3());
+      expect(p.x).toBeCloseTo(state.sub.x, 2);
+      expect(p.y).toBeCloseTo(state.sub.y + STAGE4.guideArrowHeight, 2);
+      expect(p.z).toBeCloseTo(state.sub.z, 2);
+      const g = treasureGuide(state);
+      if (g === null) throw new Error("向きがない");
+      expectArrowPose(arrow, { x: -Math.sin(g.yaw), z: -Math.cos(g.yaw) }, camera);
+      const colors: string[] = [];
+      arrow.traverse((o) => {
+        const m = (o as THREE.Mesh).material as THREE.MeshBasicMaterial | undefined;
+        if (m?.color !== undefined) colors.push(m.color.getHexString());
+      });
+      expect(colors).toContain(new THREE.Color(STAGE4.guideArrowColor).getHexString());
+      expectUnlit(arrow);
+    });
+  }
+
+  it("描いた潜水艇の位置（刻みの間を補間した位置）を渡すと、矢印はその上にある（刻みの状態より遅れない。/code-review の指摘）", () => {
+    const view = newView();
+    const drawn = { x: s0.sub.x + 0.13, y: s0.sub.y - 0.05, z: s0.sub.z - 0.1 };
+    view.update(s0, 0, true, behind(s0.sub), drawn);
+    view.root.updateMatrixWorld(true);
+    const arrow = view.root.getObjectByName("guide-arrow");
+    if (arrow === undefined) throw new Error("guide-arrow がない");
+    const p = arrow.getWorldPosition(new THREE.Vector3());
+    expect(p.x).toBeCloseTo(drawn.x, 4);
+    expect(p.y).toBeCloseTo(drawn.y + STAGE4.guideArrowHeight, 4);
+    expect(p.z).toBeCloseTo(drawn.z, 4);
+  });
+
+  it("描いた位置から、たからばこを指す（刻みの状態の位置から指さない。/code-review 2 回目の指摘）", () => {
+    const view = newView();
+    // 横にずれた点で、描いた位置を刻みの状態から 15 m ずらす（向きが約 21° 変わり、expectArrowPose の許す幅 約 8° を超える）
+    const drawn = { x: turned.sub.x, y: turned.sub.y, z: turned.sub.z + 15 };
+    const camera = behind(turned.sub);
+    view.update(turned, 0, true, camera, drawn);
+    view.root.updateMatrixWorld(true);
+    const arrow = view.root.getObjectByName("guide-arrow");
+    if (arrow === undefined) throw new Error("guide-arrow がない");
+    expectArrowPose(arrow, { x: t.x - drawn.x, z: t.z - drawn.z }, camera);
+  });
+
+  it("揺らさない：動きを減らさない設定で、秒が変わっても高さは同じ（R3-33-F）", () => {
+    const view = newView();
+    const arrow = () => view.root.getObjectByName("guide-arrow");
+    view.update(s0, 0, false, behind(s0.sub));
+    view.root.updateMatrixWorld(true);
+    const y0 = arrow()?.getWorldPosition(new THREE.Vector3()).y ?? NaN;
+    view.update(s0, 1.3, false, behind(s0.sub));
+    view.root.updateMatrixWorld(true);
+    expect(arrow()?.getWorldPosition(new THREE.Vector3()).y ?? NaN).toBeCloseTo(y0, 6);
+  });
+
+  it("ゴールの前は見えていて、同じ描画でゴールのあとは見えなくなる（R4-33-D）", () => {
+    const view = newView();
+    view.update(s0, 0, true, behind(s0.sub));
+    expect(view.root.getObjectByName("guide-arrow")?.visible).toBe(true);
+    view.update({ ...s0, finishTick: 1, tick: 2 }, 0, true, behind(s0.sub));
+    expect(view.root.getObjectByName("guide-arrow")?.visible).toBe(false);
   });
 });

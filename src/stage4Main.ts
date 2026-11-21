@@ -5,7 +5,7 @@ import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { ASSET, CAMERA, LOOK, SIM, STAGE4 } from "./config";
 import { createFixedStepper } from "./core/loop";
-import { createStage4Game, type Stage4State, type SubState } from "./core/stage4";
+import { createStage4Game, diveHint, type Stage4State, type SubState, treasureNearness } from "./core/stage4";
 import type { InputFrame } from "./core/types";
 import { createGamepadInput } from "./input/gamepad";
 import { createKeyboardInput } from "./input/keyboard";
@@ -16,6 +16,14 @@ import type { ModelManifest } from "./render/carModel";
 import { LIGHTMAPS, loadLook, surfacesFor } from "./render/look";
 import { startQuality } from "./render/qualityControl";
 import { startStageCover } from "./render/stageCover";
+import {
+  createHintClock,
+  createPopClock,
+  diveHintGlow,
+  foundPopScale,
+  progressBarPx,
+} from "./render/stage4Hud";
+import { guideArrowInfo } from "./render/guideArrow";
 import { createStage4View } from "./render/stage4View";
 import { createStatusView } from "./render/statusView";
 import { debugFpsLine } from "./render/debugLine";
@@ -42,6 +50,14 @@ export const startStage4 = async (canvas: HTMLCanvasElement, hud: HTMLElement, s
   const flags = byId("flags");
   flags.hidden = true;
   flags.style.display = "none";
+  // たからばこの帯（NORI-33 の K33-2）：目指すものがたからばこだと分かる。近づき具合の棒は遠ざかると減る
+  const treasureBand = byId("treasure-progress");
+  treasureBand.hidden = false;
+  const treasureFill = byId("treasure-progress-fill");
+  // ▼ のヒント（K33-4）：▼（#back）の背景を金色に光らせる。見つけたときは魚の絵を一瞬大きく（K33-3）
+  const diveButton = byId("back");
+  const hintClock = createHintClock();
+  const popClock = createPopClock();
 
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance" });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, LOOK.highPixelRatioMax));
@@ -222,6 +238,7 @@ export const startStage4 = async (canvas: HTMLCanvasElement, hud: HTMLElement, s
     sparkles: () => STAGE4.creatures.map((_, i) => view.sparkleAt(i)),
     // NORI-71：カメラの今の位置（早送りでは目標より遅れて追うので、設定から計算せず実際の値を読む）
     cameraAt: () => ({ x: camera.position.x, y: camera.position.y, z: camera.position.z }),
+    guideArrow: () => guideArrowInfo(view.root),
     get seaModels() {
       return view.seaModels;
     },
@@ -254,6 +271,8 @@ export const startStage4 = async (canvas: HTMLCanvasElement, hud: HTMLElement, s
   if (window.__nori) {
     window.__nori.freeze = (on: boolean) => {
       frozenAt = on ? lastTime : null;
+      // 解いたときは今から数える（止めていた間の時間をまとめて進めない）
+      if (!on) lastTime = performance.now();
     };
   }
 
@@ -287,7 +306,21 @@ export const startStage4 = async (canvas: HTMLCanvasElement, hud: HTMLElement, s
     subRoot.position.set(p.x, p.y - HALF_HEIGHT, p.z);
     subRoot.rotation.set(p.tilt, p.heading, 0, "YXZ");
     if (propeller && !reducedMotion.matches) propeller.rotation.z += frameSeconds * p.speed * 4;
-    view.update(current, now / 1000, reducedMotion.matches);
+    view.update(current, now / 1000, reducedMotion.matches, camera.position, p);
+    // NORI-33：帯の棒・▼ のヒント・魚の絵（どれも状態を読むだけ。時刻は描画の時刻）
+    treasureFill.style.width = `${progressBarPx(treasureNearness(current))}px`;
+    const hinting = diveHint(current);
+    diveButton.dataset["hint"] = hinting ? "on" : "off";
+    const hintSeconds = hintClock.update(hinting, now / 1000);
+    const pressed = diveButton.classList.contains("pressed");
+    diveButton.style.setProperty(
+      "--glow",
+      String(hintSeconds === null ? 0 : diveHintGlow(hintSeconds, pressed, reducedMotion.matches)),
+    );
+    const popSeconds = popClock.update(current.found.filter(Boolean).length, now / 1000);
+    if (icon) {
+      icon.style.transform = `scale(${popSeconds === null ? 1 : foundPopScale(popSeconds, reducedMotion.matches)})`;
+    }
     statusView.update(current.tick, {
       stars: current.found,
       nextCheckpoint: 0,

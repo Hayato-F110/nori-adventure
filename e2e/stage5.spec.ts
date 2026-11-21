@@ -1,8 +1,15 @@
 import { expect, type Page, test } from "@playwright/test";
 import { BOSS, LOOK, SIM, STAGE5 } from "../src/config";
 import { pathPoint } from "../src/core/stage5Layout";
-import { chooseQuality, openStage, waitTicks, watchErrors } from "./common";
-import { installRoverDriver } from "./driver";
+import {
+  chooseQuality,
+  expectGuideArrowOnScreen,
+  openStage,
+  waitFrames,
+  waitTicks,
+  watchErrors,
+} from "./common";
+import { frozenAtTick, installFreezeAtTickDriver, installRoverDriver } from "./driver";
 import { attachShot, luminanceAt, peakLuminanceAt, ratio } from "./luminance";
 
 // NORI-29：ステージ5（月面・ローバー）の見た目。ほし・ジャンプ台・なかよしの星と、まわりの明るさの比 3 以上
@@ -166,3 +173,23 @@ test(
     expect(quality).toBe("high");
   },
 );
+
+// NORI-33（docs/test-plans/NORI-33.md の 16）：スタートの画面に、目指すものの手がかり（行き先の矢印・ボス）が映る。
+// 入力 0 の運転役で始め、刻み 30（0.5 秒）で時間を止める（ボスも止まる。1 コマ 1 刻みなので、止まる刻みは毎回同じ）。
+// 矢印が見えていて、その位置が画面の中にあることを読み取り口で確かめてから撮る（R3-33-C）
+test.describe("NORI-33：ステージ5のスタートの手がかり", () => {
+  test.use({ viewport: { width: 1024, height: 768 }, hasTouch: true, isMobile: true });
+
+  test("スタートで、行き先の矢印が見えていて画面の中にある（画面を撮る）", async ({ page }, testInfo) => {
+    test.setTimeout(120_000);
+    const errors = watchErrors(page);
+    await installFreezeAtTickDriver(page, 30);
+    await openStage(page, "./?stage=5", { look: true });
+    await page.waitForFunction(frozenAtTick, undefined, { timeout: 60_000, polling: 100 });
+    await waitFrames(page, 5);
+    expect(await page.evaluate(() => window.__nori?.rover?.()?.tick)).toBe(31);
+    await expectGuideArrowOnScreen(page);
+    await attachShot(page, testInfo, "stage5-start-guide");
+    expect(errors).toEqual([]);
+  });
+});

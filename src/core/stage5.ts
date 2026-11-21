@@ -268,3 +268,28 @@ export const createStage5Game = (): Stage5Game => {
     },
   };
 };
+
+const FRIENDS = friendStarPositions();
+
+/**
+ * NORI-33（docs/game-rules.md「行き先の矢印の高さ」）：行き先の矢印が指すもの。
+ * 星を持っていないとき：今取れるなかよしの星のうち、ローバーから水平にいちばん近いもの（同じ距離なら番号の小さい星）。
+ * 持っているとき：その刻みのボス。クリアのあとは null。取れる星がないときも null
+ */
+export const guideTarget = (state: Stage5State): { x: number; z: number; kind: "friend" | "boss" } | null => {
+  if (state.finishTick !== null) return null;
+  if (state.carrying) {
+    const b = bossPosition(state.tick);
+    return { x: b.x, z: b.z, kind: "boss" };
+  }
+  const r = state.rover;
+  let best: { x: number; z: number; d: number } | null = null;
+  FRIENDS.forEach((f, i) => {
+    if (!friendAvailable(state, i)) return;
+    const d = Math.hypot(f.x - r.x, f.z - r.z);
+    // 「<」なので、同じ距離なら先に見た（番号の小さい）星のまま
+    if (best === null || d < best.d) best = { x: f.x, z: f.z, d };
+  });
+  const found = best as { x: number; z: number; d: number } | null;
+  return found === null ? null : { x: found.x, z: found.z, kind: "friend" };
+};

@@ -316,7 +316,7 @@ export const STAGE4 = {
   bubbleColor: "#bff4ff",
   schoolColors: ["#ffd23f", "#4fc3f7", "#ff7043", "#ba68c8", "#c0ca33"],
   /** 手がかりのあわ：半径 m、散らばり ±m、のぼる速さ m/s、のぼる高さ m（そのあと下からまた） */
-  bubbleRadius: 0.25,
+  bubbleRadius: 0.5,
   bubbleSpread: 1,
   bubbleRiseSpeed: 1.6,
   bubbleRiseHeight: 4,
@@ -338,9 +338,22 @@ export const STAGE4 = {
   sparkleSize: 0.35,
   sparkleGap: 0.6,
   sparkleTurnSeconds: 6,
-  /** 見つけた印の星：大きさ m、生きものの上のすき間 m */
-  foundStarSize: 0.4,
+  /** 見つけた印の星（5 つの角の平たい星）：中心から角の先まで m、生きものの上のすき間 m、出るまでの秒（NORI-33） */
+  foundStarSize: 0.5,
   foundStarGap: 0.8,
+  foundStarGrowSeconds: 0.6,
+  /** 見つけたときの上の表示の魚の絵：大きくなる倍率と、元に戻るまでの秒（NORI-33） */
+  foundPopScale: 1.3,
+  foundPopSeconds: 0.4,
+  /** 上の表示の、たからばこへの近づき具合の棒の長さ px（NORI-33） */
+  progressBarWidth: 120,
+  /** ▼ のヒント（NORI-33）：たからばこまでの水平の距離 m、深さの差 m、光る周期 s */
+  diveHintRange: 80,
+  diveHintDepth: 2,
+  diveHintPeriod: 2,
+  /** たからばこの矢印（NORI-33 の K33-12）：潜水艇の中心の上の高さ m、色（光に左右されない。ステージ1の矢印と同じ白） */
+  guideArrowHeight: 2,
+  guideArrowColor: "#ffffff",
   /** ゴールしたら、ふたが開くまでの秒と角度（ラジアン） */
   lidOpenSeconds: 1,
   lidOpenAngle: 1.9,
@@ -408,6 +421,9 @@ export const STAGE5 = {
   pathColor: "#3e4046",
   jumpPadColor: "#3fe0ff",
   friendStarColor: "#ffb8e6",
+  /** 行き先の矢印（NORI-33 の K33-11）：ローバーの上の高さ m（ステージ1と同じ）。届ける輪の幅 m */
+  guideArrowHeight: 4.5,
+  deliverRingWidth: 0.6,
   rockColor: "#76716b",
   craterColor: "#4c4e54",
   arenaLineColor: "#d8dce4",
@@ -699,6 +715,20 @@ export const PARENT = {
   buttonSize: 48,
 } as const;
 
+/** 遊んでいる途中でタイトルに戻る家のボタン（NORI-33 の K33-1）。押し続けたときだけ戻る */
+export const HOME = {
+  holdSeconds: 0.8,
+  buttonSize: 72,
+} as const;
+
+/**
+ * ステージ4・5の行き先の矢印の向け方（NORI-33。docs/game-rules.md「目指すものと迷子の手がかり」）。
+ * 先を水平から arrowLift rad 上げ、先の向きを軸に回して平たい面をカメラへ向ける
+ */
+export const GUIDE = {
+  arrowLift: 0.5,
+} as const;
+
 /** タイトル画面とステージ選び（NORI-30。docs/game-rules.md「タイトル画面・ステージ選び・クリアの演出」） */
 export const TITLE = {
   /** 選べるステージ（1〜5。ステージ5は NORI-29） */
@@ -851,6 +881,8 @@ export const CONFIG = {
   ASSIST,
   LOOK,
   PARENT,
+  HOME,
+  GUIDE,
   TITLE,
   CLEAR,
   TRAFFIC,

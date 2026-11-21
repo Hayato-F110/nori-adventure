@@ -123,3 +123,29 @@ export const chooseTrain = async (page: Page, choice = "train") => {
   expect(await page.evaluate(() => window.__nori?.trainChoice?.())).toBe(choice);
   return clickedAt;
 };
+
+/**
+ * NORI-33（一覧 16）：ステージ4・5の行き先の矢印が見えていて、その位置（世界の座標をカメラで写した点）が画面の中にある。
+ * 読み取り口 guideArrow がない・矢印がないときは落ちる（実装の前は赤）
+ */
+export const expectGuideArrowOnScreen = async (page: Page) => {
+  const a = await page.evaluate(() => {
+    const g = window.__nori?.guideArrow?.();
+    if (g === undefined || g === null) return null;
+    const s = window.__nori?.screenOf?.(g.x, g.y, g.z);
+    return {
+      visible: g.visible,
+      x: s?.x ?? NaN,
+      y: s?.y ?? NaN,
+      w: window.innerWidth,
+      h: window.innerHeight,
+    };
+  });
+  expect(a, "読み取り口 guideArrow から矢印が読めない").not.toBeNull();
+  if (a === null) return;
+  expect(a.visible).toBe(true);
+  expect(a.x).toBeGreaterThanOrEqual(0);
+  expect(a.x).toBeLessThanOrEqual(a.w);
+  expect(a.y).toBeGreaterThanOrEqual(0);
+  expect(a.y).toBeLessThanOrEqual(a.h);
+};
