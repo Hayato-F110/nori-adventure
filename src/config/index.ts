@@ -669,6 +669,14 @@ export const LOOK = {
   qualityButtonSize: 72,
 } as const;
 
+/** 実機の FPS（NORI-34。docs/game-rules.md「実機の FPS」） */
+export const PERF = {
+  /** 実機（moto g64y 5G の Chrome）で、ステージ1〜5のどれも、この FPS 以上 */
+  deviceMinFps: 30,
+  /** 上の表示（debug）の「最小」に数えない、1 秒ごとの値の始めの個数（秒） */
+  skipSeconds: 10,
+} as const;
+
 /** ステージの始まりの覆い（NORI-76。docs/game-rules.md「ステージの始まりの待ちと、タイトルでの画質の判定」） */
 export const START = {
   /** 素材が決まらなくても、ページを開いてからこの秒で覆いを外す */
@@ -850,4 +858,5 @@ export const CONFIG = {
   SOUND,
   PWA,
   START,
+  PERF,
 } as const;
