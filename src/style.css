@@ -420,6 +420,90 @@ body {
   transform-origin: 50% 50%;
 }
 
+/* ---- 遊んでいる途中でタイトルに戻る家のボタン（NORI-33 の K33-1。docs/game-rules.md「遊んでいる途中でタイトルに戻る」）---- */
+/* 大きさは HOME.buttonSize と同じ（tests/input/homeLink.test.ts で一致を確かめる）。保護者の入口の右。覆い（25）の上で押せる */
+:root {
+  --home-button: 72px;
+}
+
+.home-link {
+  -webkit-touch-callout: none;
+  position: fixed;
+  top: calc(12px + env(safe-area-inset-top, 0px));
+  left: calc(24px + var(--parent-button) + env(safe-area-inset-left, 0px));
+  z-index: 30;
+  /* <a> は余白を幅に足して数えるので、余白を含めて 72 px にする（button は既定で含める） */
+  box-sizing: border-box;
+  width: var(--home-button);
+  height: var(--home-button);
+  padding: 6px;
+  border-radius: 50%;
+  background: rgb(0 0 0 / 35%);
+  touch-action: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.home-link svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* 押している間に増える輪（保護者の入口と同じ見せ方） */
+.home-ring {
+  fill: none;
+  stroke: #ffd23f;
+  stroke-width: 8;
+  stroke-dasharray: 289;
+  stroke-dashoffset: calc((1 - var(--hold, 0)) * 289);
+  transform: rotate(-90deg);
+  transform-origin: 50% 50%;
+}
+
+/* ---- ステージ4のたからばこの帯と ▼ のヒント（NORI-33 の K33-2・K33-4）---- */
+/* 棒の長さは STAGE4.progressBarWidth、光る色は STAGE4.treasureColor と同じ（tests/render/stage4Hud.test.ts） */
+:root {
+  --progress-bar: 120px;
+  --hint-glow: #ffc93c;
+}
+
+/* 上の表示（#status）の中に置き、その下 8 px・真ん中へはみ出させる */
+.treasure-progress {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 8px 18px;
+  border-radius: 999px;
+  background: rgb(0 0 0 / 35%);
+}
+
+.treasure-progress-track {
+  display: block;
+  width: var(--progress-bar);
+  height: 16px;
+  overflow: hidden;
+  border-radius: 8px;
+  background: rgb(255 255 255 / 30%);
+}
+
+.treasure-progress-fill {
+  display: block;
+  width: 0;
+  height: 100%;
+  border-radius: 8px;
+  background: var(--hint-glow);
+}
+
+/* ▼ のヒント：--glow（0〜1）の分だけ背景を金色に。押している間は押したときの色のまま */
+.touch-button[data-hint="on"]:not(.pressed) {
+  background: color-mix(in srgb, var(--hint-glow) calc(var(--glow, 0) * 85%), rgb(0 0 0 / 30%));
+}
+
 /* ---- タイトル画面とクリアの演出（NORI-30。docs/game-rules.md「タイトル画面・ステージ選び・クリアの演出」）---- */
 /* 大きさは TITLE.buttonSize・CLEAR.buttonSize と同じ値（tests/render/titleScreen.test.ts で一致を確かめる） */
 :root {

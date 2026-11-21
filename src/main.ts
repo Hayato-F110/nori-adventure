@@ -27,6 +27,7 @@ import { createTitleJudge, type TitleJudgeState } from "./render/titleJudge";
 import { type CoverInfo, startStageCover } from "./render/stageCover";
 import { createStatusView } from "./render/statusView";
 import { loadTreeModels } from "./render/trees";
+import { createHomeLink } from "./input/homeLink";
 import { createParentLink } from "./input/parentLink";
 import { parseRoute } from "./core/route";
 import { registerServiceWorker } from "./pwa/register";
@@ -180,6 +181,13 @@ if (route.kind === "models") {
 }
 
 const stage = route.kind === "stage" ? route.stage : 1;
+
+// 遊んでいる途中でタイトルに戻る家のボタン（NORI-33 の K33-1）：ステージ1〜5で出す（タイトルの裏の判定の形では出さない）
+const homeLink = document.querySelector<HTMLAnchorElement>("#home");
+if (homeLink !== null && !judgeMode) {
+  homeLink.hidden = false;
+  createHomeLink(homeLink, window, () => location.assign(homeLink.href));
+}
 
 // ?stage=2：山道を列車で進むステージ（NORI-26）
 if (stage === 2) {

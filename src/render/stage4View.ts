@@ -7,6 +7,7 @@ import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { ASSET, LOOK, SIM, STAGE4 } from "../config";
 import { type Creature, creaturePosition, type Hint, type Point3, type Stage4State } from "../core/stage4";
 import { type Look, setGroundUv1, setPlaneUvMeters } from "./look";
+import { foundStarScale } from "./stage4Hud";
 
 const SEABED = -STAGE4.maxDepth;
 const GROUND_SIZE = STAGE4.boundsHalfSize * 2 + 120;
@@ -223,7 +224,8 @@ export const createStage4View = (hints: readonly Hint[], treasure: Point3): Stag
 
   // 光るあわ（手がかり）：近いほど多い。上へのぼって、また下から
   const bubbleGeo = new THREE.SphereGeometry(STAGE4.bubbleRadius, 8, 6);
-  const bubbleMat = new THREE.MeshBasicMaterial({ color: STAGE4.bubbleColor, toneMapped: false });
+  // 霧に溶かさない（NORI-33 の K33-2。道しるべが水に溶けて見えなかった）。たからばこ・生きもの・岩は霧のまま
+  const bubbleMat = new THREE.MeshBasicMaterial({ color: STAGE4.bubbleColor, toneMapped: false, fog: false });
   const bubbleTotal = hints.reduce((s, h) => s + h.bubbles, 0);
   const bubbles = new THREE.InstancedMesh(bubbleGeo, bubbleMat, bubbleTotal);
   const bubbleBase: { x: number; y: number; z: number; phase: number }[] = [];
@@ -275,14 +277,15 @@ export const createStage4View = (hints: readonly Hint[], treasure: Point3): Stag
   chest.position.set(treasure.x, treasure.y, treasure.z);
   root.add(chest);
 
-  // 生きもの（見つけたら、上に小さな黄色い星）
+  // 生きもの（見つけたら、上に黄色い 5 つの角の星。NORI-33 の K33-3：ステージ5の取るほし＝八面体と形を分ける）
   const starMat = new THREE.MeshBasicMaterial({ color: 0xffd23f, toneMapped: false });
+  const starGeo = createStarGeometry(STAGE4.foundStarSize);
   // mesh は位置・向きを持つ入れ物。中の shape（簡単な形 → 自作モデル）だけを差し替える
   const creatures = STAGE4.creatures.map((c) => {
     const mesh = new THREE.Group();
     mesh.name = c.kind;
     let shape = selfLit(creatureMesh(c.kind));
-    const star = new THREE.Mesh(new THREE.OctahedronGeometry(STAGE4.foundStarSize), starMat);
+    const star = new THREE.Mesh(starGeo, starMat);
     star.name = "star";
     star.position.y = 1.4 + STAGE4.foundStarGap; // 簡単な形の高さの半分（約 1.4 m）の上
     star.visible = false;
@@ -300,7 +303,7 @@ export const createStage4View = (hints: readonly Hint[], treasure: Point3): Stag
   // まだ見つけていない生きもののまわりの「きらきら」（光に左右されない色。見つけたら消えて星になる）
   // 全部で1つの InstancedMesh（生きもの × sparkleCount 個）。生きものの端から sparkleGap 外を水平に回る
   const sparkles = new THREE.InstancedMesh(
-    // 丸い粒（見つけた印の星＝八面体と、形でも分ける）
+    // 丸い粒（見つけた印の 5 つの角の星と、形でも分ける）
     new THREE.SphereGeometry(STAGE4.sparkleSize / 2, 8, 6),
     new THREE.MeshBasicMaterial({
       color: new THREE.Color(STAGE4.sparkleColor).multiplyScalar(STAGE4.sparkleGlow),
@@ -432,6 +435,11 @@ export const createStage4View = (hints: readonly Hint[], treasure: Point3): Stag
   };
 
   let lastFound: readonly boolean[] = [];
+  /** 生きものごとに、見つけた描画の時刻（秒）。見つけていなければ undefined */
+  const foundAt: (number | undefined)[] = [];
+  /** 生きものごとに、見つけていない状態を一度でも描いたか（最初から見つけていた印は、出きった大きさにする） */
+  const seenNotFound: boolean[] = [];
+  const lookTarget = new THREE.Vector3();
   const water = new THREE.Color();
   return {
     root,
@@ -442,7 +450,7 @@ export const createStage4View = (hints: readonly Hint[], treasure: Point3): Stag
     applyLook(look) {
       sand.material = look === null ? sandPlain : look.material("sand");
     },
-    update(state, seconds, reducedMotion) {
+    update(state, seconds, reducedMotion, camera) {
       const t = reducedMotion ? 0 : seconds;
       placeSchools(t);
       placeBubbles(t);
@@ -451,7 +459,21 @@ export const createStage4View = (hints: readonly Hint[], treasure: Point3): Stag
         const p = creaturePosition(c, state.tick);
         mesh.position.set(p.x, p.y, p.z);
         mesh.rotation.y = p.heading;
-        star.visible = state.found[i] === true;
+        const found = state.found[i] === true;
+        // 見つけた描画の時刻を覚える（見た目だけ。NORI-33 の K33-3）。最初から見つけていた印は、もう出きっている
+        if (found && foundAt[i] === undefined) foundAt[i] = seenNotFound[i] === true ? seconds : -Infinity;
+        if (!found) {
+          foundAt[i] = undefined;
+          seenNotFound[i] = true;
+        }
+        star.visible = found;
+        if (!found) return;
+        star.scale.setScalar(foundStarScale(seconds - (foundAt[i] ?? -Infinity), reducedMotion));
+        // いつもカメラの方を向く（生きものが回っても、星の面が見える）
+        if (camera !== undefined) {
+          mesh.updateMatrixWorld(true);
+          star.lookAt(lookTarget.set(camera.x, camera.y, camera.z));
+        }
       });
       placeSparkles(t, state.found);
       // ゴールしたら、約1秒でふたが開く
@@ -482,4 +504,22 @@ export const createStage4View = (hints: readonly Hint[], treasure: Point3): Stag
       };
     },
   };
+};
+
+/**
+ * 見つけた印の 5 つの角の平たい星（NORI-33）。面は XY、中心は原点、厚みは Z。角の先は上を向き、中心から outer m。
+ * カメラの方へ向けるのは update（lookAt は +Z を向ける）
+ */
+const createStarGeometry = (outer: number): THREE.BufferGeometry => {
+  const inner = outer * 0.45;
+  const shape = new THREE.Shape();
+  for (let k = 0; k < 10; k++) {
+    const r = k % 2 === 0 ? outer : inner;
+    const a = Math.PI / 2 + (k * Math.PI) / 5;
+    if (k === 0) shape.moveTo(Math.cos(a) * r, Math.sin(a) * r);
+    else shape.lineTo(Math.cos(a) * r, Math.sin(a) * r);
+  }
+  shape.closePath();
+  const depth = outer * 0.25;
+  return new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: false }).translate(0, 0, -depth / 2);
 };

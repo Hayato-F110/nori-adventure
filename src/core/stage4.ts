@@ -171,12 +171,33 @@ export const createStage4Game = (): Stage4Game => {
   };
 };
 
-/** NORI-33：たからばこへの近づき具合（0〜1）。まだ作っていない（赤の確かめ用の仮の形） */
-export const treasureNearness = (_state: Stage4State): number => {
-  throw new Error("未実装");
+/** たからばこの中心（状態に書かない。設定から決まる） */
+const TREASURE: Point3 = { x: STAGE4.treasure.x, y: -STAGE4.treasure.depth, z: STAGE4.treasure.z };
+/** スタートでのたからばこまでの距離（深さも含めた 3 次元） */
+const START_DISTANCE = Math.hypot(
+  TREASURE.x - STAGE4.start.x,
+  TREASURE.y + STAGE4.start.depth,
+  TREASURE.z - STAGE4.start.z,
+);
+
+/**
+ * NORI-33（docs/game-rules.md「近づき具合」）：1 −（たからばこまでの距離 ÷ スタートでの距離）を 0〜1 に収めた値。
+ * 距離は深さも含めた 3 次元。ゴールしたら 1 のまま。見えるだけで、動きは変えない
+ */
+export const treasureNearness = (state: Stage4State): number => {
+  if (state.finishTick !== null) return 1;
+  const p = state.sub;
+  const d = Math.hypot(TREASURE.x - p.x, TREASURE.y - p.y, TREASURE.z - p.z);
+  return clamp(1 - d / START_DISTANCE, 0, 1);
 };
 
-/** NORI-33：▼ のヒントを出すか。まだ作っていない（赤の確かめ用の仮の形） */
-export const diveHint = (_state: Stage4State): boolean => {
-  throw new Error("未実装");
+/**
+ * NORI-33（docs/game-rules.md「▼ のヒント」）：たからばこまで水平に diveHintRange 以内で、
+ * たからばこより diveHintDepth 以上浅いときに出す。ゴールのあとは出さない。潜る力は変えない
+ */
+export const diveHint = (state: Stage4State): boolean => {
+  if (state.finishTick !== null) return false;
+  const p = state.sub;
+  const horizontal = Math.hypot(TREASURE.x - p.x, TREASURE.z - p.z);
+  return horizontal <= STAGE4.diveHintRange && p.y - TREASURE.y >= STAGE4.diveHintDepth;
 };
