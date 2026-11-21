@@ -62,9 +62,9 @@ const fakeButton = () => {
   return el;
 };
 
-/** button：0 が指・ペン・マウスの左ボタン、2 がマウスの右ボタン */
-const pointer = (type: string, x = 36, y = 36, button = 0) =>
-  Object.assign(new Event(type, { cancelable: true }), { pointerId: 1, clientX: x, clientY: y, button });
+/** button：0 が指・ペン・マウスの左ボタン、2 がマウスの右ボタン。pointerId：指ごとの番号 */
+const pointer = (type: string, x = 36, y = 36, button = 0, pointerId = 1) =>
+  Object.assign(new Event(type, { cancelable: true }), { pointerId, clientX: x, clientY: y, button });
 const key = (k: string) => Object.assign(new Event("keydown", { cancelable: true }), { key: k });
 
 const setup = () => {
@@ -119,6 +119,18 @@ describe("1. 家のボタン：押し続けた時間 → 輪の進みと、戻�
     win.advance(holdMs * 2);
     expect(went()).toBe(0);
     expect(Number(el.hold)).toBe(0);
+  });
+
+  it("押し続けている間に 2 本目の指が触れて離れても、始め直さず・取り消さず、最初の指の時間で戻る（/code-review 2 回目の指摘）", () => {
+    const { win, el, went } = setup();
+    el.dispatchEvent(pointer("pointerdown", 36, 36, 0, 1));
+    win.advance(holdMs * 0.6);
+    el.dispatchEvent(pointer("pointerdown", 36, 36, 0, 2));
+    win.advance(holdMs * 0.1);
+    el.dispatchEvent(pointer("pointerup", 36, 36, 0, 2));
+    expect(Number(el.hold)).toBeGreaterThan(0.6);
+    win.advance(holdMs * 0.35);
+    expect(went()).toBe(1);
   });
 
   it("その前に指を離すと戻らず、輪は 0 に戻る", () => {

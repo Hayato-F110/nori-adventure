@@ -31,20 +31,28 @@ export const createHomeLink = (link: HTMLAnchorElement, win: Window, go: () => v
     frame = win.requestAnimationFrame(tick);
   };
 
+  // 押し続けを始めた指の番号。2 本目の指は見ない（始め直さない・その指を離しても取り消さない）
+  let holding: number | null = null;
+  const isHolding = (e: Event) => pressedAt !== null && (e as PointerEvent).pointerId === holding;
+
   link.addEventListener("pointerdown", (e) => {
     e.preventDefault();
+    if (pressedAt !== null) return;
     // 指・ペン・マウスの左ボタンだけ（右ボタンは右クリックの画面を止めているので、押していることが見えない）
     if ((e as PointerEvent).button !== 0) return;
-    link.setPointerCapture((e as PointerEvent).pointerId);
+    holding = (e as PointerEvent).pointerId;
+    link.setPointerCapture(holding);
     pressedAt = win.performance.now();
     frame = win.requestAnimationFrame(tick);
   });
   for (const type of ["pointerup", "pointercancel", "lostpointercapture"] as const) {
-    link.addEventListener(type, reset);
+    link.addEventListener(type, (e) => {
+      if (isHolding(e)) reset();
+    });
   }
   // 指を外へずらしたら取りやめる
   link.addEventListener("pointermove", (e) => {
-    if (pressedAt === null) return;
+    if (!isHolding(e)) return;
     const { clientX: x, clientY: y } = e as PointerEvent;
     const r = link.getBoundingClientRect();
     if (x < r.left || x > r.right || y < r.top || y > r.bottom) reset();

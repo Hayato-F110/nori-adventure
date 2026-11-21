@@ -300,6 +300,18 @@ describe("NORI-33：たからばこの矢印", () => {
     expect(p.z).toBeCloseTo(drawn.z, 4);
   });
 
+  it("描いた位置から、たからばこを指す（刻みの状態の位置から指さない。/code-review 2 回目の指摘）", () => {
+    const view = newView();
+    // 横にずれた点で、描いた位置を刻みの状態から 15 m ずらす（向きが約 21° 変わり、expectArrowPose の許す幅 約 8° を超える）
+    const drawn = { x: turned.sub.x, y: turned.sub.y, z: turned.sub.z + 15 };
+    const camera = behind(turned.sub);
+    view.update(turned, 0, true, camera, drawn);
+    view.root.updateMatrixWorld(true);
+    const arrow = view.root.getObjectByName("guide-arrow");
+    if (arrow === undefined) throw new Error("guide-arrow がない");
+    expectArrowPose(arrow, { x: t.x - drawn.x, z: t.z - drawn.z }, camera);
+  });
+
   it("揺らさない：動きを減らさない設定で、秒が変わっても高さは同じ（R3-33-F）", () => {
     const view = newView();
     const arrow = () => view.root.getObjectByName("guide-arrow");
