@@ -47,11 +47,11 @@
 - `NORI-42`・`NORI-57`・`NORI-64` の作業場所は、マージ済みかを確かめていない。消す前に `git branch --merged origin/main` で確かめる
 - `.claude/worktrees/NORI-83`（ブランチ `feature/NORI-83-review-limit`）は、NORI-83 を作るときに使うか消すかを決める
 - 本体の作業場所（`c:\Users\hayat\Documents\nori_ClaudeCode`）で vitest が全部のファイルの読み込みで落ちる（「Cannot read properties of undefined (reading 'config')」）。作業場所では通る。原因は確かめていない
-- バックログの課題の候補（まだ作っていない）：手元の E2E の `privacy.spec.ts` が実際の時間（`waitForTimeout`）に頼る。ステージ1の矢印も、横を指すと後ろのカメラから細い線になる。時刻を `date` で見ずに書くのを Hook で止める（11/21 に 2 回）
+- バックログの課題の候補（まだ作っていない）：手元の E2E の `privacy.spec.ts` が実際の時間（`waitForTimeout`）に頼る。ステージ1の矢印も、横を指すと後ろのカメラから細い線になる
 
 **つまずき防止**
 
-- 時刻・日付を書く前に、毎回 `date` を見る（11/21 に 2 回、見ずに書いてずれた。止める仕組みはまだない）
+- 時刻・日付を書く前に、毎回 `date` を見る（11/21 に 2 回、見ずに書いてずれた。止める Hook は NORI-100（バックログ））
 - PR を出したら、CI を待たずに次の課題を進める。PR の前に `gh pr view --json mergeable` でぶつかりがないかを見る
 - CI の見張りは PR ごとに 1 つ。流し直したら、前の見張りを止めてから新しく作る
 - CI の e2e が 25 分の上限で取り消されると、Playwright の報告が残らない。落ちたテストの数をログの全文で見てから、`gh run rerun <id> --failed` で落ちた job だけを流し直す（NORI-98）
