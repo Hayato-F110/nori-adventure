@@ -49,6 +49,18 @@
         </svg>
         <span id="time" class="status-time">0</span>
       </div>
+      <!-- ステージ4のたからばこの帯（NORI-33 の K33-2）：上の表示の下 8 px・真ん中に、たからばこの絵と近づき具合の棒。
+           上の表示の中に置き、下へはみ出させる（上の表示の高さによらずそろう）。ステージ4だけが出す -->
+      <div id="treasure-progress" class="treasure-progress" hidden aria-hidden="true">
+        <svg viewBox="0 0 100 100" aria-hidden="true">
+          <path d="M14 44 Q14 18 50 18 Q86 18 86 44 Z" fill="#ffb21f" stroke="#fff" stroke-width="5" />
+          <rect x="14" y="44" width="72" height="40" rx="4" fill="#ffc93c" stroke="#fff" stroke-width="5" />
+          <rect x="44" y="38" width="12" height="16" rx="2" fill="#8a5a00" />
+        </svg>
+        <span class="treasure-progress-track"
+          ><span id="treasure-progress-fill" class="treasure-progress-fill"></span
+        ></span>
+      </div>
     </div>
     <!-- ステージの始まりの覆い（NORI-76）：素材を貼るか単色に決まるまで、ゲームの画面を隠す -->
     <div id="start-cover" class="start-cover" role="img" aria-label="よみこみちゅう">
@@ -150,6 +162,14 @@
         <path d="M22 76 Q22 50 38 50 Q54 50 54 76 Z" fill="#fff" />
         <circle cx="66" cy="48" r="7" fill="#fff" />
         <path d="M55 76 Q55 60 66 60 Q77 60 77 76 Z" fill="#fff" />
+      </svg>
+    </a>
+    <!-- 遊んでいる途中でタイトルに戻る家のボタン（NORI-33 の K33-1）：0.8 秒押し続けると戻る。絵はクリアの家と同じ -->
+    <a id="home" class="home-link" href="./" hidden aria-label="はじめの がめん。おしつづけると もどる">
+      <svg viewBox="0 0 100 100" aria-hidden="true">
+        <circle class="home-ring" cx="50" cy="50" r="46" />
+        <path d="M50 14 L88 48 H76 V86 H24 V48 H12 Z" fill="#6fa8dc" stroke-linejoin="round" />
+        <rect x="42" y="60" width="16" height="26" fill="#fffaf0" />
       </svg>
     </a>
     <!-- ステージ2の始めに、乗る列車を選ぶ（NORI-59）。絵だけ（文字なし）。速さ・操作は3つとも同じ -->

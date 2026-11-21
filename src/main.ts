@@ -27,6 +27,7 @@ import { createTitleJudge, type TitleJudgeState } from "./render/titleJudge";
 import { type CoverInfo, startStageCover } from "./render/stageCover";
 import { createStatusView } from "./render/statusView";
 import { loadTreeModels } from "./render/trees";
+import { createHomeLink } from "./input/homeLink";
 import { createParentLink } from "./input/parentLink";
 import { parseRoute } from "./core/route";
 import { registerServiceWorker } from "./pwa/register";
@@ -75,8 +76,10 @@ declare global {
       creatures?: () => { x: number; y: number; z: number }[];
       /** ステージ4の生きもののきらきら（1つめ）の位置。見つけたあとは null（NORI-62） */
       sparkles?: () => ({ x: number; y: number; z: number } | null)[];
-      /** E2E 用：ステージ3・4の時間を止める・戻す（状態を進めず、描画だけ続ける。FPS は実際の時刻で数え続ける） */
+      /** E2E 用：ステージ3・4・5の時間を止める・戻す（状態を進めず、描画だけ続ける。FPS は実際の時刻で数え続ける） */
       freeze?: (on: boolean) => void;
+      /** E2E 用（NORI-33）：ステージ4・5の行き先の矢印の、世界の位置と見えているか。矢印がなければ null */
+      guideArrow?: () => { visible: boolean; x: number; y: number; z: number } | null;
       /** E2E 用（NORI-71）：ステージ4のカメラの今の位置（早送りでは目標より遅れて追うので、実際の値を読む） */
       cameraAt?: () => { x: number; y: number; z: number };
       /** ステージ4で自作モデル（sea-*）に差し替えた種類の数（0〜7） */
@@ -180,6 +183,13 @@ if (route.kind === "models") {
 }
 
 const stage = route.kind === "stage" ? route.stage : 1;
+
+// 遊んでいる途中でタイトルに戻る家のボタン（NORI-33 の K33-1）：ステージ1〜5で出す（タイトルの裏の判定の形では出さない）
+const homeLink = document.querySelector<HTMLAnchorElement>("#home");
+if (homeLink !== null && !judgeMode) {
+  homeLink.hidden = false;
+  createHomeLink(homeLink, window, () => location.assign(homeLink.href));
+}
 
 // ?stage=2：山道を列車で進むステージ（NORI-26）
 if (stage === 2) {

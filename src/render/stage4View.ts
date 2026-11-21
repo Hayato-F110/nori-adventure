@@ -5,8 +5,17 @@
 import * as THREE from "three";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { ASSET, LOOK, SIM, STAGE4 } from "../config";
-import { type Creature, creaturePosition, type Hint, type Point3, type Stage4State } from "../core/stage4";
+import {
+  type Creature,
+  creaturePosition,
+  type Hint,
+  type Point3,
+  type Stage4State,
+  treasureGuide,
+} from "../core/stage4";
+import { createGuideArrow } from "./guideArrow";
 import { type Look, setGroundUv1, setPlaneUvMeters } from "./look";
+import { foundStarScale } from "./stage4Hud";
 
 const SEABED = -STAGE4.maxDepth;
 const GROUND_SIZE = STAGE4.boundsHalfSize * 2 + 120;
@@ -25,7 +34,15 @@ export type Stage4View = {
   root: THREE.Group;
   applyLook(look: Look | null): void;
   /** seconds は描画の時刻（あわ・魚の群れの動きだけに使う。ゲームの状態には影響しない） */
-  update(state: Stage4State, seconds: number, reducedMotion: boolean): void;
+  /** camera はカメラの位置（見つけた印の星をカメラへ向けるため。NORI-33） */
+  /** drawn は描いた潜水艇の中心（刻みの間を補間した位置）。たからばこの矢印をここに置く（ないときは state.sub） */
+  update(
+    state: Stage4State,
+    seconds: number,
+    reducedMotion: boolean,
+    camera?: { x: number; y: number; z: number },
+    drawn?: Point3,
+  ): void;
   /** 深さ（m）の水の色 */
   waterAt(depth: number): THREE.Color;
   /** 生きもの（番号 i）の今の位置（E2E で操縦の目標にする） */
@@ -217,7 +234,8 @@ export const createStage4View = (hints: readonly Hint[], treasure: Point3): Stag
 
   // 光るあわ（手がかり）：近いほど多い。上へのぼって、また下から
   const bubbleGeo = new THREE.SphereGeometry(STAGE4.bubbleRadius, 8, 6);
-  const bubbleMat = new THREE.MeshBasicMaterial({ color: STAGE4.bubbleColor, toneMapped: false });
+  // 霧に溶かさない（NORI-33 の K33-2。道しるべが水に溶けて見えなかった）。たからばこ・生きもの・岩は霧のまま
+  const bubbleMat = new THREE.MeshBasicMaterial({ color: STAGE4.bubbleColor, toneMapped: false, fog: false });
   const bubbleTotal = hints.reduce((s, h) => s + h.bubbles, 0);
   const bubbles = new THREE.InstancedMesh(bubbleGeo, bubbleMat, bubbleTotal);
   const bubbleBase: { x: number; y: number; z: number; phase: number }[] = [];
@@ -269,14 +287,15 @@ export const createStage4View = (hints: readonly Hint[], treasure: Point3): Stag
   chest.position.set(treasure.x, treasure.y, treasure.z);
   root.add(chest);
 
-  // 生きもの（見つけたら、上に小さな黄色い星）
+  // 生きもの（見つけたら、上に黄色い 5 つの角の星。NORI-33 の K33-3：ステージ5の取るほし＝八面体と形を分ける）
   const starMat = new THREE.MeshBasicMaterial({ color: 0xffd23f, toneMapped: false });
+  const starGeo = createStarGeometry(STAGE4.foundStarSize);
   // mesh は位置・向きを持つ入れ物。中の shape（簡単な形 → 自作モデル）だけを差し替える
   const creatures = STAGE4.creatures.map((c) => {
     const mesh = new THREE.Group();
     mesh.name = c.kind;
     let shape = selfLit(creatureMesh(c.kind));
-    const star = new THREE.Mesh(new THREE.OctahedronGeometry(STAGE4.foundStarSize), starMat);
+    const star = new THREE.Mesh(starGeo, starMat);
     star.name = "star";
     star.position.y = 1.4 + STAGE4.foundStarGap; // 簡単な形の高さの半分（約 1.4 m）の上
     star.visible = false;
@@ -294,7 +313,7 @@ export const createStage4View = (hints: readonly Hint[], treasure: Point3): Stag
   // まだ見つけていない生きもののまわりの「きらきら」（光に左右されない色。見つけたら消えて星になる）
   // 全部で1つの InstancedMesh（生きもの × sparkleCount 個）。生きものの端から sparkleGap 外を水平に回る
   const sparkles = new THREE.InstancedMesh(
-    // 丸い粒（見つけた印の星＝八面体と、形でも分ける）
+    // 丸い粒（見つけた印の 5 つの角の星と、形でも分ける）
     new THREE.SphereGeometry(STAGE4.sparkleSize / 2, 8, 6),
     new THREE.MeshBasicMaterial({
       color: new THREE.Color(STAGE4.sparkleColor).multiplyScalar(STAGE4.sparkleGlow),
@@ -426,7 +445,25 @@ export const createStage4View = (hints: readonly Hint[], treasure: Point3): Stag
   };
 
   let lastFound: readonly boolean[] = [];
+  /** 生きものごとに、見つけた描画の時刻（秒）。見つけていなければ undefined */
+  const foundAt: (number | undefined)[] = [];
+  /** 生きものごとに、見つけていない状態を一度でも描いたか（最初から見つけていた印は、出きった大きさにする） */
+  const seenNotFound: boolean[] = [];
+  const lookTarget = new THREE.Vector3();
   const water = new THREE.Color();
+  // たからばこの矢印（NORI-33 の K33-12）：潜水艇の中心の上。潜水艇の向き・傾きは受け継がない（root の子にする）
+  const guide = createGuideArrow(STAGE4.guideArrowColor);
+  root.add(guide.root);
+  // 描いた位置（drawn）から置き・指す：刻みの状態のままだと、60 Hz より速い画面で潜水艇より 1 刻み遅れて揺れる
+  const placeGuide = (state: Stage4State, camera: Point3 | undefined, drawn: Point3 | undefined) => {
+    const s = drawn ?? state.sub;
+    const g = treasureGuide({ ...state, sub: { ...state.sub, x: s.x, y: s.y, z: s.z } });
+    guide.root.visible = g !== null;
+    if (g === null) return;
+    const at = { x: s.x, y: s.y + STAGE4.guideArrowHeight, z: s.z };
+    // カメラの位置が来ないとき（単体テストの一部）は、真上から見る向きにする
+    guide.place(at, g.yaw, camera ?? { x: at.x, y: at.y + 1, z: at.z });
+  };
   return {
     root,
     useSeaModels,
@@ -436,7 +473,7 @@ export const createStage4View = (hints: readonly Hint[], treasure: Point3): Stag
     applyLook(look) {
       sand.material = look === null ? sandPlain : look.material("sand");
     },
-    update(state, seconds, reducedMotion) {
+    update(state, seconds, reducedMotion, camera, drawn) {
       const t = reducedMotion ? 0 : seconds;
       placeSchools(t);
       placeBubbles(t);
@@ -445,9 +482,24 @@ export const createStage4View = (hints: readonly Hint[], treasure: Point3): Stag
         const p = creaturePosition(c, state.tick);
         mesh.position.set(p.x, p.y, p.z);
         mesh.rotation.y = p.heading;
-        star.visible = state.found[i] === true;
+        const found = state.found[i] === true;
+        // 見つけた描画の時刻を覚える（見た目だけ。NORI-33 の K33-3）。最初から見つけていた印は、もう出きっている
+        if (found && foundAt[i] === undefined) foundAt[i] = seenNotFound[i] === true ? seconds : -Infinity;
+        if (!found) {
+          foundAt[i] = undefined;
+          seenNotFound[i] = true;
+        }
+        star.visible = found;
+        if (!found) return;
+        star.scale.setScalar(foundStarScale(seconds - (foundAt[i] ?? -Infinity), reducedMotion));
+        // いつもカメラの方を向く（生きものが回っても、星の面が見える）
+        if (camera !== undefined) {
+          mesh.updateMatrixWorld(true);
+          star.lookAt(lookTarget.set(camera.x, camera.y, camera.z));
+        }
       });
       placeSparkles(t, state.found);
+      placeGuide(state, camera, drawn);
       // ゴールしたら、約1秒でふたが開く
       const open =
         state.finishTick === null
@@ -476,4 +528,22 @@ export const createStage4View = (hints: readonly Hint[], treasure: Point3): Stag
       };
     },
   };
+};
+
+/**
+ * 見つけた印の 5 つの角の平たい星（NORI-33）。面は XY、中心は原点、厚みは Z。角の先は上を向き、中心から outer m。
+ * カメラの方へ向けるのは update（lookAt は +Z を向ける）
+ */
+const createStarGeometry = (outer: number): THREE.BufferGeometry => {
+  const inner = outer * 0.45;
+  const shape = new THREE.Shape();
+  for (let k = 0; k < 10; k++) {
+    const r = k % 2 === 0 ? outer : inner;
+    const a = Math.PI / 2 + (k * Math.PI) / 5;
+    if (k === 0) shape.moveTo(Math.cos(a) * r, Math.sin(a) * r);
+    else shape.lineTo(Math.cos(a) * r, Math.sin(a) * r);
+  }
+  shape.closePath();
+  const depth = outer * 0.25;
+  return new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: false }).translate(0, 0, -depth / 2);
 };
