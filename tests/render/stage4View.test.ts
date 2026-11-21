@@ -287,6 +287,19 @@ describe("NORI-33：たからばこの矢印", () => {
     });
   }
 
+  it("描いた潜水艇の位置（刻みの間を補間した位置）を渡すと、矢印はその上にある（刻みの状態より遅れない。/code-review の指摘）", () => {
+    const view = newView();
+    const drawn = { x: s0.sub.x + 0.13, y: s0.sub.y - 0.05, z: s0.sub.z - 0.1 };
+    view.update(s0, 0, true, behind(s0.sub), drawn);
+    view.root.updateMatrixWorld(true);
+    const arrow = view.root.getObjectByName("guide-arrow");
+    if (arrow === undefined) throw new Error("guide-arrow がない");
+    const p = arrow.getWorldPosition(new THREE.Vector3());
+    expect(p.x).toBeCloseTo(drawn.x, 4);
+    expect(p.y).toBeCloseTo(drawn.y + STAGE4.guideArrowHeight, 4);
+    expect(p.z).toBeCloseTo(drawn.z, 4);
+  });
+
   it("揺らさない：動きを減らさない設定で、秒が変わっても高さは同じ（R3-33-F）", () => {
     const view = newView();
     const arrow = () => view.root.getObjectByName("guide-arrow");

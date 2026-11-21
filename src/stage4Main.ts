@@ -270,6 +270,8 @@ export const startStage4 = async (canvas: HTMLCanvasElement, hud: HTMLElement, s
   if (window.__nori) {
     window.__nori.freeze = (on: boolean) => {
       frozenAt = on ? lastTime : null;
+      // 解いたときは今から数える（止めていた間の時間をまとめて進めない）
+      if (!on) lastTime = performance.now();
     };
   }
 
@@ -303,7 +305,7 @@ export const startStage4 = async (canvas: HTMLCanvasElement, hud: HTMLElement, s
     subRoot.position.set(p.x, p.y - HALF_HEIGHT, p.z);
     subRoot.rotation.set(p.tilt, p.heading, 0, "YXZ");
     if (propeller && !reducedMotion.matches) propeller.rotation.z += frameSeconds * p.speed * 4;
-    view.update(current, now / 1000, reducedMotion.matches, camera.position);
+    view.update(current, now / 1000, reducedMotion.matches, camera.position, p);
     // NORI-33：帯の棒・▼ のヒント・魚の絵（どれも状態を読むだけ。時刻は描画の時刻）
     treasureFill.style.width = `${progressBarPx(treasureNearness(current))}px`;
     const hinting = diveHint(current);

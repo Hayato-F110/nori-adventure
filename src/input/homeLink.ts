@@ -23,7 +23,8 @@ export const createHomeLink = (link: HTMLAnchorElement, win: Window, go: () => v
     const p = homeHoldProgress(now - pressedAt);
     show(p);
     if (p >= 1) {
-      pressedAt = null;
+      // 輪を 0 に戻してから戻る（ブラウザの「戻る」でこの画面に戻ったとき、輪がいっぱいのまま残らない）
+      reset();
       go();
       return;
     }
@@ -32,6 +33,8 @@ export const createHomeLink = (link: HTMLAnchorElement, win: Window, go: () => v
 
   link.addEventListener("pointerdown", (e) => {
     e.preventDefault();
+    // 指・ペン・マウスの左ボタンだけ（右ボタンは右クリックの画面を止めているので、押していることが見えない）
+    if ((e as PointerEvent).button !== 0) return;
     link.setPointerCapture((e as PointerEvent).pointerId);
     pressedAt = win.performance.now();
     frame = win.requestAnimationFrame(tick);

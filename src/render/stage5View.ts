@@ -39,7 +39,8 @@ export type Stage5View = {
   /** 素材を貼る（null なら単色。画質の切り替えから呼ばれる） */
   applyLook(look: Look | null): void;
   /** camera はカメラの位置（行き先の矢印の面をカメラへ向けるのに使う。NORI-33） */
-  update(state: Stage5State, seconds: number, reducedMotion: boolean, camera?: Point3): void;
+  /** drawn は描いたローバーの位置（刻みの間を補間した位置）。行き先の矢印をここに置く（ないときは state.rover） */
+  update(state: Stage5State, seconds: number, reducedMotion: boolean, camera?: Point3, drawn?: Point3): void;
   /** E2E で明るさの比を測る点：ほし（1つめ）・道、ジャンプ台（1つめ）、なかよしの星（1つめ）・砂 */
   marker(): { star: Point3; path: Point3; pad: Point3; sand: Point3; friend: Point3; ground: Point3 };
   /** 今の口の形（E2E・確かめ用） */
@@ -281,11 +282,12 @@ export const createStage5View = (): Stage5View => {
   deliverRing.rotation.x = -Math.PI / 2;
   deliverRing.visible = false;
   root.add(deliverRing);
-  const placeGuide = (state: Stage5State, camera: Point3 | undefined) => {
+  // 描いた位置（drawn）から置き・指す：刻みの状態のままだと、60 Hz より速い画面でローバーより 1 刻み遅れて揺れる
+  const placeGuide = (state: Stage5State, camera: Point3 | undefined, drawn: Point3 | undefined) => {
     const g = guideTarget(state);
     guide.root.visible = g !== null;
     if (g !== null) {
-      const r = state.rover;
+      const r = drawn ?? state.rover;
       const at = { x: r.x, y: r.y + STAGE5.guideArrowHeight, z: r.z };
       guide.place(at, Math.atan2(-(g.x - r.x), -(g.z - r.z)), camera ?? { x: at.x, y: at.y + 1, z: at.z });
     }
@@ -317,8 +319,8 @@ export const createStage5View = (): Stage5View => {
     applyLook(look) {
       ground.material = look === null ? groundPlain : look.material("moon");
     },
-    update(state, seconds, reducedMotion, camera) {
-      placeGuide(state, camera);
+    update(state, seconds, reducedMotion, camera, drawn) {
+      placeGuide(state, camera, drawn);
       const spin = reducedMotion ? 0 : seconds * 1.5;
       stars.forEach((m, i) => {
         m.visible = state.stars[i] !== true;

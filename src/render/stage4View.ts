@@ -35,11 +35,13 @@ export type Stage4View = {
   applyLook(look: Look | null): void;
   /** seconds は描画の時刻（あわ・魚の群れの動きだけに使う。ゲームの状態には影響しない） */
   /** camera はカメラの位置（見つけた印の星をカメラへ向けるため。NORI-33） */
+  /** drawn は描いた潜水艇の中心（刻みの間を補間した位置）。たからばこの矢印をここに置く（ないときは state.sub） */
   update(
     state: Stage4State,
     seconds: number,
     reducedMotion: boolean,
     camera?: { x: number; y: number; z: number },
+    drawn?: Point3,
   ): void;
   /** 深さ（m）の水の色 */
   waterAt(depth: number): THREE.Color;
@@ -452,11 +454,12 @@ export const createStage4View = (hints: readonly Hint[], treasure: Point3): Stag
   // たからばこの矢印（NORI-33 の K33-12）：潜水艇の中心の上。潜水艇の向き・傾きは受け継がない（root の子にする）
   const guide = createGuideArrow(STAGE4.guideArrowColor);
   root.add(guide.root);
-  const placeGuide = (state: Stage4State, camera: Point3 | undefined) => {
-    const g = treasureGuide(state);
+  // 描いた位置（drawn）から置き・指す：刻みの状態のままだと、60 Hz より速い画面で潜水艇より 1 刻み遅れて揺れる
+  const placeGuide = (state: Stage4State, camera: Point3 | undefined, drawn: Point3 | undefined) => {
+    const s = drawn ?? state.sub;
+    const g = treasureGuide({ ...state, sub: { ...state.sub, x: s.x, y: s.y, z: s.z } });
     guide.root.visible = g !== null;
     if (g === null) return;
-    const s = state.sub;
     const at = { x: s.x, y: s.y + STAGE4.guideArrowHeight, z: s.z };
     // カメラの位置が来ないとき（単体テストの一部）は、真上から見る向きにする
     guide.place(at, g.yaw, camera ?? { x: at.x, y: at.y + 1, z: at.z });
@@ -470,7 +473,7 @@ export const createStage4View = (hints: readonly Hint[], treasure: Point3): Stag
     applyLook(look) {
       sand.material = look === null ? sandPlain : look.material("sand");
     },
-    update(state, seconds, reducedMotion, camera) {
+    update(state, seconds, reducedMotion, camera, drawn) {
       const t = reducedMotion ? 0 : seconds;
       placeSchools(t);
       placeBubbles(t);
@@ -496,7 +499,7 @@ export const createStage4View = (hints: readonly Hint[], treasure: Point3): Stag
         }
       });
       placeSparkles(t, state.found);
-      placeGuide(state, camera);
+      placeGuide(state, camera, drawn);
       // ゴールしたら、約1秒でふたが開く
       const open =
         state.finishTick === null

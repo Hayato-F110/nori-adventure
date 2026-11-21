@@ -62,8 +62,9 @@ const fakeButton = () => {
   return el;
 };
 
-const pointer = (type: string, x = 36, y = 36) =>
-  Object.assign(new Event(type, { cancelable: true }), { pointerId: 1, clientX: x, clientY: y });
+/** button：0 が指・ペン・マウスの左ボタン、2 がマウスの右ボタン */
+const pointer = (type: string, x = 36, y = 36, button = 0) =>
+  Object.assign(new Event(type, { cancelable: true }), { pointerId: 1, clientX: x, clientY: y, button });
 const key = (k: string) => Object.assign(new Event("keydown", { cancelable: true }), { key: k });
 
 const setup = () => {
@@ -102,6 +103,22 @@ describe("1. 家のボタン：押し続けた時間 → 輪の進みと、戻�
     win.advance(1000);
     el.dispatchEvent(pointer("pointerup"));
     expect(went()).toBe(1);
+  });
+
+  it("戻ったときに輪を 0 に戻す（ブラウザの「戻る」でこの画面に戻っても、輪がいっぱいのまま残らない。/code-review の指摘）", () => {
+    const { win, el, went } = setup();
+    el.dispatchEvent(pointer("pointerdown"));
+    win.advance(holdMs + 50);
+    expect(went()).toBe(1);
+    expect(Number(el.hold)).toBe(0);
+  });
+
+  it("マウスの右ボタンで押し続けても戻らず、輪も進まない（/code-review の指摘）", () => {
+    const { win, el, went } = setup();
+    el.dispatchEvent(pointer("pointerdown", 36, 36, 2));
+    win.advance(holdMs * 2);
+    expect(went()).toBe(0);
+    expect(Number(el.hold)).toBe(0);
   });
 
   it("その前に指を離すと戻らず、輪は 0 に戻る", () => {

@@ -206,6 +206,8 @@ export const startStage5 = async (canvas: HTMLCanvasElement, hud: HTMLElement, s
   if (window.__nori) {
     window.__nori.freeze = (on: boolean) => {
       frozenAt = on ? lastTime : null;
+      // 解いたときは今から数える（止めていた間の時間をまとめて進めない）
+      if (!on) lastTime = performance.now();
     };
   }
 
@@ -239,7 +241,7 @@ export const startStage5 = async (canvas: HTMLCanvasElement, hud: HTMLElement, s
     roverView.root.position.set(p.x, p.y, p.z);
     roverView.root.rotation.y = p.heading;
     roverView.update(Math.sign(p.speed) * moved, p.steer);
-    view.update(current, now / 1000, reducedMotion.matches, camera.position);
+    view.update(current, now / 1000, reducedMotion.matches, camera.position, p);
 
     const collected = current.stars.filter(Boolean).length;
     statusView.update(current.tick, {

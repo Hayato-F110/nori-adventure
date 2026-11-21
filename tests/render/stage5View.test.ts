@@ -100,6 +100,24 @@ describe("NORI-33：行き先の矢印と届ける輪", () => {
     expect(dirOf(carrying).dot(dirOf(atPoint))).toBeLessThan(0.99);
   });
 
+  it("描いたローバーの位置（刻みの間を補間した位置）を渡すと、矢印はその上にあり、そこから行き先を指す（刻みの状態より遅れない。/code-review の指摘）", () => {
+    const view = createStage5View();
+    const s = { ...s0, tick: 300 };
+    const drawn = { x: s.rover.x + 0.13, y: s.rover.y + 0.05, z: s.rover.z - 0.1 };
+    const camera = behind(s.rover);
+    view.update(s, 0, true, camera, drawn);
+    view.root.updateMatrixWorld(true);
+    const arrow = view.root.getObjectByName("guide-arrow");
+    if (arrow === undefined) throw new Error("guide-arrow がない");
+    const p = arrow.getWorldPosition(new THREE.Vector3());
+    expect(p.x).toBeCloseTo(drawn.x, 4);
+    expect(p.y).toBeCloseTo(drawn.y + STAGE5.guideArrowHeight, 4);
+    expect(p.z).toBeCloseTo(drawn.z, 4);
+    const g = guideTarget(s);
+    if (g === null) throw new Error("行き先がない");
+    expectArrowPose(arrow, { x: g.x - drawn.x, z: g.z - drawn.z }, camera);
+  });
+
   it("揺らさない：動きを減らさない設定で、秒が変わっても高さは同じ（R3-33-F）", () => {
     const view = createStage5View();
     const s = { ...s0, tick: 300 };
