@@ -19,6 +19,7 @@ import { startQuality } from "./render/qualityControl";
 import { startStageCover } from "./render/stageCover";
 import { createStage2View } from "./render/stage2View";
 import { createStatusView } from "./render/statusView";
+import { debugFpsLine } from "./render/debugLine";
 import { startClearFlow } from "./render/clearFlow";
 import { startSound } from "./render/sound";
 import { loadTreeModels } from "./render/trees";
@@ -324,7 +325,7 @@ export const startStage2 = async (canvas: HTMLCanvasElement, hud: HTMLElement, s
       windowFrames = 0;
       windowStart = now;
       if (showDebug)
-        hud.textContent = `${fps.toFixed(0)} fps · ${(current.train.speed * 3.6).toFixed(0)} km/h`;
+        hud.textContent = `${debugFpsLine(fps, fpsSamples, quality.quality)} · ${(current.train.speed * 3.6).toFixed(0)} km/h`;
     }
     if (window.__nori) window.__nori.frames = frames;
     requestAnimationFrame(frame);

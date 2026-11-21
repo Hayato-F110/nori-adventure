@@ -26,6 +26,7 @@ import { startQuality } from "./render/qualityControl";
 import { createTitleJudge, type TitleJudgeState } from "./render/titleJudge";
 import { type CoverInfo, startStageCover } from "./render/stageCover";
 import { createStatusView } from "./render/statusView";
+import { debugFpsLine } from "./render/debugLine";
 import { loadTreeModels } from "./render/trees";
 import { createHomeLink } from "./input/homeLink";
 import { createParentLink } from "./input/parentLink";
@@ -533,7 +534,7 @@ const frame = (now: number) => {
     windowFrames = 0;
     windowStart = now;
     if (showDebug) {
-      hud.textContent = `${fps.toFixed(0)} fps · ${(current.car.speed * 3.6).toFixed(0)} km/h`;
+      hud.textContent = `${debugFpsLine(fps, fpsSamples, quality.quality)} · ${(current.car.speed * 3.6).toFixed(0)} km/h`;
     }
   }
   if (window.__nori) window.__nori.frames = frames;

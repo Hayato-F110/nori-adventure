@@ -18,6 +18,7 @@ import { startQuality } from "./render/qualityControl";
 import { startStageCover } from "./render/stageCover";
 import { createStage3View } from "./render/stage3View";
 import { createStatusView } from "./render/statusView";
+import { debugFpsLine } from "./render/debugLine";
 import { startClearFlow } from "./render/clearFlow";
 import { startSound } from "./render/sound";
 import { loadTreeModels } from "./render/trees";
@@ -317,7 +318,8 @@ export const startStage3 = async (canvas: HTMLCanvasElement, hud: HTMLElement, s
       quality.sample(fps, fpsSamples.length);
       windowFrames = 0;
       windowStart = realNow;
-      if (showDebug) hud.textContent = `${fps.toFixed(0)} fps · ${p.y.toFixed(0)} m`;
+      if (showDebug)
+        hud.textContent = `${debugFpsLine(fps, fpsSamples, quality.quality)} · ${p.y.toFixed(0)} m`;
     }
     if (window.__nori) window.__nori.frames = frames;
     requestAnimationFrame(frame);
