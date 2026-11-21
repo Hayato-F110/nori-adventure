@@ -22,6 +22,12 @@ describe("1. 最小の FPS（始めの PERF.skipSeconds 個を除く）", () => 
     expect(fpsMinAfterSkip([...warmup, 45, 31.2, 50])).toBe(31.2);
     expect(fpsMinAfterSkip([...warmup, 45, 50, 31.2])).toBe(31.2);
   });
+
+  it("値がとても多くても（1 秒に 1 個で約 140 時間分の 50 万個）、例外を出さずに最小を返す（/code-review の指摘）", () => {
+    const many = Array.from({ length: 500_000 }, (_, i) => 40 + (i % 7));
+    many[123_456] = 33.3;
+    expect(fpsMinAfterSkip([...warmup, ...many])).toBe(33.3);
+  });
 });
 
 describe("2. 上の表示の文", () => {

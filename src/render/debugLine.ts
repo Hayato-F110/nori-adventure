@@ -5,8 +5,13 @@ import type { Quality } from "./quality";
 
 /** 1 秒ごとの値の始めの PERF.skipSeconds 個（読み込み・覆い・画質の判定の間）を除いた最小。なければ null */
 export const fpsMinAfterSkip = (samples: readonly number[]): number | null => {
-  const counted = samples.slice(PERF.skipSeconds);
-  return counted.length === 0 ? null : Math.min(...counted);
+  // Math.min(...配列) は、値がとても多いと引数の数の上限を超えて例外になるので、1 つずつ比べる
+  let min: number | null = null;
+  for (let i = PERF.skipSeconds; i < samples.length; i++) {
+    const v = samples[i] as number;
+    if (min === null || v < min) min = v;
+  }
+  return min;
 };
 
 /**

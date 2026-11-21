@@ -8,20 +8,33 @@ type Snapshot = { text: string; samples: number[]; quality: string | undefined }
 
 /** 1 秒ごとの値が at 個以上たまったら、その時の表示・値・画質をまとめて返す（覆いは待たない） */
 const snapshotWhen = async (page: Page, atLeast: number): Promise<Snapshot> => {
-  const handle = await page.waitForFunction(
-    (n) => {
-      const samples = window.__nori?.fpsSamples ?? [];
-      if (samples.length < n) return null;
-      return {
+  try {
+    const handle = await page.waitForFunction(
+      (n) => {
+        const samples = window.__nori?.fpsSamples ?? [];
+        if (samples.length < n) return null;
+        return {
+          text: document.getElementById("hud")?.textContent ?? "",
+          samples: [...samples],
+          quality: window.__nori?.quality,
+        };
+      },
+      atLeast,
+      { timeout: 90_000 },
+    );
+    return (await handle.jsonValue()) as Snapshot;
+  } catch (e) {
+    // 時間切れのとき：表示がまちがっているのか、PC が遅くて値がたまらないのかを分けるため、その時の個数と表示を残す
+    const now = await page
+      .evaluate(() => ({
+        count: window.__nori?.fpsSamples?.length ?? -1,
         text: document.getElementById("hud")?.textContent ?? "",
-        samples: [...samples],
-        quality: window.__nori?.quality,
-      };
-    },
-    atLeast,
-    { timeout: 90_000 },
-  );
-  return (await handle.jsonValue()) as Snapshot;
+      }))
+      .catch(() => null);
+    throw new Error(`1 秒ごとの値が ${atLeast} 個たまらなかった（その時：${JSON.stringify(now)}）`, {
+      cause: e,
+    });
+  }
 };
 
 const attach = (testInfo: TestInfo, name: string, s: Snapshot) =>
