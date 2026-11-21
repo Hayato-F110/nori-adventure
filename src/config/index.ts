@@ -316,7 +316,7 @@ export const STAGE4 = {
   bubbleColor: "#bff4ff",
   schoolColors: ["#ffd23f", "#4fc3f7", "#ff7043", "#ba68c8", "#c0ca33"],
   /** 手がかりのあわ：半径 m、散らばり ±m、のぼる速さ m/s、のぼる高さ m（そのあと下からまた） */
-  bubbleRadius: 0.25,
+  bubbleRadius: 0.5,
   bubbleSpread: 1,
   bubbleRiseSpeed: 1.6,
   bubbleRiseHeight: 4,
@@ -338,9 +338,19 @@ export const STAGE4 = {
   sparkleSize: 0.35,
   sparkleGap: 0.6,
   sparkleTurnSeconds: 6,
-  /** 見つけた印の星：大きさ m、生きものの上のすき間 m */
-  foundStarSize: 0.4,
+  /** 見つけた印の星（5 つの角の平たい星）：中心から角の先まで m、生きものの上のすき間 m、出るまでの秒（NORI-33） */
+  foundStarSize: 0.5,
   foundStarGap: 0.8,
+  foundStarGrowSeconds: 0.6,
+  /** 見つけたときの上の表示の魚の絵：大きくなる倍率と、元に戻るまでの秒（NORI-33） */
+  foundPopScale: 1.3,
+  foundPopSeconds: 0.4,
+  /** 上の表示の、たからばこへの近づき具合の棒の長さ px（NORI-33） */
+  progressBarWidth: 120,
+  /** ▼ のヒント（NORI-33）：たからばこまでの水平の距離 m、深さの差 m、光る周期 s */
+  diveHintRange: 80,
+  diveHintDepth: 2,
+  diveHintPeriod: 2,
   /** ゴールしたら、ふたが開くまでの秒と角度（ラジアン） */
   lidOpenSeconds: 1,
   lidOpenAngle: 1.9,
@@ -691,6 +701,12 @@ export const PARENT = {
   buttonSize: 48,
 } as const;
 
+/** 遊んでいる途中でタイトルに戻る家のボタン（NORI-33 の K33-1）。押し続けたときだけ戻る */
+export const HOME = {
+  holdSeconds: 0.8,
+  buttonSize: 72,
+} as const;
+
 /** タイトル画面とステージ選び（NORI-30。docs/game-rules.md「タイトル画面・ステージ選び・クリアの演出」） */
 export const TITLE = {
   /** 選べるステージ（1〜5。ステージ5は NORI-29） */
@@ -843,6 +859,7 @@ export const CONFIG = {
   ASSIST,
   LOOK,
   PARENT,
+  HOME,
   TITLE,
   CLEAR,
   TRAFFIC,

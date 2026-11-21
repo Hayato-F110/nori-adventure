@@ -25,7 +25,13 @@ export type Stage4View = {
   root: THREE.Group;
   applyLook(look: Look | null): void;
   /** seconds は描画の時刻（あわ・魚の群れの動きだけに使う。ゲームの状態には影響しない） */
-  update(state: Stage4State, seconds: number, reducedMotion: boolean): void;
+  /** camera はカメラの位置（見つけた印の星をカメラへ向けるため。NORI-33） */
+  update(
+    state: Stage4State,
+    seconds: number,
+    reducedMotion: boolean,
+    camera?: { x: number; y: number; z: number },
+  ): void;
   /** 深さ（m）の水の色 */
   waterAt(depth: number): THREE.Color;
   /** 生きもの（番号 i）の今の位置（E2E で操縦の目標にする） */

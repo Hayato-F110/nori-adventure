@@ -1,6 +1,14 @@
 import { expect, type Page, test, type TestInfo } from "@playwright/test";
-import { chooseQuality, openStage, waitLook, watchErrors } from "./common";
-import { approachStopped, installSubApproachDriver, startDriving } from "./driver";
+import { STAGE4 } from "../src/config";
+import { chooseQuality, openStage, waitFrames, waitLook, waitStarted, watchErrors } from "./common";
+import {
+  approachStopped,
+  holdStartCover,
+  installSubApproachDriver,
+  installSubDiveDriver,
+  releaseStartCover,
+  startDriving,
+} from "./driver";
 import { attachShot, luminanceAt, peakLuminanceAt, ratio } from "./luminance";
 
 // NORI-66 と同じ早送り：60 刻み/秒 ÷ CI の約 3 fps = 20 刻み/フレーム
@@ -270,4 +278,67 @@ test("ステージ4：CPU を4倍遅くしても 30fps 以上", { tag: "@fps" },
   const samples = ((await page.evaluate(() => window.__nori?.fpsSamples)) ?? []).slice(start + 1);
   const average = samples.reduce((s, v) => s + v, 0) / Math.max(1, samples.length);
   expect(average).toBeGreaterThanOrEqual(30);
+});
+
+// NORI-33（docs/test-plans/NORI-33.md の 10）：近づき具合の棒と ▼ のヒントが、実際の画面で出る。
+// ▼ のボタンはタッチの画面でだけ出るので、タブレット（1024×768・タッチ）で開く。運転役と早送りで、刻みの数で進める
+test.describe("NORI-33：ステージ4の棒と ▼ のヒント", () => {
+  test.use({ viewport: { width: 1024, height: 768 }, hasTouch: true, isMobile: true });
+
+  test("近づくと棒がのび、真上の手前で ▼ に印が付き、潜ると消え、ゴールで棒がいっぱい", async ({
+    page,
+  }, testInfo) => {
+    test.setTimeout(180_000);
+    const errors = watchErrors(page);
+    await installSubDiveDriver(page, {
+      stopAtHorizontal: STAGE4.diveHintRange - 10,
+      steerGain: 2,
+      climbGain: 0.3,
+      stepsPerFrame: FAST,
+    });
+    await holdStartCover(page);
+    const fill = page.locator("#treasure-progress-fill");
+    const fillWidth = async () => (await fill.boundingBox())?.width ?? 0;
+    await page.goto("./?stage=4");
+    await page.waitForFunction(() => (window.__nori?.frames ?? 0) > 5);
+    // (a) 覆いを止めたまま（刻み 0）で、帯が見えていて棒の幅 0（R1-33-B）
+    expect(await page.evaluate(() => window.__nori?.sub?.()?.tick)).toBe(0);
+    await expect(page.locator("#treasure-progress")).toBeVisible();
+    expect(await fillWidth()).toBeLessThanOrEqual(1);
+    await expect(page.locator("#back")).not.toHaveAttribute("data-hint", "on");
+    await releaseStartCover(page);
+    await waitStarted(page);
+
+    // (b) 深さを変えずに近づき、水平の距離が diveHintRange − 10 m を切ったところで止まる
+    await page.waitForFunction(approachStopped, undefined, { timeout: 150_000, polling: 200 });
+    await expect(page.locator("#back")).toHaveAttribute("data-hint", "on");
+    expect(await fillWidth()).toBeGreaterThan(1);
+    // 光り方は実際の時刻で回るので、動きを減らす設定（金色のまま止まる）にして撮る（R1-33-K）
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await waitFrames(page, 5);
+    await attachShot(page, testInfo, "stage4-hint");
+    await page.emulateMedia({ reducedMotion: "no-preference" });
+
+    // (c) 再開して潜り、深さの差が diveHintDepth より小さくなったら印が消える
+    await page.evaluate(() => window.__nori?.freeze?.(false));
+    await page.waitForFunction(
+      (d) => {
+        const s = window.__nori?.sub?.();
+        const t = window.__nori?.treasureMarker?.().treasure;
+        return s !== undefined && t !== undefined && s.sub.y - t.y < d;
+      },
+      STAGE4.diveHintDepth,
+      { timeout: 150_000, polling: 200 },
+    );
+    await expect(page.locator("#back")).not.toHaveAttribute("data-hint", "on");
+
+    // (d) ゴールのあと、棒は progressBarWidth（±1）のまま（R1-33-C）
+    await page.waitForFunction(() => window.__nori?.sub?.()?.finishTick != null, undefined, {
+      timeout: 150_000,
+      polling: 200,
+    });
+    await expect.poll(fillWidth).toBeGreaterThanOrEqual(STAGE4.progressBarWidth - 1);
+    expect(await fillWidth()).toBeLessThanOrEqual(STAGE4.progressBarWidth + 1);
+    expect(errors).toEqual([]);
+  });
 });

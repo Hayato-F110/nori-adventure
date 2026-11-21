@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { SIM, STAGE4, SUB } from "../../src/config";
 import { parseReplay, runReplay, serializeReplay } from "../../src/core/replay";
-import { createStage4Game, creaturePosition, type Stage4State } from "../../src/core/stage4";
+import {
+  createStage4Game,
+  creaturePosition,
+  diveHint,
+  treasureNearness,
+  type Stage4State,
+} from "../../src/core/stage4";
 import type { InputFrame } from "../../src/core/types";
 
 // docs/game-rules.md「ステージ4：海（潜水艇）」（NORI-28）。案A：←→ で曲がる、↑↓ で上下、速さは一定
@@ -253,5 +259,77 @@ describe("岩の中心にぴったり重なったとき", () => {
     expect(s.sub.y).toBeCloseTo(SEABED + rock.radius + SUB.collisionRadius, 9);
     expect(s.sub.z).toBeCloseTo(rock.z, 9);
     expect(s.sub.touching).toBe(true);
+  });
+});
+
+// NORI-33（docs/test-plans/NORI-33.md の 4・9）：近づき具合と ▼ のヒント。どちらも状態だけで決まる
+describe("NORI-33：近づき具合（treasureNearness）", () => {
+  const t = game.treasure;
+  const s0 = game.initial().sub;
+  const startDistance = Math.hypot(t.x - s0.x, t.y - s0.y, t.z - s0.z);
+  const place = (x: number, y: number, z: number) => at(x, y, z);
+
+  it("スタートで 0、たからばこの中心で 1", () => {
+    expect(treasureNearness(game.initial())).toBeCloseTo(0, 9);
+    expect(treasureNearness(place(t.x, t.y, t.z))).toBeCloseTo(1, 9);
+  });
+
+  it("横に 30 m ずれた点（たからばこと同じ深さと z）では 1 − 30 ÷ スタートでの距離（x も数える）", () => {
+    expect(treasureNearness(place(t.x + 30, t.y, t.z))).toBeCloseTo(1 - 30 / startDistance, 6);
+  });
+
+  it("ゴールのあとは、たからばこから 5 m 離れていても 1（いっぱいのまま）", () => {
+    const s = place(t.x, t.y, t.z - 5);
+    expect(treasureNearness({ ...s, finishTick: 100 })).toBe(1);
+  });
+
+  it("たからばこの真上（スタートの深さ）では 1 −（深さの差 ÷ スタートでの距離）", () => {
+    const expected = 1 - Math.abs(t.y - s0.y) / startDistance;
+    expect(expected).toBeCloseTo(0.827, 3);
+    expect(treasureNearness(place(t.x, s0.y, t.z))).toBeCloseTo(expected, 3);
+  });
+
+  it("スタートより遠い所では 0（負にしない）", () => {
+    expect(treasureNearness(place(s0.x, s0.y, s0.z + 10))).toBe(0);
+  });
+
+  it("たからばこへまっすぐ近づくと、増え続ける", () => {
+    const values = [0, 0.2, 0.4, 0.6, 0.8].map((k) =>
+      treasureNearness(place(s0.x + (t.x - s0.x) * k, s0.y + (t.y - s0.y) * k, s0.z + (t.z - s0.z) * k)),
+    );
+    for (let i = 1; i < values.length; i++) expect(values[i]).toBeGreaterThan(values[i - 1] ?? 1);
+  });
+});
+
+describe("NORI-33：▼ のヒント（diveHint）", () => {
+  const t = game.treasure;
+  /** たからばこから、水平に north m（+Z 方向）、深さの差 shallower m（浅い側）に置く */
+  const near = (north: number, shallower: number) => at(t.x, t.y + shallower, t.z + north);
+
+  it("スタートでは出さない（水平 190 m）", () => {
+    expect(diveHint(game.initial())).toBe(false);
+  });
+
+  it(`水平 STAGE4.diveHintRange − 1 m・深さの差 STAGE4.diveHintDepth ＋ 1 m なら出す`, () => {
+    expect(diveHint(near(STAGE4.diveHintRange - 1, STAGE4.diveHintDepth + 1))).toBe(true);
+  });
+
+  it("水平 STAGE4.diveHintRange ＋ 1 m では出さない", () => {
+    expect(diveHint(near(STAGE4.diveHintRange + 1, STAGE4.diveHintDepth + 1))).toBe(false);
+  });
+
+  it("x ＝ 60・z の差 60 m（水平の距離 84.9 m）では出さない（x も数える）", () => {
+    const s = at(t.x + 60, t.y + STAGE4.diveHintDepth + 1, t.z + 60);
+    expect(Math.hypot(60, 60)).toBeGreaterThan(STAGE4.diveHintRange);
+    expect(diveHint(s)).toBe(false);
+  });
+
+  it("深さの差が STAGE4.diveHintDepth − 0.5 m では出さない", () => {
+    expect(diveHint(near(10, STAGE4.diveHintDepth - 0.5))).toBe(false);
+  });
+
+  it("ゴールのあとは出さない", () => {
+    const s = near(10, STAGE4.diveHintDepth + 5);
+    expect(diveHint({ ...s, finishTick: 100 })).toBe(false);
   });
 });

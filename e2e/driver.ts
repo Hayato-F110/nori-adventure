@@ -481,3 +481,42 @@ export const installConstantDriver = (page: Page, inputs: ConstantInputs, option
     },
     { i: inputs, o: options },
   );
+
+export type SubDiveOptions = FastForwardOption & {
+  /** たからばこまでの水平の距離（m）がこれ以下になった刻みで、一度だけ時間を止める（▼ のヒントを確かめるため） */
+  stopAtHorizontal: number;
+  steerGain: number;
+  climbGain: number;
+};
+
+/**
+ * NORI-33：ステージ4で、深さを変えずにたからばこへ水平に近づき、stopAtHorizontal で一度時間を止める運転役。
+ * テストが freeze(false) で再開すると、たからばこへ潜って進む。page.goto の前に呼ぶ。
+ * 止まる刻みは早送りの区切りで決まるので、PC の速さによらず毎回同じ
+ */
+export const installSubDiveDriver = (page: Page, options: SubDiveOptions) =>
+  page.addInitScript((o: SubDiveOptions) => {
+    const wrap = (a: number) => Math.atan2(Math.sin(a), Math.cos(a));
+    const clamp = (v: number) => Math.max(-1, Math.min(1, v));
+    let dive = false;
+    globalThis.__noriDriver = {
+      record: [],
+      ...(o.stepsPerFrame === undefined ? {} : { stepsPerFrame: o.stepsPerFrame }),
+      drive(raw) {
+        const p = (raw as { sub: { x: number; y: number; z: number; heading: number } }).sub;
+        const t = window.__nori?.treasureMarker?.().treasure;
+        if (t === undefined) return { throttle: 0, steer: 0 };
+        if (!dive && Math.hypot(t.x - p.x, t.z - p.z) <= o.stopAtHorizontal) {
+          dive = true;
+          window.__nori?.freeze?.(true);
+          (globalThis as { __noriApproachStopped?: boolean }).__noriApproachStopped = true;
+          return { throttle: 0, steer: 0 };
+        }
+        const wanted = Math.atan2(-(t.x - p.x), -(t.z - p.z));
+        return {
+          throttle: dive ? clamp((t.y - p.y) * o.climbGain) : 0,
+          steer: clamp(-wrap(wanted - p.heading) * o.steerGain),
+        };
+      },
+    };
+  }, options);

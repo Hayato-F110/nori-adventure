@@ -170,3 +170,13 @@ export const createStage4Game = (): Stage4Game => {
     },
   };
 };
+
+/** NORI-33：たからばこへの近づき具合（0〜1）。まだ作っていない（赤の確かめ用の仮の形） */
+export const treasureNearness = (_state: Stage4State): number => {
+  throw new Error("未実装");
+};
+
+/** NORI-33：▼ のヒントを出すか。まだ作っていない（赤の確かめ用の仮の形） */
+export const diveHint = (_state: Stage4State): boolean => {
+  throw new Error("未実装");
+};

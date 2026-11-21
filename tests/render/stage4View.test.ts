@@ -160,3 +160,84 @@ describe("ステージ4の生きもの（簡単な形 → 自作モデル）", (
     }
   });
 });
+
+// NORI-33（docs/test-plans/NORI-33.md の 5・7）
+describe("NORI-33：あわと見つけた印", () => {
+  const materialsOf = (o: THREE.Object3D) => {
+    const m = (o as THREE.Mesh).material;
+    return m === undefined ? [] : Array.isArray(m) ? m : [m];
+  };
+  const isBubbles = (o: THREE.Object3D) =>
+    o instanceof THREE.InstancedMesh &&
+    materialsOf(o).some(
+      (m) => m instanceof THREE.MeshBasicMaterial && m.color.getHexString() === STAGE4.bubbleColor.slice(1),
+    );
+
+  it("5. あわの半径は STAGE4.bubbleRadius で、霧の効果を受けない。ほかの素材は霧を受ける", () => {
+    const view = newView();
+    const bubbles = view.root.children.filter(isBubbles) as THREE.InstancedMesh[];
+    expect(bubbles).toHaveLength(1);
+    const geo = bubbles[0]?.geometry as THREE.SphereGeometry;
+    expect(geo.parameters.radius).toBeCloseTo(STAGE4.bubbleRadius, 9);
+    expect(
+      materialsOf(bubbles[0] as THREE.Object3D).every((m) => (m as { fog?: boolean }).fog === false),
+    ).toBe(true);
+    const others: THREE.Material[] = [];
+    view.root.traverse((o) => {
+      if (!isBubbles(o)) others.push(...materialsOf(o));
+    });
+    expect(others.length).toBeGreaterThan(0);
+    expect(others.filter((m) => (m as { fog?: boolean }).fog === false)).toEqual([]);
+  });
+
+  it("7. 見つけた印は八面体でなく、正面から見て角が 5 つの星。中心から角の先まで STAGE4.foundStarSize", () => {
+    const view = newView();
+    const star = creatureNodes(view.root)[0]?.getObjectByName("star") as THREE.Mesh;
+    expect(star.geometry).not.toBeInstanceOf(THREE.OctahedronGeometry);
+    // 星の中心は形の原点（5 つの角の星は上下が非対称なので、外枠の真ん中ではない）。面は XY
+    const center = new THREE.Vector3();
+    const pos = star.geometry.getAttribute("position");
+    const points = Array.from({ length: pos.count }, (_, i) => ({
+      r: Math.hypot(pos.getX(i) - center.x, pos.getY(i) - center.y),
+      a: Math.atan2(pos.getY(i) - center.y, pos.getX(i) - center.x),
+    }));
+    const max = Math.max(...points.map((p) => p.r));
+    expect(max).toBeCloseTo(STAGE4.foundStarSize, 2);
+    const tips = new Set(points.filter((p) => p.r > max * 0.95).map((p) => Math.round(p.a * 100)));
+    expect(tips.size).toBe(5);
+  });
+
+  it("7. 見つけた印の星は、生きものが回っていても、カメラの方を向く", () => {
+    const view = newView();
+    const found = { ...game.initial(), found: STAGE4.creatures.map(() => true) };
+    const camera = { x: 5, y: -3, z: 120 };
+    for (const tick of [0, 300, 900]) {
+      view.update({ ...found, tick }, 20, true, camera);
+      view.root.updateMatrixWorld(true);
+      for (const node of creatureNodes(view.root)) {
+        const star = node.getObjectByName("star") as THREE.Mesh;
+        const p = star.getWorldPosition(new THREE.Vector3());
+        const toCamera = new THREE.Vector3(camera.x, camera.y, camera.z).sub(p).normalize();
+        const facing = star.getWorldDirection(new THREE.Vector3());
+        expect(facing.dot(toCamera), `${node.name}・刻み ${tick}`).toBeGreaterThan(0.99);
+      }
+    }
+  });
+
+  it("7. 見つけた印は、見つけた描画の時刻から STAGE4.foundStarGrowSeconds かけて大きくなる", () => {
+    const view = newView();
+    const g = STAGE4.foundStarGrowSeconds;
+    const camera = { x: 0, y: 0, z: 0 };
+    const star = () => creatureNodes(view.root)[0]?.getObjectByName("star") as THREE.Mesh;
+    const notYet = game.initial();
+    const found = { ...notYet, found: STAGE4.creatures.map((_, i) => i === 0) };
+    view.update(notYet, 10, false, camera);
+    view.update(found, 10, false, camera);
+    expect(star().scale.x).toBeCloseTo(0, 6);
+    view.update(found, 10 + g / 2, false, camera);
+    expect(star().scale.x).toBeGreaterThan(0);
+    expect(star().scale.x).toBeLessThan(1);
+    view.update(found, 10 + g, false, camera);
+    expect(star().scale.x).toBeCloseTo(1, 6);
+  });
+});
