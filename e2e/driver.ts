@@ -485,20 +485,32 @@ export const installConstantDriver = (page: Page, inputs: ConstantInputs, option
 export type SubDiveOptions = FastForwardOption & {
   /** たからばこまでの水平の距離（m）がこれ以下になった刻みで、一度だけ時間を止める（▼ のヒントを確かめるため） */
   stopAtHorizontal: number;
+  /** 潜り始めたあと、たからばことの深さの差（m）がこれより小さくなった刻みで、もう一度時間を止める */
+  stopAtDepthGap: number;
   steerGain: number;
   climbGain: number;
 };
 
+/** NORI-33：ブラウザの中で動く。installSubDiveDriver が n 回以上止まったか（page.waitForFunction に渡す） */
+export const diveStopsAtLeast = (n: number): boolean =>
+  ((globalThis as { __noriDiveStops?: number }).__noriDiveStops ?? 0) >= n;
+
 /**
- * NORI-33：ステージ4で、深さを変えずにたからばこへ水平に近づき、stopAtHorizontal で一度時間を止める運転役。
- * テストが freeze(false) で再開すると、たからばこへ潜って進む。page.goto の前に呼ぶ。
- * 止まる刻みは早送りの区切りで決まるので、PC の速さによらず毎回同じ
+ * NORI-33：ステージ4で、深さを変えずにたからばこへ水平に近づき、stopAtHorizontal で時間を止める運転役（1 回目）。
+ * テストが freeze(false) で再開すると、たからばこへ潜って進み、深さの差が stopAtDepthGap を切った刻みでもう一度止める（2 回目）。
+ * page.goto の前に呼ぶ。止まる刻みは早送りの区切りで決まるので、PC の速さによらず毎回同じ
  */
 export const installSubDiveDriver = (page: Page, options: SubDiveOptions) =>
   page.addInitScript((o: SubDiveOptions) => {
     const wrap = (a: number) => Math.atan2(Math.sin(a), Math.cos(a));
     const clamp = (v: number) => Math.max(-1, Math.min(1, v));
-    let dive = false;
+    const g = globalThis as { __noriDiveStops?: number };
+    g.__noriDiveStops = 0;
+    const stop = () => {
+      g.__noriDiveStops = (g.__noriDiveStops ?? 0) + 1;
+      window.__nori?.freeze?.(true);
+      return { throttle: 0, steer: 0 };
+    };
     globalThis.__noriDriver = {
       record: [],
       ...(o.stepsPerFrame === undefined ? {} : { stepsPerFrame: o.stepsPerFrame }),
@@ -506,12 +518,9 @@ export const installSubDiveDriver = (page: Page, options: SubDiveOptions) =>
         const p = (raw as { sub: { x: number; y: number; z: number; heading: number } }).sub;
         const t = window.__nori?.treasureMarker?.().treasure;
         if (t === undefined) return { throttle: 0, steer: 0 };
-        if (!dive && Math.hypot(t.x - p.x, t.z - p.z) <= o.stopAtHorizontal) {
-          dive = true;
-          window.__nori?.freeze?.(true);
-          (globalThis as { __noriApproachStopped?: boolean }).__noriApproachStopped = true;
-          return { throttle: 0, steer: 0 };
-        }
+        const dive = (g.__noriDiveStops ?? 0) >= 1;
+        if (!dive && Math.hypot(t.x - p.x, t.z - p.z) <= o.stopAtHorizontal) return stop();
+        if (g.__noriDiveStops === 1 && p.y - t.y < o.stopAtDepthGap) return stop();
         const wanted = Math.atan2(-(t.x - p.x), -(t.z - p.z));
         return {
           throttle: dive ? clamp((t.y - p.y) * o.climbGain) : 0,

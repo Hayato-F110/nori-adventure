@@ -173,7 +173,7 @@ describe("2. 家のボタンの見た目の決まり", () => {
     expect(HOME.buttonSize).toBeGreaterThanOrEqual(64);
     const rule = /\.home-link\s*\{[^}]*\}/.exec(css)?.[0] ?? "";
     expect(rule).toMatch(/top:\s*calc\(12px \+ env\(safe-area-inset-top/);
-    expect(rule).toMatch(/left:\s*calc\(24px \+ var\(--parent-button\)/);
+    expect(rule).toMatch(/left:\s*calc\(24px \+ var\(--parent-button\) \+ env\(safe-area-inset-left/);
     expect(PARENT.buttonSize + 24).toBe(72);
   });
 

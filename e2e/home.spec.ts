@@ -5,30 +5,42 @@ import { holdStartCover } from "./driver";
 
 // NORI-33（docs/test-plans/NORI-33.md の 3）：遊んでいる途中でタイトルに戻る家のボタン（K33-1）。
 // タブレット（1024×768・タッチ）。押し続けの秒の境目は単体テスト（tests/input/homeLink.test.ts）で見る。
-// 実際の時間に頼るのは (d) の押し続けだけ（上限と理由は一覧の「計算」の節：0.8 秒に、CI の 1 コマ 0.33 秒の遅れを足して 1.5 秒押す）
+// 実際の時間に頼るのは (d) の押し続けだけ（押したまま、戻るのを上限 10 秒待つ。決まった秒は待たない）
 test.use({ viewport: { width: 1024, height: 768 }, hasTouch: true, isMobile: true });
 
-const HOLD_MS = 1_500;
 const OTHERS = ["#parent", "#status", "#treasure-progress", "#sound", "#quality", "#wheel", "#go", "#back"];
 
 type Box = { x: number; y: number; width: number; height: number };
 const overlaps = (a: Box, b: Box) =>
   a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
 
-/** #home が見えていて 72 px（±1）、見えているほかの部品と四角が重ならない */
+/** sel が見えていれば、ほかの見えている部品と四角が重ならないことを確かめ、その四角を返す */
+const expectNoOverlap = async (page: Page, sel: string): Promise<Box> => {
+  const box = await page.locator(sel).boundingBox();
+  if (box === null) throw new Error(`${sel} の場所が分からない`);
+  for (const other of OTHERS.filter((o) => o !== sel)) {
+    const loc = page.locator(other);
+    if (!(await loc.isVisible())) continue;
+    const ob = await loc.boundingBox();
+    if (ob === null) continue;
+    expect(overlaps(box, ob), `${sel} と ${other} が重なる（${JSON.stringify({ box, ob })}）`).toBe(false);
+  }
+  return box;
+};
+
+/** #home が見えていて 72 px（±1）で、ほかと重ならない。ステージ4ではたからばこの帯も重ならず、上の表示の下 8 px・真ん中（R2-33-A） */
 const expectHomePlaced = async (page: Page) => {
-  const home = page.locator("#home");
-  await expect(home).toBeVisible();
-  const box = await home.boundingBox();
-  if (box === null) throw new Error("#home の場所が分からない");
+  await expect(page.locator("#home")).toBeVisible();
+  const box = await expectNoOverlap(page, "#home");
   expect(Math.abs(box.width - HOME.buttonSize)).toBeLessThanOrEqual(1);
   expect(Math.abs(box.height - HOME.buttonSize)).toBeLessThanOrEqual(1);
-  for (const sel of OTHERS) {
-    const other = page.locator(sel);
-    if (!(await other.isVisible())) continue;
-    const ob = await other.boundingBox();
-    if (ob === null) continue;
-    expect(overlaps(box, ob), `#home と ${sel} が重なる（${JSON.stringify({ box, ob })}）`).toBe(false);
+  if (await page.locator("#treasure-progress").isVisible()) {
+    const band = await expectNoOverlap(page, "#treasure-progress");
+    const status = await page.locator("#status").boundingBox();
+    if (status === null) throw new Error("#status の場所が分からない");
+    expect(Math.abs(band.y - (status.y + status.height) - 8)).toBeLessThanOrEqual(1);
+    const width = page.viewportSize()?.width ?? 0;
+    expect(Math.abs(band.x + band.width / 2 - width / 2)).toBeLessThanOrEqual(1);
   }
 };
 
@@ -38,10 +50,14 @@ for (const stage of [1, 2, 3, 4, 5]) {
     const errors = watchErrors(page);
     await openStage(page, `./?stage=${stage}`);
     await expectHomePlaced(page);
-    // 短いタップ：描画の 30 コマたってもステージのまま（R1-33-G）
+    // 短いタップ：描画の 30 コマたってもステージのままで、輪は 0 か空（離したら数えない。R1-33-G・R2-33-G）
     await page.locator("#home").tap();
     await waitFrames(page, 30);
     expect(new URL(page.url()).searchParams.get("stage")).toBe(String(stage));
+    const hold = await page
+      .locator("#home")
+      .evaluate((el) => (el as HTMLElement).style.getPropertyValue("--hold"));
+    expect(["", "0"]).toContain(hold.trim());
     expect(errors).toEqual([]);
   });
 }
@@ -84,7 +100,6 @@ test("NORI-33：押し続けるとタイトルに戻る（ステージ1）", asy
   const cdp = await page.context().newCDPSession(page);
   const pressedAt = Date.now();
   await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [point] });
-  await page.waitForTimeout(HOLD_MS);
   try {
     await page.waitForURL((u) => !u.searchParams.has("stage"), { timeout: 10_000 });
   } catch (e) {

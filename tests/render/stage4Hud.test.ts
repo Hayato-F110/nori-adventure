@@ -2,7 +2,14 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { STAGE4 } from "../../src/config";
-import { diveHintGlow, foundPopScale, foundStarScale, progressBarPx } from "../../src/render/stage4Hud";
+import {
+  createHintClock,
+  createPopClock,
+  diveHintGlow,
+  foundPopScale,
+  foundStarScale,
+  progressBarPx,
+} from "../../src/render/stage4Hud";
 
 // docs/game-rules.md「ステージ4」の NORI-33 の行（上の表示・見つけた印・▼ のヒント）
 // テストの一覧 docs/test-plans/NORI-33.md の 6・7・8・9（秒を受け取る純粋な関数。描画の 1 行は画面で見る）
@@ -67,6 +74,14 @@ describe("8. 見つけたときの上の表示の魚の絵", () => {
   it("動きを減らす設定では 0 秒でも 1", () => {
     expect(foundPopScale(0, true)).toBe(1);
   });
+  it("createPopClock：見つけた数が最後に増えた時刻からの秒（まだ増えていなければ null）", () => {
+    const clock = createPopClock();
+    expect(clock.update(0, 5)).toBeNull();
+    expect(clock.update(1, 10)).toBeCloseTo(0, 9);
+    expect(clock.update(1, 10.2)).toBeCloseTo(0.2, 9);
+    expect(clock.update(1, 12)).toBeCloseTo(2, 9);
+    expect(clock.update(2, 20)).toBeCloseTo(0, 9);
+  });
 });
 
 describe("9. ▼ のヒントの光り方", () => {
@@ -87,5 +102,17 @@ describe("9. ▼ のヒントの光り方", () => {
       const d = Math.abs(diveHintGlow(s + 0.05, false, false) - diveHintGlow(s, false, false));
       expect(d).toBeLessThan(0.2);
     }
+  });
+  it("createHintClock：ヒントが出た時刻からの秒。出していなければ null（消えたら忘れる）", () => {
+    const clock = createHintClock();
+    expect(clock.update(true, 10)).toBeCloseTo(0, 9);
+    expect(clock.update(true, 11)).toBeCloseTo(1, 9);
+    expect(clock.update(false, 12)).toBeNull();
+    expect(clock.update(true, 20)).toBeCloseTo(0, 9);
+  });
+  it("光る色の CSS の変数（--hint-glow）は STAGE4.treasureColor", () => {
+    expect(/--hint-glow:\s*(#[0-9a-fA-F]{6})/.exec(css)?.[1]?.toLowerCase()).toBe(
+      STAGE4.treasureColor.toLowerCase(),
+    );
   });
 });

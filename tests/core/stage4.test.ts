@@ -318,6 +318,13 @@ describe("NORI-33：▼ のヒント（diveHint）", () => {
     expect(diveHint(near(STAGE4.diveHintRange + 1, STAGE4.diveHintDepth + 1))).toBe(false);
   });
 
+  it("水平 diveHintRange − 1 m・深さの差 33.4 m（深さも含めた距離は 85.7 m）なら出す（水平の距離で比べる）", () => {
+    const depthGap = STAGE4.treasure.depth - STAGE4.start.depth;
+    const s = near(STAGE4.diveHintRange - 1, depthGap);
+    expect(Math.hypot(STAGE4.diveHintRange - 1, depthGap)).toBeGreaterThan(STAGE4.diveHintRange);
+    expect(diveHint(s)).toBe(true);
+  });
+
   it("x ＝ 60・z の差 60 m（水平の距離 84.9 m）では出さない（x も数える）", () => {
     const s = at(t.x + 60, t.y + STAGE4.diveHintDepth + 1, t.z + 60);
     expect(Math.hypot(60, 60)).toBeGreaterThan(STAGE4.diveHintRange);

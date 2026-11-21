@@ -5,6 +5,7 @@ import {
   approachStopped,
   holdStartCover,
   installSubApproachDriver,
+  diveStopsAtLeast,
   installSubDiveDriver,
   releaseStartCover,
   startDriving,
@@ -292,6 +293,7 @@ test.describe("NORI-33：ステージ4の棒と ▼ のヒント", () => {
     const errors = watchErrors(page);
     await installSubDiveDriver(page, {
       stopAtHorizontal: STAGE4.diveHintRange - 10,
+      stopAtDepthGap: STAGE4.diveHintDepth,
       steerGain: 2,
       climbGain: 0.3,
       stepsPerFrame: FAST,
@@ -310,7 +312,7 @@ test.describe("NORI-33：ステージ4の棒と ▼ のヒント", () => {
     await waitStarted(page);
 
     // (b) 深さを変えずに近づき、水平の距離が diveHintRange − 10 m を切ったところで止まる
-    await page.waitForFunction(approachStopped, undefined, { timeout: 150_000, polling: 200 });
+    await page.waitForFunction(diveStopsAtLeast, 1, { timeout: 150_000, polling: 200 });
     await expect(page.locator("#back")).toHaveAttribute("data-hint", "on");
     expect(await fillWidth()).toBeGreaterThan(1);
     // 光り方は実際の時刻で回るので、動きを減らす設定（金色のまま止まる）にして撮る（R1-33-K）
@@ -319,20 +321,15 @@ test.describe("NORI-33：ステージ4の棒と ▼ のヒント", () => {
     await attachShot(page, testInfo, "stage4-hint");
     await page.emulateMedia({ reducedMotion: "no-preference" });
 
-    // (c) 再開して潜り、深さの差が diveHintDepth より小さくなったら印が消える
+    // (c) 再開して潜り、深さの差が diveHintDepth を切った刻みで運転役がもう一度止める。
+    // まだゴールしていないのに印が消えている（「ゴールのあとは出さない」と分けて、深さの条件を確かめる。R2-33-B）
     await page.evaluate(() => window.__nori?.freeze?.(false));
-    await page.waitForFunction(
-      (d) => {
-        const s = window.__nori?.sub?.();
-        const t = window.__nori?.treasureMarker?.().treasure;
-        return s !== undefined && t !== undefined && s.sub.y - t.y < d;
-      },
-      STAGE4.diveHintDepth,
-      { timeout: 150_000, polling: 200 },
-    );
+    await page.waitForFunction(diveStopsAtLeast, 2, { timeout: 150_000, polling: 200 });
+    expect(await page.evaluate(() => window.__nori?.sub?.()?.finishTick)).toBeNull();
     await expect(page.locator("#back")).not.toHaveAttribute("data-hint", "on");
 
-    // (d) ゴールのあと、棒は progressBarWidth（±1）のまま（R1-33-C）
+    // (d) 再開してゴールしたあと、棒は progressBarWidth（±1）のまま（R1-33-C）
+    await page.evaluate(() => window.__nori?.freeze?.(false));
     await page.waitForFunction(() => window.__nori?.sub?.()?.finishTick != null, undefined, {
       timeout: 150_000,
       polling: 200,
