@@ -4,7 +4,15 @@
 // ボスはまず簡単な形（丸い体・目・口・腕）。あとで隔離した Blender の自作モデルに差し替える。
 import * as THREE from "three";
 import { BOSS, LOOK, ROVER, SIM, STAGE5 } from "../config";
-import { bossAt, friendAvailable, rocksAt, type Stage5State } from "../core/stage5";
+import {
+  bossAt,
+  bossPosition,
+  friendAvailable,
+  guideTarget,
+  rocksAt,
+  type Stage5State,
+} from "../core/stage5";
+import { createGuideArrow } from "./guideArrow";
 import { friendStarPositions, jumpPads, pathPoint, starPositions } from "../core/stage5Layout";
 import { bossHop, bossMouth, bossPuff, type Mouth } from "./bossLook";
 import { applyBossLook, type BossParts, bossPartsOf, swapBossModel, visibleMouthNodes } from "./bossModel";
@@ -30,7 +38,8 @@ export type Stage5View = {
   /** seconds は描画の時刻（ほしが回るのに使うだけ。ゲームの状態には影響しない） */
   /** 素材を貼る（null なら単色。画質の切り替えから呼ばれる） */
   applyLook(look: Look | null): void;
-  update(state: Stage5State, seconds: number, reducedMotion: boolean): void;
+  /** camera はカメラの位置（行き先の矢印の面をカメラへ向けるのに使う。NORI-33） */
+  update(state: Stage5State, seconds: number, reducedMotion: boolean, camera?: Point3): void;
   /** E2E で明るさの比を測る点：ほし（1つめ）・道、ジャンプ台（1つめ）、なかよしの星（1つめ）・砂 */
   marker(): { star: Point3; path: Point3; pad: Point3; sand: Point3; friend: Point3; ground: Point3 };
   /** 今の口の形（E2E・確かめ用） */
@@ -256,6 +265,37 @@ export const createStage5View = (): Stage5View => {
   let mouth: Mouth = "frown";
   const roverY = ROVER.collisionRadius;
 
+  // 行き先の矢印（NORI-33 の K33-11）：ローバーの位置（地面に着く所）の上。ローバーの向きは受け継がない
+  const guide = createGuideArrow(STAGE5.friendStarColor);
+  root.add(guide.root);
+  // 届ける輪：星を持っている間だけ、ボスのまわりの地面のすぐ上に寝かせる（道と同じく地面から 0.03 m 上げて、ちらつかせない）
+  const deliverRing = new THREE.Mesh(
+    new THREE.RingGeometry(
+      BOSS.deliverRadius - STAGE5.deliverRingWidth / 2,
+      BOSS.deliverRadius + STAGE5.deliverRingWidth / 2,
+      64,
+    ),
+    new THREE.MeshBasicMaterial({ color: STAGE5.friendStarColor, toneMapped: false, side: THREE.DoubleSide }),
+  );
+  deliverRing.name = "deliver-ring";
+  deliverRing.rotation.x = -Math.PI / 2;
+  deliverRing.visible = false;
+  root.add(deliverRing);
+  const placeGuide = (state: Stage5State, camera: Point3 | undefined) => {
+    const g = guideTarget(state);
+    guide.root.visible = g !== null;
+    if (g !== null) {
+      const r = state.rover;
+      const at = { x: r.x, y: r.y + STAGE5.guideArrowHeight, z: r.z };
+      guide.place(at, Math.atan2(-(g.x - r.x), -(g.z - r.z)), camera ?? { x: at.x, y: at.y + 1, z: at.z });
+    }
+    deliverRing.visible = state.carrying && state.finishTick === null;
+    if (deliverRing.visible) {
+      const b = bossPosition(state.tick);
+      deliverRing.position.set(b.x, 0.03, b.z);
+    }
+  };
+
   return {
     root,
     get mouth() {
@@ -277,7 +317,8 @@ export const createStage5View = (): Stage5View => {
     applyLook(look) {
       ground.material = look === null ? groundPlain : look.material("moon");
     },
-    update(state, seconds, reducedMotion) {
+    update(state, seconds, reducedMotion, camera) {
+      placeGuide(state, camera);
       const spin = reducedMotion ? 0 : seconds * 1.5;
       stars.forEach((m, i) => {
         m.visible = state.stars[i] !== true;

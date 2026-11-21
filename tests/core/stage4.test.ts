@@ -5,6 +5,7 @@ import {
   createStage4Game,
   creaturePosition,
   diveHint,
+  treasureGuide,
   treasureNearness,
   type Stage4State,
 } from "../../src/core/stage4";
@@ -338,5 +339,31 @@ describe("NORI-33：▼ のヒント（diveHint）", () => {
   it("ゴールのあとは出さない", () => {
     const s = near(10, STAGE4.diveHintDepth + 5);
     expect(diveHint({ ...s, finishTick: 100 })).toBe(false);
+  });
+});
+
+// NORI-33（docs/test-plans/NORI-33.md の 12）：たからばこの矢印の向き（K33-12）
+describe("NORI-33：たからばこの矢印の向き（treasureGuide）", () => {
+  const t = game.treasure;
+  const s0 = game.initial().sub;
+
+  it("スタートで yaw 0（たからばこは −Z の向き）", () => {
+    const g = treasureGuide(game.initial());
+    expect(g).not.toBeNull();
+    expect(g?.yaw ?? NaN).toBeCloseTo(0, 9);
+  });
+
+  it("たからばこから +X に 30 m・スタートの深さでは yaw ＋π/2（たからばこは −X 側）。深さの差は向きに入れない", () => {
+    expect(treasureGuide(at(t.x + 30, s0.y, t.z))?.yaw ?? NaN).toBeCloseTo(Math.PI / 2, 9);
+    // 深さだけ変えても同じ（上下は指さない。▼ のヒントで伝える）
+    expect(treasureGuide(at(t.x + 30, t.y + 1, t.z))?.yaw ?? NaN).toBeCloseTo(Math.PI / 2, 9);
+  });
+
+  it("たからばこから −X に 20 m・+Z に 20 m では yaw −π/4（潜水艇の heading と同じ決め方：atan2(−dx, −dz)）", () => {
+    expect(treasureGuide(at(t.x - 20, s0.y, t.z + 20))?.yaw ?? NaN).toBeCloseTo(-Math.PI / 4, 9);
+  });
+
+  it("ゴールのあとは null", () => {
+    expect(treasureGuide({ ...game.initial(), finishTick: 10 })).toBeNull();
   });
 });

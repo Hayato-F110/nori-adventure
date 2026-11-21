@@ -1,8 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { CAR, RESPAWN, ROVER, SIM, STAGE5 } from "../../src/config";
 import { runReplay } from "../../src/core/replay";
-import { createStage5Game, type Stage5State } from "../../src/core/stage5";
-import { jumpPads, nearestPathD, pathPoint, starPositions } from "../../src/core/stage5Layout";
+import { bossPosition, createStage5Game, guideTarget, type Stage5State } from "../../src/core/stage5";
+import {
+  friendStarPositions,
+  jumpPads,
+  nearestPathD,
+  pathPoint,
+  starPositions,
+} from "../../src/core/stage5Layout";
 import type { InputFrame } from "../../src/core/types";
 
 // docs/game-rules.md「ステージ5：月面（ローバー）とボス」（NORI-29）。テストの一覧（docs/test-plans/NORI-29.md）の 1〜8・11・12
@@ -272,5 +278,61 @@ describe("岩の中心にぴったり重なったとき", () => {
     expect(s.rover.x).toBe(rock.x);
     expect(s.rover.z).toBeCloseTo(rock.z + rock.radius + ROVER.collisionRadius, 9);
     expect(s.rover.touching).toBe(true);
+  });
+});
+
+// NORI-33（docs/test-plans/NORI-33.md の 14）：行き先の矢印が指すもの（K33-11）
+describe("NORI-33：行き先（guideTarget）", () => {
+  const friends = friendStarPositions();
+  const byDistance = (x: number, z: number) =>
+    friends.map((f, i) => ({ i, d: Math.hypot(f.x - x, f.z - z) })).sort((a, b) => a.d - b.d);
+
+  it("星を持っていないとき：今取れるなかよしの星のうち、ローバーから水平にいちばん近いもの", () => {
+    const s = game.initial();
+    const nearest = byDistance(s.rover.x, s.rover.z)[0];
+    const g = guideTarget(s);
+    expect(g?.kind).toBe("friend");
+    expect(g?.x).toBeCloseTo(friends[nearest?.i ?? -1]?.x ?? NaN, 9);
+    expect(g?.z).toBeCloseTo(friends[nearest?.i ?? -1]?.z ?? NaN, 9);
+  });
+
+  it("いちばん近い星を取ったばかり（出直す前）なら、次に近い星", () => {
+    // (0, −20) だと 2 番目に近い星が 2 つ同じ距離になる（R3-33-B）ので、距離が分かれる点を使う
+    const s = at(3, -20);
+    const [first, second, third] = byDistance(3, -20);
+    expect((second?.d ?? NaN) - (first?.d ?? NaN)).toBeGreaterThan(1);
+    expect((third?.d ?? NaN) - (second?.d ?? NaN)).toBeGreaterThan(1);
+    const taken = s.friendTakenTick.map((v, i) => (i === first?.i ? s.tick : v));
+    const g = guideTarget({ ...s, friendTakenTick: taken });
+    expect(g?.x).toBeCloseTo(friends[second?.i ?? -1]?.x ?? NaN, 9);
+    expect(g?.z).toBeCloseTo(friends[second?.i ?? -1]?.z ?? NaN, 9);
+  });
+
+  it("同じ距離の星が 2 つあるときは、番号の小さい星（広場の中心 (0, −55) で、ほかの星を取ったばかりにする。R4-33-H）", () => {
+    const s = at(0, -55);
+    const d = friends.map((f) => Math.hypot(f.x - 0, f.z + 55));
+    // ちょうど同じ距離の組（番号の小さい順に i < j）を探す。なければ、このテストの前提が崩れている
+    const pairs = d
+      .flatMap((di, i) => d.map((dj, j) => ({ i, j, same: i < j && di === dj })))
+      .filter((p) => p.same);
+    expect(pairs.length).toBeGreaterThan(0);
+    const { i, j } = pairs[0] ?? { i: -1, j: -1 };
+    const taken = s.friendTakenTick.map((v, k) => (k === i || k === j ? v : s.tick));
+    const g = guideTarget({ ...s, friendTakenTick: taken });
+    expect(g?.x).toBeCloseTo(friends[i]?.x ?? NaN, 9);
+    expect(g?.z).toBeCloseTo(friends[i]?.z ?? NaN, 9);
+  });
+
+  it("持っているとき：その刻みのボスの位置", () => {
+    const s = { ...at(3, -20), tick: 777, carrying: true };
+    const b = bossPosition(777);
+    const g = guideTarget(s);
+    expect(g?.kind).toBe("boss");
+    expect(g?.x).toBeCloseTo(b.x, 9);
+    expect(g?.z).toBeCloseTo(b.z, 9);
+  });
+
+  it("クリアのあとは null", () => {
+    expect(guideTarget({ ...game.initial(), finishTick: 5 })).toBeNull();
   });
 });

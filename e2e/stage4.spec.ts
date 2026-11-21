@@ -1,9 +1,19 @@
 import { expect, type Page, test, type TestInfo } from "@playwright/test";
 import { STAGE4 } from "../src/config";
-import { chooseQuality, openStage, waitFrames, waitLook, waitStarted, watchErrors } from "./common";
+import {
+  chooseQuality,
+  expectGuideArrowOnScreen,
+  openStage,
+  waitFrames,
+  waitLook,
+  waitStarted,
+  watchErrors,
+} from "./common";
 import {
   approachStopped,
+  frozenAtTick,
   holdStartCover,
+  installFreezeAtTickDriver,
   installSubApproachDriver,
   diveStopsAtLeast,
   installSubDiveDriver,
@@ -336,6 +346,26 @@ test.describe("NORI-33：ステージ4の棒と ▼ のヒント", () => {
     });
     await expect.poll(fillWidth).toBeGreaterThanOrEqual(STAGE4.progressBarWidth - 1);
     expect(await fillWidth()).toBeLessThanOrEqual(STAGE4.progressBarWidth + 1);
+    expect(errors).toEqual([]);
+  });
+});
+
+// NORI-33（docs/test-plans/NORI-33.md の 16）：スタートの画面に、目指すものの手がかり（たからばこの矢印・帯・あわ）が映る。
+// 入力 0 の運転役で始め、刻み 30（0.5 秒）で時間を止める（1 コマ 1 刻みなので、PC の速さによらず止まる刻みは同じ）。
+// 矢印が見えていて、その位置が画面の中にあることを読み取り口で確かめてから撮る（R3-33-C）
+test.describe("NORI-33：ステージ4のスタートの手がかり", () => {
+  test.use({ viewport: { width: 1024, height: 768 }, hasTouch: true, isMobile: true });
+
+  test("スタートで、たからばこの矢印が見えていて画面の中にある（画面を撮る）", async ({ page }, testInfo) => {
+    test.setTimeout(120_000);
+    const errors = watchErrors(page);
+    await installFreezeAtTickDriver(page, 30);
+    await openStage(page, "./?stage=4", { look: true });
+    await page.waitForFunction(frozenAtTick, undefined, { timeout: 60_000, polling: 100 });
+    await waitFrames(page, 5);
+    expect(await page.evaluate(() => window.__nori?.sub?.()?.tick)).toBe(31);
+    await expectGuideArrowOnScreen(page);
+    await attachShot(page, testInfo, "stage4-start-guide");
     expect(errors).toEqual([]);
   });
 });

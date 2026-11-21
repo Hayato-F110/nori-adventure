@@ -529,3 +529,30 @@ export const installSubDiveDriver = (page: Page, options: SubDiveOptions) =>
       },
     };
   }, options);
+
+/**
+ * NORI-33（一覧 16）：入力 0 で進め、状態の刻みが tick になったところで window.__nori.freeze(true) を呼ぶ。
+ * 1 コマ 1 刻みの早送り（stepsPerFrame 1）なので、PC の速さによらず、止まる刻みは毎回 tick。
+ * 止めたら __noriFrozenTick に刻みを書く（テストは frozenAtTick で待つ）
+ */
+export const installFreezeAtTickDriver = (page: Page, tick: number) =>
+  page.addInitScript((t: number) => {
+    let done = false;
+    globalThis.__noriDriver = {
+      record: [],
+      stepsPerFrame: 1,
+      drive(raw) {
+        const now = (raw as { tick: number }).tick;
+        if (!done && now >= t) {
+          done = true;
+          window.__nori?.freeze?.(true);
+          (globalThis as { __noriFrozenTick?: number }).__noriFrozenTick = now;
+        }
+        return { throttle: 0, steer: 0 };
+      },
+    };
+  }, tick);
+
+/** NORI-33：ブラウザの中で動く。installFreezeAtTickDriver が止めたか（page.waitForFunction に渡す） */
+export const frozenAtTick = (): boolean =>
+  (globalThis as { __noriFrozenTick?: number }).__noriFrozenTick !== undefined;

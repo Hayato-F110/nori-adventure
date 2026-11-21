@@ -201,3 +201,13 @@ export const diveHint = (state: Stage4State): boolean => {
   const horizontal = Math.hypot(TREASURE.x - p.x, TREASURE.z - p.z);
   return horizontal <= STAGE4.diveHintRange && p.y - TREASURE.y >= STAGE4.diveHintDepth;
 };
+
+/**
+ * NORI-33（docs/game-rules.md「たからばこの矢印の高さ」）：上から見たたからばこの向き。
+ * 潜水艇の heading と同じ決め方（0 で −Z、atan2(−dx, −dz)）。上下は入れない。ゴールのあとは null
+ */
+export const treasureGuide = (state: Stage4State): { yaw: number } | null => {
+  if (state.finishTick !== null) return null;
+  const p = state.sub;
+  return { yaw: Math.atan2(-(TREASURE.x - p.x), -(TREASURE.z - p.z)) };
+};

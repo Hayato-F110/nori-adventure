@@ -76,8 +76,10 @@ declare global {
       creatures?: () => { x: number; y: number; z: number }[];
       /** ステージ4の生きもののきらきら（1つめ）の位置。見つけたあとは null（NORI-62） */
       sparkles?: () => ({ x: number; y: number; z: number } | null)[];
-      /** E2E 用：ステージ3・4の時間を止める・戻す（状態を進めず、描画だけ続ける。FPS は実際の時刻で数え続ける） */
+      /** E2E 用：ステージ3・4・5の時間を止める・戻す（状態を進めず、描画だけ続ける。FPS は実際の時刻で数え続ける） */
       freeze?: (on: boolean) => void;
+      /** E2E 用（NORI-33）：ステージ4・5の行き先の矢印の、世界の位置と見えているか。矢印がなければ null */
+      guideArrow?: () => { visible: boolean; x: number; y: number; z: number } | null;
       /** E2E 用（NORI-71）：ステージ4のカメラの今の位置（早送りでは目標より遅れて追うので、実際の値を読む） */
       cameraAt?: () => { x: number; y: number; z: number };
       /** ステージ4で自作モデル（sea-*）に差し替えた種類の数（0〜7） */

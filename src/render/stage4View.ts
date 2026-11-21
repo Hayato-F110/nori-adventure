@@ -5,7 +5,15 @@
 import * as THREE from "three";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { ASSET, LOOK, SIM, STAGE4 } from "../config";
-import { type Creature, creaturePosition, type Hint, type Point3, type Stage4State } from "../core/stage4";
+import {
+  type Creature,
+  creaturePosition,
+  type Hint,
+  type Point3,
+  type Stage4State,
+  treasureGuide,
+} from "../core/stage4";
+import { createGuideArrow } from "./guideArrow";
 import { type Look, setGroundUv1, setPlaneUvMeters } from "./look";
 import { foundStarScale } from "./stage4Hud";
 
@@ -441,6 +449,18 @@ export const createStage4View = (hints: readonly Hint[], treasure: Point3): Stag
   const seenNotFound: boolean[] = [];
   const lookTarget = new THREE.Vector3();
   const water = new THREE.Color();
+  // たからばこの矢印（NORI-33 の K33-12）：潜水艇の中心の上。潜水艇の向き・傾きは受け継がない（root の子にする）
+  const guide = createGuideArrow(STAGE4.guideArrowColor);
+  root.add(guide.root);
+  const placeGuide = (state: Stage4State, camera: Point3 | undefined) => {
+    const g = treasureGuide(state);
+    guide.root.visible = g !== null;
+    if (g === null) return;
+    const s = state.sub;
+    const at = { x: s.x, y: s.y + STAGE4.guideArrowHeight, z: s.z };
+    // カメラの位置が来ないとき（単体テストの一部）は、真上から見る向きにする
+    guide.place(at, g.yaw, camera ?? { x: at.x, y: at.y + 1, z: at.z });
+  };
   return {
     root,
     useSeaModels,
@@ -476,6 +496,7 @@ export const createStage4View = (hints: readonly Hint[], treasure: Point3): Stag
         }
       });
       placeSparkles(t, state.found);
+      placeGuide(state, camera);
       // ゴールしたら、約1秒でふたが開く
       const open =
         state.finishTick === null

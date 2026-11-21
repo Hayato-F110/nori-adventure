@@ -1,8 +1,9 @@
 import * as THREE from "three";
 import { describe, expect, it } from "vitest";
 import { ASSET, STAGE4 } from "../../src/config";
-import { createStage4Game } from "../../src/core/stage4";
+import { createStage4Game, treasureGuide } from "../../src/core/stage4";
 import { createStage4View } from "../../src/render/stage4View";
+import { expectArrowPose, expectUnlit } from "./guideArrowCheck";
 
 // docs/game-rules.md「ステージ4」「海の生きもののモデル」（NORI-28）
 // テストの一覧：
@@ -239,5 +240,69 @@ describe("NORI-33：あわと見つけた印", () => {
     expect(star().scale.x).toBeLessThan(1);
     view.update(found, 10 + g, false, camera);
     expect(star().scale.x).toBeCloseTo(1, 6);
+  });
+});
+
+// NORI-33（docs/test-plans/NORI-33.md の 13）：たからばこの矢印の見た目（K33-12）
+describe("NORI-33：たからばこの矢印", () => {
+  const t = game.treasure;
+  const s0 = game.initial();
+  /** 潜水艇の後ろ cameraDistance・上 cameraHeight（stage4Main.ts の placeCamera と同じ置き方） */
+  const behind = (sub: { x: number; y: number; z: number; heading: number }) => ({
+    x: sub.x + Math.sin(sub.heading) * STAGE4.cameraDistance,
+    y: sub.y + STAGE4.cameraHeight,
+    z: sub.z + Math.cos(sub.heading) * STAGE4.cameraDistance,
+  });
+  // 横にずれた点：たからばこから +X 30 m・+Z 10 m。潜水艇の向き 1.0・傾き 0.3（矢印が乗り物の向き・傾きを受け継がないこと。R3-33-D）
+  const turned = { ...s0, sub: { ...s0.sub, x: t.x + 30, z: t.z + 10, heading: 1.0, tilt: 0.3 } };
+  const cases = [
+    ["スタート・後ろのカメラ", s0, behind(s0.sub)],
+    ["横にずれた点・後ろのカメラ", turned, behind(turned.sub)],
+    // カメラが矢印の真横（矢印は −X を指し、カメラは +Z 側）：面を回さない作りだと細い線になる向き
+    ["横にずれた点・横のカメラ", turned, { x: turned.sub.x, y: turned.sub.y + 2.5, z: turned.sub.z + 8 }],
+  ] as const;
+
+  for (const [label, state, camera] of cases) {
+    it(`${label}：潜水艇の上 guideArrowHeight にあり、白で、たからばこの向きを指し、面がカメラを向く`, () => {
+      const view = newView();
+      view.update(state, 0, true, camera);
+      view.root.updateMatrixWorld(true);
+      const arrow = view.root.getObjectByName("guide-arrow");
+      if (arrow === undefined) throw new Error("guide-arrow がない");
+      expect(arrow.visible).toBe(true);
+      const p = arrow.getWorldPosition(new THREE.Vector3());
+      expect(p.x).toBeCloseTo(state.sub.x, 2);
+      expect(p.y).toBeCloseTo(state.sub.y + STAGE4.guideArrowHeight, 2);
+      expect(p.z).toBeCloseTo(state.sub.z, 2);
+      const g = treasureGuide(state);
+      if (g === null) throw new Error("向きがない");
+      expectArrowPose(arrow, { x: -Math.sin(g.yaw), z: -Math.cos(g.yaw) }, camera);
+      const colors: string[] = [];
+      arrow.traverse((o) => {
+        const m = (o as THREE.Mesh).material as THREE.MeshBasicMaterial | undefined;
+        if (m?.color !== undefined) colors.push(m.color.getHexString());
+      });
+      expect(colors).toContain(new THREE.Color(STAGE4.guideArrowColor).getHexString());
+      expectUnlit(arrow);
+    });
+  }
+
+  it("揺らさない：動きを減らさない設定で、秒が変わっても高さは同じ（R3-33-F）", () => {
+    const view = newView();
+    const arrow = () => view.root.getObjectByName("guide-arrow");
+    view.update(s0, 0, false, behind(s0.sub));
+    view.root.updateMatrixWorld(true);
+    const y0 = arrow()?.getWorldPosition(new THREE.Vector3()).y ?? NaN;
+    view.update(s0, 1.3, false, behind(s0.sub));
+    view.root.updateMatrixWorld(true);
+    expect(arrow()?.getWorldPosition(new THREE.Vector3()).y ?? NaN).toBeCloseTo(y0, 6);
+  });
+
+  it("ゴールの前は見えていて、同じ描画でゴールのあとは見えなくなる（R4-33-D）", () => {
+    const view = newView();
+    view.update(s0, 0, true, behind(s0.sub));
+    expect(view.root.getObjectByName("guide-arrow")?.visible).toBe(true);
+    view.update({ ...s0, finishTick: 1, tick: 2 }, 0, true, behind(s0.sub));
+    expect(view.root.getObjectByName("guide-arrow")?.visible).toBe(false);
   });
 });

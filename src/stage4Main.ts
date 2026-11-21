@@ -23,6 +23,7 @@ import {
   foundPopScale,
   progressBarPx,
 } from "./render/stage4Hud";
+import { guideArrowInfo } from "./render/guideArrow";
 import { createStage4View } from "./render/stage4View";
 import { createStatusView } from "./render/statusView";
 import { startClearFlow } from "./render/clearFlow";
@@ -236,6 +237,7 @@ export const startStage4 = async (canvas: HTMLCanvasElement, hud: HTMLElement, s
     sparkles: () => STAGE4.creatures.map((_, i) => view.sparkleAt(i)),
     // NORI-71：カメラの今の位置（早送りでは目標より遅れて追うので、設定から計算せず実際の値を読む）
     cameraAt: () => ({ x: camera.position.x, y: camera.position.y, z: camera.position.z }),
+    guideArrow: () => guideArrowInfo(view.root),
     get seaModels() {
       return view.seaModels;
     },

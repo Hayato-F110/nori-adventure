@@ -18,6 +18,7 @@ import { LIGHTMAPS, loadLook, surfacesFor } from "./render/look";
 import { startQuality } from "./render/qualityControl";
 import { startStageCover } from "./render/stageCover";
 import { startSound } from "./render/sound";
+import { guideArrowInfo } from "./render/guideArrow";
 import { createStage5View } from "./render/stage5View";
 import { createStatusView } from "./render/statusView";
 
@@ -193,17 +194,29 @@ export const startStage5 = async (canvas: HTMLCanvasElement, hud: HTMLElement, s
         y: ((1 - projected.y) / 2) * window.innerHeight,
       };
     },
+    guideArrow: () => guideArrowInfo(view.root),
   };
 
   const lerpAngle = (a: number, b: number, t: number) => a + Math.atan2(Math.sin(b - a), Math.cos(b - a)) * t;
   const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
   follow.snap(current.rover);
   let lastTime = performance.now();
+  // E2E 用：時間を止める（状態を進めず、描画だけ続ける。ステージ4と同じ形。NORI-33 の一覧 16）
+  let frozenAt: number | null = null;
+  if (window.__nori) {
+    window.__nori.freeze = (on: boolean) => {
+      frozenAt = on ? lastTime : null;
+    };
+  }
 
-  const frame = (now: number) => {
+  const frame = (realNow: number) => {
+    const now = frozenAt ?? realNow;
     // E2E の早送り（NORI-66）のときは、実際の時間によらず決まった刻みの分だけ進める
-    const frameSeconds = fastForward(SIM.fixedDt)?.frameSeconds ?? Math.min(0.25, (now - lastTime) / 1000);
-    lastTime = now;
+    const frameSeconds =
+      frozenAt === null
+        ? (fastForward(SIM.fixedDt)?.frameSeconds ?? Math.min(0.25, (realNow - lastTime) / 1000))
+        : 0;
+    if (frozenAt === null) lastTime = realNow;
     input = mergeInputs([keyboard.read(), touch.read(), ...gamepads.read()]);
     // 覆いの間は刻みを進めない（描くことと FPS を数えることは続ける。NORI-76）
     const canStep = cover.update(frames, fpsSamples.length);
@@ -226,7 +239,7 @@ export const startStage5 = async (canvas: HTMLCanvasElement, hud: HTMLElement, s
     roverView.root.position.set(p.x, p.y, p.z);
     roverView.root.rotation.y = p.heading;
     roverView.update(Math.sign(p.speed) * moved, p.steer);
-    view.update(current, now / 1000, reducedMotion.matches);
+    view.update(current, now / 1000, reducedMotion.matches, camera.position);
 
     const collected = current.stars.filter(Boolean).length;
     statusView.update(current.tick, {
@@ -253,12 +266,12 @@ export const startStage5 = async (canvas: HTMLCanvasElement, hud: HTMLElement, s
 
     frames++;
     windowFrames++;
-    if (now - windowStart >= 1000) {
-      const fps = (windowFrames * 1000) / (now - windowStart);
+    if (realNow - windowStart >= 1000) {
+      const fps = (windowFrames * 1000) / (realNow - windowStart);
       fpsSamples.push(Math.round(fps * 10) / 10);
       quality.sample(fps, fpsSamples.length);
       windowFrames = 0;
-      windowStart = now;
+      windowStart = realNow;
       if (showDebug) hud.textContent = `${fps.toFixed(0)} fps · なかよし ${current.calm}`;
     }
     if (window.__nori) window.__nori.frames = frames;

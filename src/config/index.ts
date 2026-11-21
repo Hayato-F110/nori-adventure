@@ -351,6 +351,9 @@ export const STAGE4 = {
   diveHintRange: 80,
   diveHintDepth: 2,
   diveHintPeriod: 2,
+  /** たからばこの矢印（NORI-33 の K33-12）：潜水艇の中心の上の高さ m、色（光に左右されない。ステージ1の矢印と同じ白） */
+  guideArrowHeight: 2,
+  guideArrowColor: "#ffffff",
   /** ゴールしたら、ふたが開くまでの秒と角度（ラジアン） */
   lidOpenSeconds: 1,
   lidOpenAngle: 1.9,
@@ -418,6 +421,9 @@ export const STAGE5 = {
   pathColor: "#3e4046",
   jumpPadColor: "#3fe0ff",
   friendStarColor: "#ffb8e6",
+  /** 行き先の矢印（NORI-33 の K33-11）：ローバーの上の高さ m（ステージ1と同じ）。届ける輪の幅 m */
+  guideArrowHeight: 4.5,
+  deliverRingWidth: 0.6,
   rockColor: "#76716b",
   craterColor: "#4c4e54",
   arenaLineColor: "#d8dce4",
@@ -707,6 +713,14 @@ export const HOME = {
   buttonSize: 72,
 } as const;
 
+/**
+ * ステージ4・5の行き先の矢印の向け方（NORI-33。docs/game-rules.md「目指すものと迷子の手がかり」）。
+ * 先を水平から arrowLift rad 上げ、先の向きを軸に回して平たい面をカメラへ向ける
+ */
+export const GUIDE = {
+  arrowLift: 0.5,
+} as const;
+
 /** タイトル画面とステージ選び（NORI-30。docs/game-rules.md「タイトル画面・ステージ選び・クリアの演出」） */
 export const TITLE = {
   /** 選べるステージ（1〜5。ステージ5は NORI-29） */
@@ -860,6 +874,7 @@ export const CONFIG = {
   LOOK,
   PARENT,
   HOME,
+  GUIDE,
   TITLE,
   CLEAR,
   TRAFFIC,
