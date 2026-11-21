@@ -15,7 +15,7 @@
 
 | 配布元                               | 素材                                                              |
 | ------------------------------------ | ----------------------------------------------------------------- |
-| [ambientCG](https://ambientcg.com/)  | Grass004、Asphalt031、Facade018A、Facade006                       |
+| [ambientCG](https://ambientcg.com/)  | Grass004、Asphalt031、Facade018A、Facade006、Bark001、Ground054   |
 | [Poly Haven](https://polyhaven.com/) | Kloofendal 48d Partly Cloudy (Pure Sky)（Greg Zaal、Jarod Guest） |
 
 The textures and HDRI in `public/textures/` are CC0 1.0 assets from ambientCG and Poly Haven, downscaled for the game. See `public/textures/manifest.json` for each source.
